@@ -23,6 +23,7 @@ from trailer_docking.core.state import (
     VehicleState,
     wrap_angle,
 )
+from trailer_docking.safety.supervisor import MeasurementTolerance
 from trailer_docking.simulators.mujoco.ackermann import (
     ackermann_wheel_angles,
     virtual_steering_angle,
@@ -32,6 +33,13 @@ from trailer_docking.simulators.mujoco.builder import (
     DOCK_WALL_GEOMS,
     MujocoTuning,
     build_scene_xml,
+)
+
+# Excess of measured state over the plant limits that this backend produces
+# while every command stays within limits (see research/decisions.md, D-007).
+# Pass it to ``state_limit_violations`` when checking MuJoCo states.
+MUJOCO_MEASUREMENT_TOLERANCE = MeasurementTolerance(
+    steering_angle=0.005, steering_rate=0.03, speed=0.02
 )
 
 

@@ -23,6 +23,9 @@ from trailer_docking.core.geometry import (
 from trailer_docking.core.state import Point2D, wrap_angle
 
 CURRENT_SCHEMA_VERSION = 1
+# Upper bound on integration substeps per controller period.  It rejects
+# denormal or mistyped step sizes that would never finish one step.
+MAX_SUBSTEPS_PER_CONTROL = 100_000
 
 
 class ConfigurationError(ValueError):
@@ -258,6 +261,11 @@ class SimulationTiming:
             ("mujoco_physics_step", self.mujoco_physics_step),
         ):
             ratio = self.controller_period / step
+            if not isfinite(ratio) or ratio > MAX_SUBSTEPS_PER_CONTROL:
+                raise ConfigurationError(
+                    f"{step_name} is too small: more than"
+                    f" {MAX_SUBSTEPS_PER_CONTROL} substeps per controller period"
+                )
             if round(ratio) < 1 or not isclose(
                 ratio, round(ratio), rel_tol=0.0, abs_tol=1e-10
             ):
@@ -947,7 +955,7 @@ def load_vehicle_configuration(path: str | Path) -> VehicleConfiguration:
             source_path=resolved,
             source_fingerprint=_normalized_fingerprint(data),
         )
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         if isinstance(error, ConfigurationError):
             raise
         raise ConfigurationError(f"invalid vehicle configuration: {error}") from error
@@ -1046,7 +1054,7 @@ def load_dock_configuration(path: str | Path) -> DockConfiguration:
             source_path=resolved,
             source_fingerprint=_normalized_fingerprint(data),
         )
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         if isinstance(error, ConfigurationError):
             raise
         raise ConfigurationError(f"invalid dock configuration: {error}") from error

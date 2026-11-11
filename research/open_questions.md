@@ -27,12 +27,15 @@ command, and event parity checks pass.
 
 ## Q-004 — Limit checks against a physical plant
 
-`state_limit_violations` compares measured state with a `1e-12` tolerance,
-which suits the exact 2D plant. In MuJoCo the measured virtual steering angle
-overshoots the `0.50 rad` limit by about `0.001 rad` at full lock, so an
-environment that terminates on that check would end MuJoCo episodes the 2D
-environment would not. Decide whether measured-state checks get a documented
-tolerance or whether only commanded quantities are checked.
+`state_limit_violations` defaults to a `1e-12` tolerance, which suits the
+exact 2D plant. In MuJoCo, with every command inside its limit, measured
+steering angle overshoots `0.50 rad` by about `0.001 rad`, measured steering
+rate reached `0.314 rad/s` against `0.30`, and measured speed `0.211 m/s`
+against `0.20`. The function now accepts a `MeasurementTolerance`, and the
+MuJoCo backend publishes `MUJOCO_MEASUREMENT_TOLERANCE`. Still to decide: the
+environment-level rule, that is whether termination uses measured state with
+a per-backend tolerance or only commanded quantities, so that 2D and MuJoCo
+episodes end under the same conditions.
 
 ## Q-005 — Rigid pitch coupling at the hitch
 

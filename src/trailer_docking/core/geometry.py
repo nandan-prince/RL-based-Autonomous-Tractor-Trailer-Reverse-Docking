@@ -278,6 +278,29 @@ class VehicleGeometry:
             raise GeometryValidationError("vehicle trailer must be TrailerGeometry")
         if not isinstance(self.wheels, WheelGeometry):
             raise GeometryValidationError("vehicle wheels must be WheelGeometry")
+        # Collision is evaluated on the chassis footprints only, in both
+        # simulators, so every wheel has to lie inside its body's footprint.
+        slack = 1e-9
+        for name, track, body_width in (
+            ("tractor front", self.tractor.front_track, self.tractor.body_width),
+            ("tractor rear", self.tractor.rear_track, self.tractor.body_width),
+            ("trailer", self.trailer.axle_track, self.trailer.body_width),
+        ):
+            if track + self.wheels.width > body_width + slack:
+                raise GeometryValidationError(
+                    f"{name} wheels extend beyond the body width; collision"
+                    " footprints would not cover them"
+                )
+        for name, overhang in (
+            ("tractor front", self.tractor.front_overhang),
+            ("tractor rear", self.tractor.rear_overhang),
+            ("trailer rear", self.trailer.rear_overhang),
+        ):
+            if self.wheels.radius > overhang + slack:
+                raise GeometryValidationError(
+                    f"wheels extend beyond the {name} overhang; collision"
+                    " footprints would not cover them"
+                )
 
     def trailer_pose_from_hitch(self, hitch: Point2D, trailer_yaw: float) -> Pose2D:
         offset = rotate(Point2D(self.trailer.hitch_to_axle, 0.0), trailer_yaw)

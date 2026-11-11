@@ -254,7 +254,7 @@ git switch -c your-name/kinematic-model
 # make and test a focused change
 git add .
 git commit -m "Implement tractor-trailer kinematic model"
-git push -u origin feature/kinematic-model
+git push -u origin your-name/kinematic-model
 gh pr create --fill
 ```
 

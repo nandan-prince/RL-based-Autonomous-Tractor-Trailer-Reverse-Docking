@@ -23,6 +23,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from math import cos, isclose, sin
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from trailer_docking.core.config import (
     ConfigurationError,
@@ -103,6 +104,20 @@ def _n(value: float) -> str:
     return text if float(text) == number else repr(number)
 
 
+def _attribute(text: str) -> str:
+    """Escape free text for use inside a double-quoted XML attribute."""
+
+    return escape(text, {'"': "&quot;"})
+
+
+def _comment(text: str) -> str:
+    """Make free text safe inside an XML comment (no ``--``)."""
+
+    while "--" in text:
+        text = text.replace("--", "- -")
+    return text.removesuffix("-")
+
+
 def _v(*values: float) -> str:
     return " ".join(_n(value) for value in values)
 
@@ -148,8 +163,8 @@ def _header(vehicle: VehicleConfiguration, source: str) -> list[str]:
         "<!--",
         "  GENERATED FILE - do not edit by hand.",
         f"  Source: {source}",
-        f"  Vehicle specification: {vehicle.specification_id}"
-        f" (trailer variant: {vehicle.trailer.variant})",
+        f"  Vehicle specification: {_comment(vehicle.specification_id)}"
+        f" (trailer variant: {_comment(vehicle.trailer.variant)})",
         "  Regenerate with the write option of",
         "  trailer_docking.simulators.mujoco.builder (see its module docstring).",
         "-->",
@@ -357,7 +372,7 @@ def build_vehicle_xml(
     pose = tractor_pose or Pose2D(0.0, 0.0, 0.0)
     lines = [
         *_header(vehicle, "configs/vehicles (vehicle only)"),
-        f'<mujoco model="{vehicle.specification_id}">',
+        f'<mujoco model="{_attribute(vehicle.specification_id)}">',
         *_options(vehicle, tuning),
         "  <worldbody>",
         *_vehicle_body(vehicle, tuning, pose),
@@ -463,7 +478,7 @@ def build_scene_xml(
     source = "configs/vehicles + configs/environments"
     lines = [
         *_header(vehicle, source),
-        f'<mujoco model="{name}">',
+        f'<mujoco model="{_attribute(name)}">',
         *_options(vehicle, tuning),
         "  <asset>",
         '    <texture name="yard" type="2d" builtin="checker" width="256"'
