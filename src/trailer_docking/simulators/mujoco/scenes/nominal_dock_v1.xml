@@ -52,7 +52,7 @@
       <site name="hitch" class="semantic" pos="0 0 0.75"/>
       <body name="front_left_steer_link" pos="1.9 0.4 0.3">
         <inertial pos="0 0 0" mass="2" diaginertia="0.05 0.05 0.05"/>
-        <joint name="front_left_steer" type="hinge" axis="0 0 1" range="-0.455577377 0.553042093" damping="120" armature="1"/>
+        <joint name="front_left_steer" type="hinge" axis="0 0 1" range="-0.45557737670447235 0.5530420927387643" damping="120" armature="1"/>
         <body name="front_left_wheel" pos="0 0 0">
           <joint name="front_left_wheel_spin" class="wheel_spin"/>
           <geom name="front_left_wheel_collision" class="wheel"/>
@@ -61,7 +61,7 @@
       </body>
       <body name="front_right_steer_link" pos="1.9 -0.4 0.3">
         <inertial pos="0 0 0" mass="2" diaginertia="0.05 0.05 0.05"/>
-        <joint name="front_right_steer" type="hinge" axis="0 0 1" range="-0.553042093 0.455577377" damping="120" armature="1"/>
+        <joint name="front_right_steer" type="hinge" axis="0 0 1" range="-0.5530420927387643 0.45557737670447235" damping="120" armature="1"/>
         <body name="front_right_wheel" pos="0 0 0">
           <joint name="front_right_wheel_spin" class="wheel_spin"/>
           <geom name="front_right_wheel_collision" class="wheel"/>
@@ -80,9 +80,9 @@
       </body>
       <body name="trailer_body" pos="0 0 0.75">
         <joint name="hitch_yaw" type="hinge" axis="0 0 1" range="-1.48353 1.48353" damping="5"/>
-        <geom name="trailer_body_collision" class="chassis" pos="-2.25 0 0.9" size="2.75 0.5 0.9" mass="1180" rgba="0.82 0.82 0.85 0.85"/>
+        <geom name="trailer_body_collision" class="chassis" pos="-2.25 0 0.8999999999999999" size="2.75 0.5 0.9" mass="1180" rgba="0.82 0.82 0.85 0.85"/>
         <site name="trailer_axle" class="semantic" pos="-4 0 -0.45"/>
-        <site name="trailer_rear_face" class="semantic" pos="-5 0 0.9"/>
+        <site name="trailer_rear_face" class="semantic" pos="-5 0 0.8999999999999999"/>
         <site name="docking_point" class="semantic" pos="-5 0 -0.75" rgba="1 0.2 0.2 1"/>
         <body name="trailer_left_wheel" pos="-4 0.4 -0.45">
           <joint name="trailer_left_wheel_spin" class="wheel_spin"/>
@@ -98,8 +98,8 @@
     </body>
   </worldbody>
   <actuator>
-    <position name="front_left_steer_position" joint="front_left_steer" kp="20000" ctrlrange="-0.455577377 0.553042093" forcerange="-200 200"/>
-    <position name="front_right_steer_position" joint="front_right_steer" kp="20000" ctrlrange="-0.553042093 0.455577377" forcerange="-200 200"/>
+    <position name="front_left_steer_position" joint="front_left_steer" kp="20000" ctrlrange="-0.45557737670447235 0.5530420927387643" forcerange="-200 200"/>
+    <position name="front_right_steer_position" joint="front_right_steer" kp="20000" ctrlrange="-0.5530420927387643 0.45557737670447235" forcerange="-200 200"/>
     <velocity name="rear_left_wheel_velocity" joint="rear_left_wheel_spin" kv="1500" forcerange="-400 400"/>
     <velocity name="rear_right_wheel_velocity" joint="rear_right_wheel_spin" kv="1500" forcerange="-400 400"/>
   </actuator>

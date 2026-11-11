@@ -91,10 +91,13 @@ class MujocoTuning:
 def _n(value: float) -> str:
     """Format a number deterministically without negative zero."""
 
-    rounded = round(float(value), 9)
-    if rounded == 0.0:
+    number = float(value)
+    if number == 0.0:
         return "0"
-    return format(rounded, ".10g")
+    # Prefer the short form when it is exact; otherwise keep full precision so
+    # values such as a 1/300 s timestep survive the round trip through MJCF.
+    text = format(number, ".15g")
+    return text if float(text) == number else repr(number)
 
 
 def _v(*values: float) -> str:

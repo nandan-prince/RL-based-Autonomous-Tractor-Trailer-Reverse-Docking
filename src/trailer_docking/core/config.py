@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
-from math import isclose, isfinite
+from math import isclose, isfinite, pi, tan
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +56,10 @@ def _text(value: Any, path: str) -> str:
 def _number(value: Any, path: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ConfigurationError(f"{path} must be a real number")
-    converted = float(value)
+    try:
+        converted = float(value)
+    except OverflowError as error:
+        raise ConfigurationError(f"{path} must be finite") from error
     if not isfinite(converted):
         raise ConfigurationError(f"{path} must be finite")
     return converted
@@ -439,6 +442,18 @@ class VehicleConfiguration:
             <= self.limits.forward_speed_max
         ):
             raise ConfigurationError("nominal target speed exceeds vehicle limits")
+        # The inner wheel of an Ackermann pair reaches 90 degrees when the
+        # turning radius equals half the front track; beyond that the virtual
+        # steering angle has no physical wheel angles.
+        steering_limit = self.limits.steering_angle_abs_max
+        if steering_limit >= pi / 2.0 or (
+            tan(steering_limit) * self.tractor.front_track / 2.0
+            >= self.tractor.wheelbase
+        ):
+            raise ConfigurationError(
+                "steering_angle_abs_max is not reachable by an Ackermann pair"
+                " with this wheelbase and front track"
+            )
         self._validate_neutral_pose_sites()
 
     @property

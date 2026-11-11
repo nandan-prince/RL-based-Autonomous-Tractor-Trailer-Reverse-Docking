@@ -13,8 +13,12 @@ class GeometryValidationError(ValueError):
     """Raised when dimensions or geometric relationships are invalid."""
 
 
+def _is_real(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def _positive(value: float, name: str) -> float:
-    if not isfinite(value) or value <= 0.0:
+    if not _is_real(value) or not isfinite(value) or value <= 0.0:
         raise GeometryValidationError(f"{name} must be finite and greater than zero")
     return value
 
@@ -27,6 +31,8 @@ class Bounds1D:
     maximum: float
 
     def __post_init__(self) -> None:
+        if not (_is_real(self.minimum) and _is_real(self.maximum)):
+            raise GeometryValidationError("bounds must be real numbers")
         if not isfinite(self.minimum) or not isfinite(self.maximum):
             raise GeometryValidationError("bounds must be finite")
         if self.minimum >= self.maximum:
@@ -183,8 +189,8 @@ class TrailerGeometry:
     footprint_y: Bounds1D
 
     def __post_init__(self) -> None:
-        if not self.variant.strip():
-            raise GeometryValidationError("trailer variant cannot be empty")
+        if not isinstance(self.variant, str) or not self.variant.strip():
+            raise GeometryValidationError("trailer variant must be a non-empty string")
         for name in (
             "hitch_to_axle",
             "front_overhang",

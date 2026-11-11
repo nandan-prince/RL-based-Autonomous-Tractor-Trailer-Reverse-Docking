@@ -233,13 +233,14 @@ def test_plant_limits_are_enforced_and_reported(
 ) -> None:
     limits = vehicle_config.limits
     state = yard.step(VehicleCommand(5.0, 5.0))
-    assert yard.applied_command == VehicleCommand(
-        limits.steering_rate_abs_max, limits.forward_speed_max
+    # One period of acceleration-limited ramp, not an instantaneous jump, and
+    # the applied command reports what the plant actually received.
+    ramp = limits.longitudinal_acceleration_abs_max * 0.1
+    assert yard.speed_target == pytest.approx(ramp)
+    assert yard.applied_command.steering_rate == pytest.approx(
+        limits.steering_rate_abs_max
     )
-    # One period of acceleration-limited ramp, not an instantaneous jump.
-    assert yard.speed_target == pytest.approx(
-        limits.longitudinal_acceleration_abs_max * 0.1
-    )
+    assert yard.applied_command.target_speed == pytest.approx(ramp)
     assert state.longitudinal_speed < 0.06
     state = _run(yard, VehicleCommand(5.0, 0.0), 40)
     assert yard.steering_target == pytest.approx(limits.steering_angle_abs_max)
@@ -249,7 +250,10 @@ def test_plant_limits_are_enforced_and_reported(
     # Mechanical stops hold the measured angle at the limit to within
     # joint-limit compliance; it is not an exact bound as in the 2D plant.
     assert abs(state.steering_angle) < limits.steering_angle_abs_max + 2e-3
-    assert "jackknife_limit" not in state_limit_violations(state, limits)
+    # Held at the angle limit, the realised steering rate is zero.
+    yard.step(VehicleCommand(5.0, 0.0))
+    assert yard.applied_command.steering_rate == pytest.approx(0.0)
+    assert "steering_rate_limit" not in state_limit_violations(state, limits)
 
 
 def test_steering_sign_rate_and_virtual_angle(
@@ -301,7 +305,9 @@ def _reference_rollout(
     limits = vehicle.limits
     wheelbase = vehicle.tractor.wheelbase
     trailer_length = vehicle.trailer.hitch_to_axle
-    step = 0.002
+    step = vehicle.timing.mujoco_physics_step
+    substeps = vehicle.timing.mujoco_substeps_per_control
+    steering_limit = limits.steering_angle_abs_max
     x, y = start.tractor_pose.x, start.tractor_pose.y
     yaw, trailer_yaw = start.tractor_pose.yaw, start.trailer_pose.yaw
     steering, speed = start.steering_angle, 0.0
@@ -318,10 +324,10 @@ def _reference_rollout(
         )
 
     for command in commands:
-        for _ in range(50):
+        for _ in range(substeps):
             steering = min(
-                max(steering + command.steering_rate * step, -0.5),
-                limits.steering_angle_abs_max,
+                max(steering + command.steering_rate * step, -steering_limit),
+                steering_limit,
             )
             increment = limits.longitudinal_acceleration_abs_max * step
             speed += min(max(command.target_speed - speed, -increment), increment)

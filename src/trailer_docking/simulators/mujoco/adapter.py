@@ -48,8 +48,9 @@ class MujocoSimulator:
 
     Plant limits are enforced here exactly as the specification describes for
     the 2D plant: steering rate, steering angle, speed, and longitudinal
-    acceleration are bounded before they reach the actuators.  The limited
-    command of the last step is available as :attr:`applied_command`.
+    acceleration are bounded before they reach the actuators.  What the plant
+    actually received during the last step, after all four limits, is
+    available as :attr:`applied_command`.
     """
 
     def __init__(
@@ -145,7 +146,13 @@ class MujocoSimulator:
 
     @property
     def applied_command(self) -> VehicleCommand:
-        """The limited command applied during the most recent step."""
+        """What the actuators effectively received during the last step.
+
+        ``steering_rate`` is the realised rate of the virtual steering target
+        over the period (zero when held at the angle limit) and
+        ``target_speed`` is the acceleration-limited speed target reached at
+        the end of the period.
+        """
 
         return self._applied
 
@@ -165,11 +172,34 @@ class MujocoSimulator:
         pose the model's own initial pose is used.  ``settle_time`` optionally
         lets contacts come to rest (with zero speed target) before simulation
         time is reset to zero.
+
+        Raises :class:`ValueError` for a steering angle beyond the shared limit
+        or an articulation beyond the hitch's mechanical range, because the
+        model cannot represent either pose.
         """
 
-        mujoco.mj_resetData(self.model, self.data)
         limit = self.vehicle.limits.steering_angle_abs_max
-        steering = _clip(float(steering_angle), -limit, limit)
+        steering = float(steering_angle)
+        if not abs(steering) <= limit:
+            raise ValueError(
+                f"steering_angle={steering} exceeds the +-{limit} rad limit"
+            )
+        if settle_time < 0.0:
+            raise ValueError("settle_time cannot be negative")
+        if trailer_yaw is not None:
+            start_yaw = (
+                tractor_pose.yaw
+                if tractor_pose is not None
+                else self._model_start_yaw()
+            )
+            hitch_angle = wrap_angle(trailer_yaw - start_yaw)
+            mechanical = self.vehicle.limits.mujoco_hitch_mechanical_abs_max
+            if not abs(hitch_angle) <= mechanical:
+                raise ValueError(
+                    f"articulation {-hitch_angle} rad exceeds the hitch's"
+                    f" +-{mechanical} rad mechanical range"
+                )
+        mujoco.mj_resetData(self.model, self.data)
         base = self._free_qpos
         if tractor_pose is not None:
             self.data.qpos[base : base + 3] = (tractor_pose.x, tractor_pose.y, 0.0)
@@ -185,7 +215,7 @@ class MujocoSimulator:
             # The hinge coordinate is trailer yaw relative to the tractor, the
             # negative of the shared articulation angle.
             self.data.qpos[self._qpos["hitch_yaw"]] = wrap_angle(
-                trailer_yaw - tractor_yaw
+                trailer_yaw - wrap_angle(tractor_yaw)
             )
         left, right = self._wheel_angles(steering)
         self.data.qpos[self._qpos["front_left_steer"]] = left
@@ -220,6 +250,7 @@ class MujocoSimulator:
         )
         timestep = float(self.model.opt.timestep)
         speed_increment = limits.longitudinal_acceleration_abs_max * timestep
+        steering_before = self._steering_target
         for _ in range(self._substeps):
             self._steering_target = _clip(
                 self._steering_target + rate * timestep,
@@ -231,8 +262,22 @@ class MujocoSimulator:
             )
             self._write_controls()
             mujoco.mj_step(self.model, self.data)
-        self._applied = VehicleCommand(steering_rate=rate, target_speed=speed)
+        # mj_step integrates positions and velocities but leaves site poses,
+        # body velocities, and contacts from the start of its last substep.
+        # Recompute them so every field of the returned state is at time t.
+        mujoco.mj_forward(self.model, self.data)
+        self._applied = VehicleCommand(
+            steering_rate=(self._steering_target - steering_before)
+            / self.controller_period,
+            target_speed=self._speed_target,
+        )
         return self.state
+
+    def _model_start_yaw(self) -> float:
+        """Tractor yaw of the model's own initial pose."""
+
+        quaternion = self.model.qpos0[self._free_qpos + 3 : self._free_qpos + 7]
+        return 2.0 * atan2(float(quaternion[3]), float(quaternion[0]))
 
     def _wheel_angles(self, virtual_angle: float) -> tuple[float, float]:
         tractor = self.vehicle.tractor

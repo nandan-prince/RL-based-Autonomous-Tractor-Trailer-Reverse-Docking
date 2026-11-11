@@ -78,7 +78,14 @@ def supervise_command(
     )
     if acceleration_safe_speed != target_speed:
         reasons.append("acceleration_limit")
-    target_speed = acceleration_safe_speed
+    # A measured speed beyond the limit (possible with a physical plant) would
+    # otherwise let the acceleration window pull the target outside the speed
+    # limit.  The speed limit takes precedence.
+    target_speed = _clip(
+        acceleration_safe_speed,
+        -limits.reverse_speed_abs_max,
+        limits.forward_speed_max,
+    )
 
     return CommandAssessment(
         requested=command,
