@@ -2,11 +2,18 @@
 
 ![Overhead view of a tractor-trailer reversing toward a loading dock](docs/assets/reverse-docking.png)
 
-A simulation-based course project for safely reversing a tractor–trailer into a selected logistics-center loading dock. The project combines trajectory-aware reinforcement learning, a conventional control baseline, reference-path generation, collision and jackknife constraints, and a final 3D simulation.
+A simulation-based research project for safely reversing a tractor–trailer into
+a logistics-center loading dock. The project compares trajectory-aware PPO and
+NMPC in a shared 2D Gymnasium task, then evaluates transfer to a dimensionally
+matched 3D MuJoCo model. A successful, reproducible 2D comparison is the core
+deliverable; 3D evaluation is the planned extension.
 
 ## Project goal
 
-The core research question is whether a PPO controller using path-relative preview information can reliably reverse a tractor–trailer into a loading dock and how it compares with a model-based controller under varied starting poses, vehicle parameters, and observation noise.
+The core research question is whether a PPO controller using path-relative
+preview information can reliably reverse a tractor–trailer into a loading dock
+and how it compares with NMPC under varied starting poses, trailer lengths,
+dock dimensions, and observation noise.
 
 The six-week core scope is intentionally focused on:
 
@@ -33,6 +40,8 @@ LiDAR mapping, visual dock-number recognition, advanced global planning, and dyn
 ├── research/
 │   ├── README.md
 │   └── papers/                 # Local reading copies; see copyright note
+├── results/                    # Compact, traceable experiment evidence
+├── paper/                      # Living IEEE-format LaTeX report
 ├── scripts/                    # Training, evaluation, and rendering entry points
 ├── src/trailer_docking/
 │   ├── core/                   # Shared state, dynamics, geometry, and configuration
@@ -48,14 +57,21 @@ LiDAR mapping, visual dock-number recognition, advanced global planning, and dyn
 └── tests/                      # Unit and integration tests
 ```
 
-See the [architecture document](docs/design/architecture.md) for module
-responsibilities, dependency boundaries, and implementation order.
+Start with the [architecture document](docs/design/architecture.md) for module
+responsibilities and implementation order. A 2D contributor should then read
+the [vehicle and environment specification](docs/design/vehicle-and-environment-specification.md).
+A 3D contributor should use the self-contained
+[MuJoCo contributor guide](src/trailer_docking/simulators/mujoco/README.md).
+
+The frozen cross-simulator dimensions, coordinate conventions, state and
+command contracts, dock geometry, and MuJoCo naming requirements are defined
+in the [vehicle and environment specification](docs/design/vehicle-and-environment-specification.md).
 
 ## Proposal
 
 - [Full project proposal](docs/proposal/full-proposal.md)
-- [Two-page submission proposal](docs/proposal/two-page-proposal.md)
-- [Two-page proposal PDF](docs/proposal/two-page-proposal.pdf)
+- [Submitted proposal PDF](docs/proposal/MSML642_Nandan_Prince_Chris_Pedretti.pdf)
+- [Proposal presentation](docs/proposal/Group20_ProposalPresentation.pptx.pdf)
 - [Six-week milestones and work division](docs/proposal/full-proposal.md#12-parallel-work-plan)
 
 ## Academic foundation
@@ -88,14 +104,48 @@ These systems reinforce the project’s modular design: perception and localizat
 - Six-week work plan defined
 - Literature set collected and indexed
 - Initial 2D/MuJoCo repository architecture created
-- Vehicle model and simulator implementation not yet started
+- Frozen version-1 vehicle and dock specification created
+- Shared vehicle state, command, geometry, strict configuration, provenance,
+  command supervision, and conformance validation implemented
+- Complete MuJoCo naming contract and contributor handoff documented; the MJCF
+  model and Python adapter are not yet implemented
+- Living IEEE-format LaTeX report initialized from verified project state
+- Kinematic state propagation and simulator implementation not yet started
+
+## Vehicle-core verification
+
+From the repository root:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
+.venv/bin/ruff check src tests
+.venv/bin/mypy
+.venv/bin/pytest --cov --cov-report=term-missing
+.venv/bin/python -m trailer_docking.validation.vehicle_spec
+```
+
+The conformance command loads the versioned YAML specifications, validates all
+fields and cross-field constraints, reconstructs the neutral assembly, checks
+rigid geometry and dock fit, and prints configuration fingerprints suitable for
+future experiment manifests.
+
+For MuJoCo development, install the additional maintained Python bindings:
+
+```bash
+.venv/bin/pip install -e '.[dev,mujoco]'
+```
+
+The optional dependency currently admits MuJoCo 3.14 releases through the next
+major version. See the MuJoCo contributor guide before creating or renaming any
+MJCF element.
 
 ## Team workflow
 
 Development should use short feature branches and reviewed pull requests:
 
 ```bash
-git switch -c feature/kinematic-model
+git switch -c your-name/kinematic-model
 # make and test a focused change
 git add .
 git commit -m "Implement tractor-trailer kinematic model"
@@ -105,4 +155,9 @@ gh pr create --fill
 
 ## Copyright note
 
-The papers used for study remain the property of their respective authors and publishers. Local PDF copies under `research/papers/` are ignored by Git and should not be redistributed unless their licenses permit it. The research index links to publisher or author-hosted versions.
+The papers used for study remain the property of their respective authors and
+publishers. Local study copies are currently tracked under `research/papers/`;
+their presence in this working repository is not permission to redistribute
+them. Audit each license and remove any copy that cannot be shared before making
+the repository public. The research index provides stable publisher or
+author-hosted links for citation and sharing.

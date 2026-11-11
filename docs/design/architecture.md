@@ -52,7 +52,8 @@ logic.
 
 ## Implementation order
 
-1. Freeze state, action, coordinate, geometry, timing, and tolerance definitions.
+1. Freeze state, action, coordinate, geometry, timing, and tolerance definitions
+   in the [vehicle and environment specification](vehicle-and-environment-specification.md).
 2. Implement and test the 2D kinematic simulator.
 3. Implement paths, geometry, collision, jackknife, and preview calculations.
 4. Compose those modules into the Gymnasium environment.

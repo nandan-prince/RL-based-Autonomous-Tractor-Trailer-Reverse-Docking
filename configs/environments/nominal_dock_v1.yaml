@@ -1,0 +1,32 @@
+specification_id: nominal-dock-v1
+schema_version: 1
+units:
+  length: m
+  angle: rad
+
+dock_frame:
+  origin: rear_wall_center
+  outward_axis: +x
+  left_axis: +y
+  up_axis: +z
+
+bay:
+  interior_width: 1.50
+  interior_depth: 6.00
+  wall_thickness: 0.10
+  wall_height: 1.00
+  collision_margin: 0.03
+
+target:
+  reference: docking_point
+  position: [0.25, 0.00]
+  trailer_yaw: 0.00
+
+success_tolerances:
+  longitudinal: 0.10
+  lateral: 0.10
+  trailer_yaw: 0.052360
+  require_no_collision: true
+  require_articulation_below_hard_limit: true
+  require_complete_trailer_inside_bay: true
+

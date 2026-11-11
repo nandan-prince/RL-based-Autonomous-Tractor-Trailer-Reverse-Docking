@@ -1,4 +1,19 @@
 # MuJoCo models
 
-Store reusable MJCF model fragments here, including tractor, semitrailer,
-hitch, steering, actuator, and collision definitions.
+Store reusable vehicle MJCF and included fragments here. The first model should
+be named `compact_semitrailer_v1.xml` and implement the complete API in the
+[MuJoCo contributor guide](../README.md).
+
+Rules:
+
+- Keep the model scene-independent; docks, ground, lights, and cameras belong
+  in `../scenes/` unless required for a focused model test.
+- Treat `configs/vehicles/compact_semitrailer_v1.yaml` as the numeric and naming
+  authority. Any repeated XML value needs a parity test.
+- Use primitive collision geoms and separate them from optional visual geoms.
+- Preserve the frozen body, joint, site, and actuator names.
+- Parameterize trailer length before adding short/long variants; do not fork
+  unrelated hand-edited vehicle files.
+
+Document non-obvious damping, gains, inertias, solver settings, or contact
+choices in the XML and decision log.

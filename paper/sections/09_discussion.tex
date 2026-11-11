@@ -1,0 +1,19 @@
+\section{Discussion and Limitations}
+
+The implemented core reduces a major source of integration error by assigning
+explicit meanings to poses, signs, dimensions, semantic sites, timing, and
+controller commands before simulator development. Strict configuration loading
+and fingerprints also make later geometry changes traceable. This is an
+engineering foundation rather than a scientific result.
+
+Several important limitations remain. The compact vehicle is not a validated
+full-size highway model. Initial MuJoCo masses, contact parameters, and actuator
+limits are design values awaiting simulation validation. The selected
+$0.30\,\mathrm{rad/s}$ steering-rate limit is not inherited from the two core
+papers. The present state contract does not establish that the future 2D and
+MuJoCo trajectories will match, only that their meanings can be compared.
+
+Potentially publishable observations may emerge from geometry generalization,
+controller sensitivity, or 2D-to-3D transfer, but these remain open research
+questions. Novelty will require repeatable evidence and an updated literature
+assessment, not merely behavior that is new within this repository.

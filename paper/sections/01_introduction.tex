@@ -1,0 +1,27 @@
+\section{Introduction}
+
+Reversing an articulated tractor--semitrailer is a nonlinear and nonholonomic
+control problem. In reverse motion, small steering errors can increase the
+relative heading between the tractor and trailer, causing tracking failure,
+collision, or jackknifing. Loading-dock operation adds tight lateral clearance
+and final-pose requirements, making it a useful setting for comparing learned
+and model-based control.
+
+The project studies whether a PPO policy using trajectory-relative tracking
+errors and preview information can reliably execute reverse docking and how its
+behavior compares with NMPC when initial pose, trailer geometry, parking-bay
+dimensions, and state or model uncertainty change. The comparison is not
+designed to make one controller win. It is intended to characterize accuracy,
+safety, computation, robustness, and transfer behavior under a common task
+definition.
+
+The required contribution of the course project is an implemented and
+quantitatively evaluated two-dimensional system. A three-dimensional MuJoCo
+model is a secondary integration target. If full transfer is not reliable or
+cannot be completed within the schedule, the complete controller comparison
+will remain in the verified two-dimensional environment, while MuJoCo will be
+used for a smaller validated demonstration set.
+
+This is a living report. Statements are limited to implemented behavior and
+saved evidence. Planned methods and experiments are labeled as such, and no
+novelty or performance claim is made before comparative results exist.

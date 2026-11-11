@@ -1,0 +1,63 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+\definecolor{implementedgreen}{RGB}{0,110,55}
+\definecolor{plannedblue}{RGB}{30,80,160}
+\definecolor{openorange}{RGB}{180,95,0}
+\newcommand{\implemented}{\textcolor{implementedgreen}{\textbf{Implemented}}}
+\newcommand{\planned}{\textcolor{plannedblue}{\textbf{Planned}}}
+\newcommand{\openitem}{\textcolor{openorange}{\textbf{Open}}}
+
+\title{Trajectory-Aware Control for Autonomous\\
+Tractor--Semitrailer Reverse Docking}
+\author{
+  \IEEEauthorblockN{Nandan Prince}
+  \IEEEauthorblockA{MSML 642}
+  \and
+  \IEEEauthorblockN{Chris Pedretti}
+  \IEEEauthorblockA{MSML 642}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report documents the staged development of a simulation-based autonomous
+reverse-docking system for a tractor connected to one conventional
+semitrailer. The core study will compare a trajectory-relative Proximal Policy
+Optimization (PPO) controller with a nonlinear model predictive controller
+(NMPC) under a shared vehicle, task, safety, and evaluation definition. A fast
+two-dimensional kinematic implementation is the required experimental
+platform; a corresponding MuJoCo model is intended for simulation-to-simulation
+evaluation when feasible. At the present stage, the shared vehicle state,
+command, geometry, configuration, provenance, and conformance-validation layers
+are implemented. Kinematics, controllers, training, and comparative results are
+not yet implemented and are explicitly identified as planned work.
+\end{abstract}
+
+\begin{IEEEkeywords}
+tractor--semitrailer, reverse docking, reinforcement learning, proximal policy
+optimization, nonlinear model predictive control, MuJoCo
+\end{IEEEkeywords}
+
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_problem_formulation}
+\input{sections/04_system_design}
+\input{sections/05_methods}
+\input{sections/06_experimental_protocol}
+\input{sections/07_development_status}
+\input{sections/08_results}
+\input{sections/09_discussion}
+\input{sections/10_conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

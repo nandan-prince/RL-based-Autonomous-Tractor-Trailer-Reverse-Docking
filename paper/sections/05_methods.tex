@@ -1,0 +1,49 @@
+\section{Methods}
+
+This section distinguishes implemented infrastructure from planned control
+methods.
+
+\subsection{Two-dimensional vehicle model}
+
+\planned{} The first simulator will use a low-speed kinematic bicycle model for
+the tractor and a kinematic single-axle trailer. The implementation will support
+the signed hitch offset in the shared specification. Before controller
+integration, validation will cover straight reverse motion, constant steering,
+angle wrapping, rigid geometry, articulation growth, deterministic replay, and
+timestep convergence. The final equations and integration method will be added
+here only after implementation and tests agree.
+
+\subsection{Reference trajectories and observations}
+
+\planned{} Development will begin with predefined straight and curved docking
+paths. The trajectory-relative observation is expected to contain trailer
+lateral error, tractor and trailer heading errors, articulation, steering
+state, distance to goal, and preview-point errors. The exact normalization,
+preview count, and observation bounds remain open until the path and environment
+implementations are tested.
+
+\subsection{NMPC baseline}
+
+\planned{} NMPC will predict the shared articulated-vehicle model and minimize
+tracking, articulation, steering effort, and steering-rate variation while
+enforcing dynamics, steering, steering-rate, and articulation constraints. The
+primary comparison will retain fixed reverse speed and steering-rate authority.
+Horizon, discretization, weights, warm start, solver tolerances, and numerical
+failure handling will be recorded in versioned experiment configurations.
+
+\subsection{PPO controller}
+
+\planned{} PPO will use the same steering-rate authority and fixed reverse
+speed. Training is expected to proceed from straight reverse stabilization to
+curved tracking and randomized docking. Reward components, termination logic,
+network architecture, training budget, and curriculum transitions will be
+documented after implementation. A global-coordinate policy and removal of
+preview information are candidate observation ablations, not established
+experiments.
+
+\subsection{Safety supervision}
+
+\implemented{} Raw and supervised commands are represented separately so
+interventions are observable. Steering-rate, steering-angle, speed, and
+acceleration limits are enforced through the shared configuration. Hard
+collision and articulation events will remain independent of learned reward.

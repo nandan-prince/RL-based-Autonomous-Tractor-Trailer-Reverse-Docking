@@ -1,0 +1,141 @@
+specification_id: compact-semitrailer-v1
+schema_version: 1
+units:
+  length: m
+  time: s
+  angle: rad
+  mass: kg
+
+conventions:
+  body_forward_axis: +x
+  body_left_axis: +y
+  world_up_axis: +z
+  positive_yaw: counterclockwise
+  positive_steering: left
+  positive_speed: forward
+  articulation: wrap(tractor_yaw - trailer_yaw)
+
+tractor:
+  wheelbase: 1.90
+  front_overhang: 0.60
+  rear_overhang: 0.40
+  body_width: 1.00
+  front_track: 0.80
+  rear_track: 0.80
+  body_height: 1.40
+  body_bottom_height: 0.30
+  hitch_offset:
+    longitudinal: 0.00
+    lateral: 0.00
+    height: 0.75
+  collision_footprint_from_rear_axle:
+    x: [-0.40, 2.50]
+    y: [-0.50, 0.50]
+
+trailer:
+  variant: nominal
+  hitch_to_axle: 4.00
+  front_overhang: 0.50
+  rear_overhang: 1.00
+  body_width: 1.00
+  axle_track: 0.80
+  body_height: 1.80
+  body_bottom_height: 0.75
+  collision_footprint_from_axle:
+    x: [-1.00, 4.50]
+    y: [-0.50, 0.50]
+
+trailer_variants:
+  short:
+    hitch_to_axle: 2.00
+    front_overhang: 0.50
+    rear_overhang: 1.00
+  nominal:
+    hitch_to_axle: 4.00
+    front_overhang: 0.50
+    rear_overhang: 1.00
+  long:
+    hitch_to_axle: 5.00
+    front_overhang: 0.50
+    rear_overhang: 1.00
+
+wheels:
+  radius: 0.30
+  width: 0.12
+
+neutral_pose_sites:
+  tractor_rear_axle: [0.00, 0.00, 0.30]
+  tractor_front_axle: [1.90, 0.00, 0.30]
+  hitch: [0.00, 0.00, 0.75]
+  trailer_axle: [-4.00, 0.00, 0.30]
+  trailer_rear_face: [-5.00, 0.00, 1.65]
+  docking_point: [-5.00, 0.00, 0.00]
+
+limits:
+  steering_angle_abs_max: 0.50
+  steering_rate_abs_max: 0.30
+  forward_speed_max: 0.20
+  reverse_speed_abs_max: 0.20
+  longitudinal_acceleration_abs_max: 0.40
+  articulation_soft_abs_max: 0.610865
+  articulation_hard_abs_max: 0.785398
+  mujoco_hitch_mechanical_abs_max: 1.483530
+
+timing:
+  controller_period: 0.10
+  kinematic_integration_step: 0.02
+  mujoco_physics_step: 0.002
+  nominal_command_delay: 0.00
+
+command:
+  fields:
+    - steering_rate
+    - target_speed
+  nominal_target_speed: -0.20
+
+mujoco:
+  gravity: [0.0, 0.0, -9.81]
+  masses:
+    tractor_chassis: 760.0
+    trailer_body: 1180.0
+    wheel_each: 10.0
+  contact_friction: [1.0, 0.005, 0.0001]
+  actuator_limits:
+    rear_wheel_torque_each: 400.0
+    steering_torque_each: 200.0
+  required_names:
+    bodies:
+      - tractor_body
+      - trailer_body
+      - front_left_steer_link
+      - front_right_steer_link
+      - front_left_wheel
+      - front_right_wheel
+      - rear_left_wheel
+      - rear_right_wheel
+      - trailer_left_wheel
+      - trailer_right_wheel
+    joints:
+      - tractor_free
+      - hitch_yaw
+      - front_left_steer
+      - front_right_steer
+      - front_left_wheel_spin
+      - front_right_wheel_spin
+      - rear_left_wheel_spin
+      - rear_right_wheel_spin
+      - trailer_left_wheel_spin
+      - trailer_right_wheel_spin
+    sites:
+      - tractor_rear_axle
+      - tractor_front_axle
+      - hitch
+      - trailer_axle
+      - trailer_rear_face
+      - docking_point
+    actuators:
+      - front_left_steer_position
+      - front_right_steer_position
+      - rear_left_wheel_velocity
+      - rear_right_wheel_velocity
+

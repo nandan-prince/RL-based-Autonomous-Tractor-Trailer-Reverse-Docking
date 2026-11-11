@@ -1,4 +1,15 @@
 # MuJoCo scenes
 
-Store complete logistics-yard and loading-dock MJCF scene files here. Scenes
-should include a documented target pose and collision geometry.
+Store complete logistics-yard and loading-dock MJCF worlds here. The first scene
+should be named `nominal_dock_v1.xml`, include the reusable nominal vehicle, and
+implement `configs/environments/nominal_dock_v1.yaml`.
+
+The nominal bay interior is `x in [0, 6]`, `y in [-0.75, 0.75]`, with the
+opening at `x = 6`, the back wall at `x = 0`, `0.10 m` wall thickness, and
+`1.00 m` wall height. The target trailer yaw is zero and docking error is
+measured at the named `docking_point` site.
+
+Scene-only lights, cameras, materials, and visual yard context may vary without
+changing experiments. Wall and obstacle collision geometry, target pose, and
+success tolerances may not drift from the environment configuration. Keep a
+minimal deterministic scene suitable for automated headless tests.
