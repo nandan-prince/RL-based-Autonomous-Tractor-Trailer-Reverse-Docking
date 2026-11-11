@@ -6,10 +6,72 @@ vehicle dimensions, signs, names, or controller semantics.
 
 ## Current state
 
-The shared vehicle state, command, geometry, configuration loaders, safety
-supervision, and conformance validation are implemented. The MJCF vehicle,
-dock scene, Python adapter, and 2D/MuJoCo parity tests are not yet implemented.
-Do not describe a 3D result as complete until the validation gates below pass.
+The first MuJoCo implementation exists and passes the model-level validation
+gates below:
+
+- `builder.py` generates the vehicle and dock MJCF directly from the two YAML
+  specifications, for every trailer variant, so no dimension is hand-copied.
+- `models/compact_semitrailer_v1.xml` and `scenes/nominal_dock_v1.xml` are the
+  committed generator output; a test and a CI step fail if they drift.
+- `adapter.py` provides `MujocoSimulator`, which accepts `VehicleCommand` at
+  `10 Hz` and returns `VehicleState` measured from the semantic sites.
+- `ackermann.py` holds the virtual-to-physical steering mapping and its inverse.
+
+Still open: parity against the project's own 2D simulator (the tests currently
+compare against a test-local integration of the specification's kinematic
+equations, because the 2D backend does not exist yet), the common simulator
+protocol in `simulators/base.py`, and any controller or policy transfer result.
+Do not describe a transfer result as complete until those exist.
+
+### Using the backend
+
+```python
+from trailer_docking.core import (
+    VehicleCommand,
+    load_dock_configuration,
+    load_vehicle_configuration,
+)
+from trailer_docking.simulators.mujoco.adapter import MujocoSimulator
+
+vehicle = load_vehicle_configuration("configs/vehicles/compact_semitrailer_v1.yaml")
+dock = load_dock_configuration("configs/environments/nominal_dock_v1.yaml")
+simulator = MujocoSimulator(vehicle, dock)  # dock=None gives a flat yard
+state = simulator.reset()  # or reset(tractor_pose, trailer_yaw)
+state = simulator.step(VehicleCommand(steering_rate=0.1, target_speed=-0.2))
+```
+
+`reset` takes the same arguments as `VehicleGeometry.assembled_state`. `step`
+advances exactly one controller period. `applied_command`, `steering_target`,
+`speed_target`, and `wall_contacts()` expose what the plant actually did.
+
+Regenerate the committed MJCF after any specification or tuning change with:
+
+```bash
+python -m trailer_docking.simulators.mujoco.builder --write
+```
+
+### Implementation choices to know about
+
+These are recorded with their evidence in `research/decisions.md` (D-007):
+
+- **Collision masks.** Wheels collide only with the ground and chassis boxes
+  only with dock walls. The wheels sit inside the chassis footprint, so without
+  masks the front wheels collide with their own tractor.
+- **Thin wheel contact.** Each wheel collides through a `0.02 m` wide cylinder
+  on its centre plane; the full-width cylinder carries mass and visuals. A
+  full-width rigid cylinder scrubs at both rims and saturated the `200 N m`
+  steering actuators.
+- **Steering stops.** Each steering joint is limited to exactly the Ackermann
+  angles of the `0.50 rad` virtual limit. The measured virtual angle can still
+  exceed the limit by about `0.001 rad` through joint-limit compliance.
+- **Rear differential.** Rear wheels get individual speed targets consistent
+  with the virtual steering angle, so the rear-axle midpoint tracks the
+  commanded speed in a turn.
+- **Plant limits.** Steering rate, steering angle, speed, and acceleration are
+  limited inside `step`; the acceleration ramp is taken from the last applied
+  speed target, not from measured speed.
+- **MuJoCo-only tuning** (gains, damping, armature, contact solver) lives in
+  `MujocoTuning` because the version-1 YAML schema has no place for it.
 
 ## Read these sources in order
 

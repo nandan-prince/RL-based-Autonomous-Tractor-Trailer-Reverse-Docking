@@ -18,6 +18,10 @@ vehicle/dock conformance report. Run it with:
 .venv/bin/python -m trailer_docking.validation.vehicle_spec
 ```
 
+The MuJoCo suite under `tests/integration/mujoco/` covers those gates for the
+first model, plus dock geometry, wall contact, and agreement with a test-local
+integration of the specification's kinematic equations.
+
 MuJoCo tests should live under `tests/integration/mujoco/` and skip cleanly when
 the optional dependency is absent. Once the model exists, tests must compile
 the MJCF, resolve every configured name, check neutral semantic-site positions,

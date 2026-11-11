@@ -24,3 +24,30 @@ Which differences between the verified 2D kinematic model and MuJoCo—actuator
 response, wheel contact, slip, hitch behavior, or numerical timing—most affect
 zero-shot controller transfer? Investigate only after coordinate, geometry,
 command, and event parity checks pass.
+
+## Q-004 — Limit checks against a physical plant
+
+`state_limit_violations` compares measured state with a `1e-12` tolerance,
+which suits the exact 2D plant. In MuJoCo the measured virtual steering angle
+overshoots the `0.50 rad` limit by about `0.001 rad` at full lock, so an
+environment that terminates on that check would end MuJoCo episodes the 2D
+environment would not. Decide whether measured-state checks get a documented
+tolerance or whether only commanded quantities are checked.
+
+## Q-005 — Rigid pitch coupling at the hitch
+
+The version-1 hitch is yaw-only and there is no suspension, so tractor and
+trailer form one body in pitch resting on three axles. Axle loads are then set
+by contact compliance rather than by a fifth-wheel load path; a static estimate
+puts roughly 30 % of total weight on the front axle instead of only its share
+of the tractor. This did not visibly affect the planar kinematics at
+`0.2 m/s`, but it changes steering and traction loads and should be revisited
+before any dynamics-sensitive transfer claim.
+
+## Q-006 — Long trailer and the nominal bay
+
+With the docking point at `x = 0.25 m`, the `long` variant's front face is at
+`x = 6.75 m`, outside the `6.0 m` bay, so the "complete trailer inside bay"
+success rule cannot be met. The conformance check only evaluates the nominal
+variant. Decide on a deeper bay, a variant-specific rule, or dropping the rule
+for length-generalization experiments.
