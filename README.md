@@ -142,25 +142,108 @@ The optional dependency currently admits MuJoCo 3.14 releases through the next
 major version. See the MuJoCo contributor guide before creating or renaming any
 MJCF element.
 
-## Viewing the dock and vehicle
+## Demo
 
-Install the viewer extras and open the generated scene:
+This section is the walkthrough for seeing the project run. Each numbered step
+is marked **Available** or **Planned**; planned steps are placeholders to be
+filled in as the reinforcement-learning pipeline and the control UI are built.
+Keep the step order and update the status and commands in place rather than
+adding a separate guide.
+
+### Setup (once)
 
 ```bash
+python3 -m venv .venv
 .venv/bin/pip install -e '.[dev,mujoco,viz]'
+```
+
+On Windows use `py -3.12 -m venv .venv` and replace `.venv/bin/` with
+`.venv\Scripts\` in every command below. Run all commands from the repository
+root.
+
+### 1. See the generated dock and vehicle — Available
+
+```bash
 .venv/bin/python -m trailer_docking.visualization.viewer --mode both
 ```
 
-On Windows the interpreter is `.venv\Scripts\python`. `--mode 3d` opens the
-MuJoCo window, `--mode 2d` a top-down plot drawn from the shared planar state,
-and `--mode both` shows the two together from one simulation. Click a window,
-then use Up/Down to drive forward/reverse, Left/Right to steer, Space to stop,
-and Backspace to reset. `--demo` reverses straight into the bay, `--variant
-short|nominal|long` selects the trailer, `--no-dock` shows an empty yard, and
-`--speed 4` plays faster than real time.
+Two windows open, driven by one simulation:
 
-The MuJoCo backend supplies the motion in every mode until the 2D kinematic
-simulator exists; the top-down view itself depends only on the shared state.
+- **3D (MuJoCo):** the tractor, trailer, and loading bay generated from the
+  YAML specifications.
+- **2D (top-down):** the same scene drawn only from the shared planar state a
+  controller receives, with speed, steering, articulation, and docking error.
+
+Use `--mode 3d` or `--mode 2d` for one window only.
+
+### 2. Drive it yourself — Available
+
+Click either window to give it keyboard focus.
+
+| Key | Action |
+|---|---|
+| Up / Down | Drive forward / reverse at the speed limit |
+| Left / Right | Steer left / right in small steps |
+| Space | Stop |
+| Backspace | Reset to the start pose |
+
+Reversing the trailer into the bay by hand is a good way to feel why the task
+is hard: the trailer swings opposite to the steering input and jackknifes if
+left uncorrected.
+
+### 3. Watch a scripted reverse — Available
+
+```bash
+.venv/bin/python -m trailer_docking.visualization.viewer --mode both --demo --speed 4
+```
+
+The vehicle reverses straight into the bay and stops when the trailer touches
+the back wall. This is a fixed command, not a controller.
+
+### 4. Change the scenario from the command line — Available
+
+| Option | Effect |
+|---|---|
+| `--variant short\|nominal\|long` | Trailer hitch-to-axle length of 2, 4, or 5 m |
+| `--no-dock` | Empty yard without the loading bay |
+| `--speed N` | Play N times faster than real time |
+| `--vehicle PATH`, `--dock PATH` | Load a different vehicle or dock YAML |
+
+Any vehicle or dock YAML that passes validation can be viewed this way; copy
+one of the files under `configs/`, change a value such as the bay width, and
+pass the new path.
+
+### 5. Adjust parameters in a UI — Planned
+
+A control panel for dock dimensions, vehicle size and mass, and ground and
+contact physics, saving each edited scenario as a new named configuration.
+
+_To be documented: how to open the panel, which parameters affect both
+simulators and which affect only the 3D physics, and where saved
+configurations are written._
+
+### 6. Train a docking policy and watch it learn — Planned
+
+Start PPO training from the UI and watch episodes play back in the viewers as
+the policy improves.
+
+_To be documented: the training command and UI control, where checkpoints and
+metrics are stored, and how to resume or stop a run._
+
+### 7. Run a docking test with a trained policy — Planned
+
+Choose a scenario and a trained policy, run a simulated docking attempt in 2D
+or 3D, and read the outcome (success, final error, collisions, jackknife).
+
+_To be documented: selecting a checkpoint, running a single test or a batch,
+and interpreting the reported metrics._
+
+### What the demo currently does not show
+
+The 2D kinematic simulator, the Gymnasium environment, NMPC, and PPO are not
+implemented yet, so steps 1–4 use the MuJoCo backend for motion and there is no
+trained agent. The top-down view depends only on the shared state and will
+display the 2D simulator unchanged once it exists.
 
 ## Team workflow
 
