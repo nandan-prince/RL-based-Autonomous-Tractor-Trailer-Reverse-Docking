@@ -24,21 +24,32 @@ LiDAR mapping, visual dock-number recognition, advanced global planning, and dyn
 
 ```text
 .
-├── README.md
+├── configs/                    # Vehicle, task, controller, and experiment settings
 ├── docs/
 │   ├── assets/
 │   │   └── reverse-docking.png
-│   └── proposal/
-│       ├── full-proposal.md
-│       ├── two-page-proposal.md
-│       ├── two-page-proposal.pdf
-│       └── render-proposal-pdf.py
-└── research/
-    ├── README.md
-    └── papers/                 # Local reading copies; see copyright note
+│   ├── design/                 # Architecture and mathematical specifications
+│   └── proposal/               # Submitted and expanded project proposals
+├── research/
+│   ├── README.md
+│   └── papers/                 # Local reading copies; see copyright note
+├── scripts/                    # Training, evaluation, and rendering entry points
+├── src/trailer_docking/
+│   ├── core/                   # Shared state, dynamics, geometry, and configuration
+│   ├── paths/                  # Reference paths, tracking errors, and previews
+│   ├── observations/           # Controller-facing observation construction
+│   ├── safety/                 # Collision, jackknife, and command supervision
+│   ├── simulators/
+│   │   ├── kinematic/          # Fast deterministic 2D backend
+│   │   └── mujoco/             # MuJoCo adapter, models, scenes, and assets
+│   ├── environments/           # Gymnasium task wrapper
+│   ├── controllers/            # Geometric, NMPC, and PPO controllers
+│   └── evaluation/             # Scenarios, metrics, and rollout runner
+└── tests/                      # Unit and integration tests
 ```
 
-Implementation directories for models, controllers, environments, evaluation, and tests will be added as development begins.
+See the [architecture document](docs/design/architecture.md) for module
+responsibilities, dependency boundaries, and implementation order.
 
 ## Proposal
 
@@ -76,6 +87,7 @@ These systems reinforce the project’s modular design: perception and localizat
 - Project proposal completed
 - Six-week work plan defined
 - Literature set collected and indexed
+- Initial 2D/MuJoCo repository architecture created
 - Vehicle model and simulator implementation not yet started
 
 ## Team workflow
