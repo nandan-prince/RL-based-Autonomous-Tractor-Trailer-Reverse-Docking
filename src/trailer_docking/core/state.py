@@ -34,6 +34,10 @@ def wrap_angle(angle: float) -> float:
 
     value = _finite_float(angle, "angle")
     wrapped = (value + pi) % (2.0 * pi) - pi
+    # Floating-point modulo can round a tiny negative operand up to the full
+    # period, which would return +pi; fold that back into the interval.
+    if wrapped >= pi:
+        wrapped = -pi
     # Do not expose negative zero in serialized states or diagnostics.
     return 0.0 if wrapped == 0.0 else wrapped
 
@@ -253,7 +257,12 @@ class VehicleState:
         tolerance = 1e-12
         if (
             "articulation_angle" in data
-            and abs(wrap_angle(data["articulation_angle"] - state.articulation_angle))
+            and abs(
+                wrap_angle(
+                    _finite_float(data["articulation_angle"], "articulation_angle")
+                    - state.articulation_angle
+                )
+            )
             > tolerance
         ):
             raise StateValidationError("Serialized articulation_angle is inconsistent")

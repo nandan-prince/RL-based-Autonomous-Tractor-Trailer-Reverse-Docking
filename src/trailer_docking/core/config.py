@@ -104,12 +104,51 @@ def _normalized_fingerprint(data: Mapping[str, Any]) -> str:
     return sha256(serialized.encode("utf-8")).hexdigest()
 
 
+class _StrictLoader(yaml.SafeLoader):  # type: ignore[misc]
+    """Safe YAML loader that rejects duplicate mapping keys.
+
+    Plain ``safe_load`` silently keeps the last duplicate, which would let a
+    frozen value be overridden further down a file without any error.
+    """
+
+
+def _construct_unique_mapping(
+    loader: _StrictLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    seen: set[Any] = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            duplicate = key in seen
+        except TypeError:
+            # Unhashable keys are rejected by the base constructor below.
+            continue
+        if duplicate:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"found duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        seen.add(key)
+    return dict(loader.construct_mapping(node, deep=deep))
+
+
+_StrictLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_unique_mapping
+)
+
+
 def _read_yaml(path: str | Path) -> tuple[Mapping[str, Any], Path]:
     resolved = Path(path).expanduser().resolve()
     if not resolved.is_file():
         raise ConfigurationError(f"configuration file does not exist: {resolved}")
     try:
-        loaded = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+        # The loader class is a SafeLoader subclass that also rejects
+        # duplicate mapping keys.
+        loaded = yaml.load(resolved.read_text(encoding="utf-8"), Loader=_StrictLoader)
+    except (OSError, UnicodeDecodeError) as error:
+        raise ConfigurationError(f"cannot read {resolved}: {error}") from error
     except yaml.YAMLError as error:
         raise ConfigurationError(f"invalid YAML in {resolved}: {error}") from error
     return _mapping(loaded, str(resolved)), resolved
@@ -216,7 +255,9 @@ class SimulationTiming:
             ("mujoco_physics_step", self.mujoco_physics_step),
         ):
             ratio = self.controller_period / step
-            if not isclose(ratio, round(ratio), rel_tol=0.0, abs_tol=1e-10):
+            if round(ratio) < 1 or not isclose(
+                ratio, round(ratio), rel_tol=0.0, abs_tol=1e-10
+            ):
                 raise ConfigurationError(
                     f"controller_period must be an integer multiple of {step_name}"
                 )

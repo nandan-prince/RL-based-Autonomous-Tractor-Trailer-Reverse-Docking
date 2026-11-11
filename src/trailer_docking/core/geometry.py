@@ -363,8 +363,12 @@ class DockGeometry:
             "trailer_yaw_tolerance",
         ):
             _positive(getattr(self, name), f"DockGeometry.{name}")
-        if self.collision_margin < 0.0:
-            raise GeometryValidationError("dock collision_margin cannot be negative")
+        if not isfinite(self.collision_margin) or self.collision_margin < 0.0:
+            raise GeometryValidationError(
+                "dock collision_margin must be finite and non-negative"
+            )
+        if not isinstance(self.target_position, Point2D):
+            raise GeometryValidationError("dock target_position must be Point2D")
         if self.collision_margin * 2.0 >= self.interior_width:
             raise GeometryValidationError("dock collision margins consume bay width")
         object.__setattr__(

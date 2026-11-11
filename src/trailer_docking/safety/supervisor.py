@@ -53,7 +53,14 @@ def supervise_command(
     angle_safe_rate = _clip(steering_rate, minimum_rate, maximum_rate)
     if angle_safe_rate != steering_rate:
         reasons.append("steering_angle_limit")
-    steering_rate = angle_safe_rate
+    # If the measured angle is already outside its bound (possible with a
+    # physical plant), the angle correction alone could demand more than the
+    # rate limit.  Return toward the bound at no more than the rate limit.
+    steering_rate = _clip(
+        angle_safe_rate,
+        -limits.steering_rate_abs_max,
+        limits.steering_rate_abs_max,
+    )
 
     target_speed = _clip(
         command.target_speed,
