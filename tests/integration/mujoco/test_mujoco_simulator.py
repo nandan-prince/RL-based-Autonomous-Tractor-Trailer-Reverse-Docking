@@ -20,9 +20,11 @@ from trailer_docking.simulators.mujoco.adapter import (  # noqa: E402
 )
 from trailer_docking.simulators.mujoco.builder import (  # noqa: E402
     DOCK_WALL_GEOMS,
+    DOCK_WALL_VISUAL_SUFFIX,
     TRACTOR_COLLISION_GEOM,
     TRAILER_COLLISION_GEOM,
     build_vehicle_xml,
+    dock_collision_height,
     generated_files,
 )
 
@@ -392,8 +394,20 @@ def test_dock_walls_match_environment_configuration(
         identifier = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, name)
         center, half = data.geom_xpos[identifier], model.geom_size[identifier]
         boxes[name] = (center - half, center + half)
-        assert center[2] + half[2] == pytest.approx(bay.wall_height)
         assert center[2] - half[2] == pytest.approx(0.0)
+        # The collision volume spans every chassis box; the visible wall has
+        # the configured height and the same planar outline.
+        assert center[2] + half[2] == pytest.approx(
+            dock_collision_height(docked_scene.vehicle, dock_config)
+        )
+        visual = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_GEOM, name + DOCK_WALL_VISUAL_SUFFIX
+        )
+        visual_center, visual_half = data.geom_xpos[visual], model.geom_size[visual]
+        assert visual_center[2] + visual_half[2] == pytest.approx(bay.wall_height)
+        assert tuple(visual_center[:2]) == pytest.approx(tuple(center[:2]))
+        assert tuple(visual_half[:2]) == pytest.approx(tuple(half[:2]))
+        assert model.geom_conaffinity[visual] == 0
     back_low, back_high = boxes["dock_back_wall"]
     assert back_high[0] == pytest.approx(0.0)
     assert back_low[0] == pytest.approx(-bay.wall_thickness)

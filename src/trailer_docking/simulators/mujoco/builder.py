@@ -18,12 +18,14 @@ import MuJoCo; it only produces text.
 from __future__ import annotations
 
 import argparse
+import xml.etree.ElementTree as ElementTree
 from collections.abc import Sequence
 from dataclasses import dataclass
-from math import cos, sin
+from math import cos, isclose, sin
 from pathlib import Path
 
 from trailer_docking.core.config import (
+    ConfigurationError,
     DockConfiguration,
     VehicleConfiguration,
     load_dock_configuration,
@@ -40,6 +42,7 @@ TRACTOR_COLLISION_GEOM = "tractor_chassis_collision"
 TRAILER_COLLISION_GEOM = "trailer_body_collision"
 GROUND_GEOM = "ground"
 DOCK_WALL_GEOMS = ("dock_back_wall", "dock_left_wall", "dock_right_wall")
+DOCK_WALL_VISUAL_SUFFIX = "_visual"
 DOCK_ORIGIN_SITE = "dock_origin"
 DOCK_TARGET_SITE = "dock_target"
 
@@ -365,27 +368,63 @@ def build_vehicle_xml(
     return "\n".join(lines) + "\n"
 
 
-def _dock_geometry(dock: DockConfiguration) -> list[str]:
+def dock_collision_height(
+    vehicle: VehicleConfiguration, dock: DockConfiguration
+) -> float:
+    """Height of the wall collision volumes.
+
+    Docking collision is a planar concept in the shared contract: a footprint
+    either overlaps a wall or it does not.  The collision volumes therefore
+    span every chassis box regardless of the configured wall height, which
+    only sets how tall the visible wall is.  Otherwise a wall lower than the
+    trailer floor would let the trailer pass over it undetected.
+    """
+
+    tractor_top = vehicle.tractor.body_bottom_height + vehicle.tractor.body_height
+    trailer_top = vehicle.trailer.body_bottom_height + vehicle.trailer.body_height
+    return max(dock.geometry.wall_height, tractor_top, trailer_top)
+
+
+def _dock_geometry(vehicle: VehicleConfiguration, dock: DockConfiguration) -> list[str]:
     """Return dock walls and markers; the dock frame is the world frame."""
 
     bay = dock.geometry
     half_width = bay.interior_width / 2.0
     half_thickness = bay.wall_thickness / 2.0
-    half_height = bay.wall_height / 2.0
     half_depth = bay.interior_depth / 2.0
-    wall = 'type="box" contype="0" conaffinity="2" rgba="0.55 0.55 0.5 1"'
-    side_size = _v(half_depth, half_thickness, half_height)
-    lines = [
-        f'    <geom name="{DOCK_WALL_GEOMS[0]}" {wall}'
-        f' pos="{_v(-half_thickness, 0.0, half_height)}"'
-        f' size="{_v(half_thickness, half_width + bay.wall_thickness, half_height)}"/>',
-    ]
-    for name, sign in ((DOCK_WALL_GEOMS[1], 1.0), (DOCK_WALL_GEOMS[2], -1.0)):
-        center_y = sign * (half_width + half_thickness)
+    boxes = (
+        (
+            DOCK_WALL_GEOMS[0],
+            (-half_thickness, 0.0),
+            (half_thickness, half_width + bay.wall_thickness),
+        ),
+        (
+            DOCK_WALL_GEOMS[1],
+            (half_depth, half_width + half_thickness),
+            (half_depth, half_thickness),
+        ),
+        (
+            DOCK_WALL_GEOMS[2],
+            (half_depth, -(half_width + half_thickness)),
+            (half_depth, half_thickness),
+        ),
+    )
+    collision_half = dock_collision_height(vehicle, dock) / 2.0
+    visual_half = bay.wall_height / 2.0
+    lines = []
+    for name, (x, y), (half_x, half_y) in boxes:
+        # Invisible planar collision volume (group 3 is hidden by default).
         lines.append(
-            f'    <geom name="{name}" {wall}'
-            f' pos="{_v(half_depth, center_y, half_height)}"'
-            f' size="{side_size}"/>'
+            f'    <geom name="{name}" type="box" contype="0" conaffinity="2"'
+            f' group="3" pos="{_v(x, y, collision_half)}"'
+            f' size="{_v(half_x, half_y, collision_half)}"/>'
+        )
+        # Visible wall at the configured height; never collides.
+        lines.append(
+            f'    <geom name="{name}{DOCK_WALL_VISUAL_SUFFIX}" type="box"'
+            f' contype="0" conaffinity="0" rgba="0.55 0.55 0.5 1"'
+            f' pos="{_v(x, y, visual_half)}"'
+            f' size="{_v(half_x, half_y, visual_half)}"/>'
         )
     lines += [
         f'    <site name="{DOCK_ORIGIN_SITE}" pos="0 0 0" size="0.05" rgba="0 0 0 1"/>',
@@ -445,7 +484,7 @@ def build_scene_xml(
         '    <camera name="yard" pos="9 -16 9" xyaxes="1 0 0 0 0.469 0.883"/>',
     ]
     if dock is not None:
-        lines += _dock_geometry(dock)
+        lines += _dock_geometry(vehicle, dock)
     lines += [
         *_vehicle_body(vehicle, tuning, pose),
         "  </worldbody>",
@@ -466,6 +505,44 @@ def generated_files(
     }
 
 
+def _numbers(text: str) -> list[float] | None:
+    try:
+        return [float(token) for token in text.split()]
+    except ValueError:
+        return None
+
+
+def mjcf_equivalent(first: str, second: str, *, tolerance: float = 1e-9) -> bool:
+    """Compare two MJCF documents structurally, numbers within a tolerance.
+
+    Derived values such as Ackermann steering ranges pass through ``tan`` and
+    ``atan``, whose last bit may differ between platforms.  A byte comparison
+    of generated files would then report drift where there is none.
+    """
+
+    def same(a: ElementTree.Element, b: ElementTree.Element) -> bool:
+        if a.tag != b.tag or set(a.attrib) != set(b.attrib) or len(a) != len(b):
+            return False
+        for key, value in a.attrib.items():
+            other = b.attrib[key]
+            if value == other:
+                continue
+            left, right = _numbers(value), _numbers(other)
+            if left is None or right is None or len(left) != len(right):
+                return False
+            if not all(
+                isclose(x, y, rel_tol=tolerance, abs_tol=tolerance)
+                for x, y in zip(left, right, strict=True)
+            ):
+                return False
+        return all(same(x, y) for x, y in zip(a, b, strict=True))
+
+    try:
+        return same(ElementTree.fromstring(first), ElementTree.fromstring(second))
+    except ElementTree.ParseError:
+        return False
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -484,12 +561,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="write the generated files; otherwise only report drift",
     )
     args = parser.parse_args(argv)
-    vehicle = load_vehicle_configuration(args.vehicle)
-    dock = load_dock_configuration(args.dock)
+    try:
+        vehicle = load_vehicle_configuration(args.vehicle)
+        dock = load_dock_configuration(args.dock)
+    except ConfigurationError as error:
+        print(f"error: {error} (run from the repository root or pass paths)")
+        return 2
     drift = False
     for path, content in generated_files(vehicle, dock).items():
         current = path.read_text(encoding="utf-8") if path.is_file() else None
-        if current == content:
+        if current is not None and mjcf_equivalent(current, content):
             print(f"up to date: {path}")
         elif args.write:
             path.write_text(content, encoding="utf-8", newline="\n")

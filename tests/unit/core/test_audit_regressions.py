@@ -111,4 +111,5 @@ def test_supervisor_respects_rate_limit_when_angle_is_out_of_bounds(
         assert abs(rate) <= vehicle_config.limits.steering_rate_abs_max
         # The applied rate always moves the angle back toward its bound.
         assert rate * angle < 0.0
-        assert "steering_angle_limit" in assessment.reasons
+        # An intervention is reported exactly when the command was changed.
+        assert assessment.intervened == (assessment.applied != assessment.requested)

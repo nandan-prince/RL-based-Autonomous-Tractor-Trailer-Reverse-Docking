@@ -16,6 +16,7 @@ from trailer_docking.simulators.mujoco.builder import (
     build_scene_xml,
     build_vehicle_xml,
     generated_files,
+    mjcf_equivalent,
     steering_joint_ranges,
 )
 from trailer_docking.simulators.mujoco.builder import MujocoTuning as Tuning
@@ -116,7 +117,7 @@ def test_committed_mjcf_matches_generator(
 ) -> None:
     for path, expected in generated_files(vehicle_config, dock_config).items():
         assert path.is_file(), f"missing generated file {path}"
-        assert path.read_text(encoding="utf-8") == expected, (
+        assert mjcf_equivalent(path.read_text(encoding="utf-8"), expected), (
             f"{path.name} is out of date; run "
             "python -m trailer_docking.simulators.mujoco.builder --write"
         )

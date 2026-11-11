@@ -108,6 +108,10 @@ motivated each:
   with dock walls. The front wheels lie inside the tractor collision box and
   are grandchildren of the tractor body, so MuJoCo's parent-child filter does
   not exclude that contact.
+- *Planar wall collision.* Dock wall collision volumes extend above every
+  chassis box regardless of the configured wall height, which only sets the
+  visible wall. A wall lower than the trailer floor (`0.75 m`) otherwise let
+  the trailer reverse `4 m` through the back wall with no contact reported.
 - *Thin wheel contact geometry.* With full-width `0.12 m` cylinders the two rim
   contacts scrub whenever a wheel yaws. Steering then needed the full
   `200 N m` actuator limit and reached only about `0.04 rad/s` of the

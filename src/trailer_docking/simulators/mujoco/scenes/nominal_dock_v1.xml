@@ -38,9 +38,12 @@
     <geom name="ground" type="plane" size="0 0 1" material="yard" friction="1 0.005 0.0001" condim="3" contype="0" conaffinity="1"/>
     <camera name="overhead" pos="9 0 26" xyaxes="1 0 0 0 1 0"/>
     <camera name="yard" pos="9 -16 9" xyaxes="1 0 0 0 0.469 0.883"/>
-    <geom name="dock_back_wall" type="box" contype="0" conaffinity="2" rgba="0.55 0.55 0.5 1" pos="-0.05 0 0.5" size="0.05 0.85 0.5"/>
-    <geom name="dock_left_wall" type="box" contype="0" conaffinity="2" rgba="0.55 0.55 0.5 1" pos="3 0.8 0.5" size="3 0.05 0.5"/>
-    <geom name="dock_right_wall" type="box" contype="0" conaffinity="2" rgba="0.55 0.55 0.5 1" pos="3 -0.8 0.5" size="3 0.05 0.5"/>
+    <geom name="dock_back_wall" type="box" contype="0" conaffinity="2" group="3" pos="-0.05 0 1.275" size="0.05 0.85 1.275"/>
+    <geom name="dock_back_wall_visual" type="box" contype="0" conaffinity="0" rgba="0.55 0.55 0.5 1" pos="-0.05 0 0.5" size="0.05 0.85 0.5"/>
+    <geom name="dock_left_wall" type="box" contype="0" conaffinity="2" group="3" pos="3 0.8 1.275" size="3 0.05 1.275"/>
+    <geom name="dock_left_wall_visual" type="box" contype="0" conaffinity="0" rgba="0.55 0.55 0.5 1" pos="3 0.8 0.5" size="3 0.05 0.5"/>
+    <geom name="dock_right_wall" type="box" contype="0" conaffinity="2" group="3" pos="3 -0.8 1.275" size="3 0.05 1.275"/>
+    <geom name="dock_right_wall_visual" type="box" contype="0" conaffinity="0" rgba="0.55 0.55 0.5 1" pos="3 -0.8 0.5" size="3 0.05 0.5"/>
     <site name="dock_origin" pos="0 0 0" size="0.05" rgba="0 0 0 1"/>
     <site name="dock_target" pos="0.25 0 0" size="0.06" rgba="0.1 0.8 0.2 1"/>
     <site name="dock_bay_floor" type="box" pos="3 0 0" size="3 0.75 0.002" rgba="0.95 0.85 0.2 0.35"/>

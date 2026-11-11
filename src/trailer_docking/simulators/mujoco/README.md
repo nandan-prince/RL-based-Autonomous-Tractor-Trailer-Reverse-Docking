@@ -61,6 +61,9 @@ These are recorded with their evidence in `research/decisions.md` (D-007):
 - **Collision masks.** Wheels collide only with the ground and chassis boxes
   only with dock walls. The wheels sit inside the chassis footprint, so without
   masks the front wheels collide with their own tractor.
+- **Planar wall collision.** Wall collision volumes span every chassis box
+  whatever the configured wall height, so docking collision stays a planar
+  footprint test as in 2D; the configured height only sets the visible wall.
 - **Thin wheel contact.** Each wheel collides through a `0.02 m` wide cylinder
   on its centre plane; the full-width cylinder carries mass and visuals. A
   full-width rigid cylinder scrubs at both rims and saturated the `200 N m`

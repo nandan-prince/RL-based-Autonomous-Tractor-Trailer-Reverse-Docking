@@ -29,6 +29,12 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+trailer_docking = [
+  "simulators/mujoco/models/*.xml",
+  "simulators/mujoco/scenes/*.xml",
+]
+
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 pythonpath = ["src"]

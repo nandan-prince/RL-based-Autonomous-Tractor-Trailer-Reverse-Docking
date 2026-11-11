@@ -9,7 +9,7 @@ contract therefore needs no MuJoCo-specific observation or action code.
 
 from __future__ import annotations
 
-from math import atan2, cos, isclose, sin
+from math import atan2, cos, isclose, isfinite, sin
 from typing import Any
 
 import mujoco
@@ -178,15 +178,31 @@ class MujocoSimulator:
         model cannot represent either pose.
         """
 
+        # Validate every argument before touching simulator state, so a
+        # rejected call leaves the previous episode fully intact.
+        if tractor_pose is not None and not isinstance(tractor_pose, Pose2D):
+            raise ValueError("tractor_pose must be a Pose2D")
         limit = self.vehicle.limits.steering_angle_abs_max
-        steering = float(steering_angle)
+        for name, value in (
+            ("steering_angle", steering_angle),
+            ("settle_time", settle_time),
+        ):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"{name} must be a real number")
+        try:
+            steering = float(steering_angle)
+            settle = float(settle_time)
+        except OverflowError as error:
+            raise ValueError("steering_angle and settle_time must be finite") from error
         if not abs(steering) <= limit:
             raise ValueError(
                 f"steering_angle={steering} exceeds the +-{limit} rad limit"
             )
-        if settle_time < 0.0:
-            raise ValueError("settle_time cannot be negative")
+        if not (isfinite(settle) and settle >= 0.0):
+            raise ValueError("settle_time must be finite and non-negative")
         if trailer_yaw is not None:
+            # wrap_angle rejects non-finite and non-numeric input.
+            trailer_yaw = wrap_angle(trailer_yaw)
             start_yaw = (
                 tractor_pose.yaw
                 if tractor_pose is not None
@@ -225,8 +241,8 @@ class MujocoSimulator:
         self._applied = VehicleCommand(0.0, 0.0)
         self._write_controls()
         mujoco.mj_forward(self.model, self.data)
-        if settle_time > 0.0:
-            for _ in range(round(settle_time / self.model.opt.timestep)):
+        if settle > 0.0:
+            for _ in range(round(settle / self.model.opt.timestep)):
                 mujoco.mj_step(self.model, self.data)
             self.data.time = 0.0
             mujoco.mj_forward(self.model, self.data)

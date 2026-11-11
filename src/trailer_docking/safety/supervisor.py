@@ -50,17 +50,18 @@ def supervise_command(
     maximum_rate = (
         limits.steering_angle_abs_max - state.steering_angle
     ) / timing.controller_period
-    angle_safe_rate = _clip(steering_rate, minimum_rate, maximum_rate)
-    if angle_safe_rate != steering_rate:
-        reasons.append("steering_angle_limit")
     # If the measured angle is already outside its bound (possible with a
     # physical plant), the angle correction alone could demand more than the
     # rate limit.  Return toward the bound at no more than the rate limit.
-    steering_rate = _clip(
-        angle_safe_rate,
+    angle_safe_rate = _clip(
+        _clip(steering_rate, minimum_rate, maximum_rate),
         -limits.steering_rate_abs_max,
         limits.steering_rate_abs_max,
     )
+    # Record the reason only when this stage actually changed the command.
+    if angle_safe_rate != steering_rate:
+        reasons.append("steering_angle_limit")
+    steering_rate = angle_safe_rate
 
     target_speed = _clip(
         command.target_speed,
@@ -76,16 +77,17 @@ def supervise_command(
         state.longitudinal_speed - speed_delta,
         state.longitudinal_speed + speed_delta,
     )
-    if acceleration_safe_speed != target_speed:
-        reasons.append("acceleration_limit")
     # A measured speed beyond the limit (possible with a physical plant) would
     # otherwise let the acceleration window pull the target outside the speed
     # limit.  The speed limit takes precedence.
-    target_speed = _clip(
+    acceleration_safe_speed = _clip(
         acceleration_safe_speed,
         -limits.reverse_speed_abs_max,
         limits.forward_speed_max,
     )
+    if acceleration_safe_speed != target_speed:
+        reasons.append("acceleration_limit")
+    target_speed = acceleration_safe_speed
 
     return CommandAssessment(
         requested=command,
