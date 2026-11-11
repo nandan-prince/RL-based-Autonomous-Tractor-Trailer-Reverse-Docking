@@ -1,20 +1,36 @@
-# Third-party academic papers (local reading copies only)
+# Third-party academic papers are currently tracked; audit licenses before public release.
 # research/papers/*.pdf
 
 # Generated proposal intermediate
 docs/proposal/*.ps
+
+# Generated LaTeX intermediates and local paper build
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.log
+paper/*.out
+paper/*.pdf
+paper/*.synctex.gz
 
 # Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
 .venv/
 
 # Training artifacts
 checkpoints/
 runs/
 wandb/
+artifacts/
 
 # OS and editor files
 .DS_Store

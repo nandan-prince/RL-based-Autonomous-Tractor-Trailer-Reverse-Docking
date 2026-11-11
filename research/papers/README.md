@@ -1,5 +1,11 @@
 # Local Paper Copies
 
-This directory is reserved for personal reading copies of research papers. PDF files are ignored by Git and must not be committed unless their licenses explicitly permit redistribution.
+This directory contains study copies of the project's core papers. The PDFs are
+currently tracked in the working repository; that historical state does not
+establish permission to redistribute them.
 
-Use the publisher and author links in the parent [Academic Research Index](../README.md) when citing or sharing the papers.
+Before making the repository public or sending it outside the project team,
+audit each paper's license and remove any file that lacks redistribution rights.
+Do not add another PDF without documenting its source and license. Use the
+publisher and author links in the parent
+[Academic Research Index](../README.md) when citing or sharing papers.

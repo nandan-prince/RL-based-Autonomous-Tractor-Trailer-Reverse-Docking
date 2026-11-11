@@ -1,0 +1,32 @@
+\section{Related Work}
+
+Yan et al.\ combine a low-speed tractor--trailer kinematic model, reference
+trajectory errors, preview states, and PPO for reverse path following
+\cite{yan2024trajectory}. Their parameterization includes tractor wheelbase,
+rear-axle-to-hitch offset, and hitch-to-trailer-axle distance. Their work
+motivates the trajectory-relative observation planned for this project, but its
+software interface and several reproduction details are not adopted verbatim.
+
+Moradi and Mehrandezh formulate an NMPC local planner for forward and reverse
+tractor--trailer motion, including state and control constraints, articulation
+limits, obstacle avoidance, and a transition from a headless Python model to a
+Gazebo/ROS implementation \cite{moradi2022nmpc}. Their compact experimental
+dimensions and staged simulator workflow motivate the nominal vehicle scale
+and development sequence used here. Our primary comparison differs by using a
+shared fixed-speed, steering-rate plant interface for PPO and NMPC.
+
+Ma et al.\ separate long-horizon reference-line graph search from constrained
+reinforcement-learning trajectory generation \cite{ma2025hierarchical}. This
+supports a modular separation between path generation and local execution, but
+multi-lane yard routing is outside the critical path of the present study.
+Menz and Wenzel study PPO-generated demonstrations, behavioral cloning, and
+offline reinforcement learning for a steerable drawbar-trailer configuration
+\cite{menz2026imitation}. Their experiment-management and robustness questions
+are relevant, although their vehicle mechanism differs from the conventional
+semitrailer used here.
+
+PPO provides a continuous-action policy-gradient baseline with clipped policy
+updates \cite{schulman2017ppo}. NMPC will be implemented using CasADi
+\cite{andersson2019casadi} and an interior-point nonlinear-programming solver.
+Stable-Baselines3 is the planned PPO implementation \cite{raffin2021sb3}, and
+MuJoCo is the planned rigid-body physics backend \cite{todorov2012mujoco}.

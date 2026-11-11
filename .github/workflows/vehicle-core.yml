@@ -1,0 +1,25 @@
+name: Vehicle core
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Lint
+        run: ruff check src tests
+      - name: Type check
+        run: mypy
+      - name: Test and coverage
+        run: pytest --cov --cov-report=term-missing
+      - name: Specification conformance
+        run: python -m trailer_docking.validation.vehicle_spec

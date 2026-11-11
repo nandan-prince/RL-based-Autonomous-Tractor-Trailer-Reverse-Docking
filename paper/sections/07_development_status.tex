@@ -1,0 +1,33 @@
+\section{Development Status and Remaining Work}
+
+Table~\ref{tab:status} is the manuscript-level project map. A component is
+marked implemented only when corresponding repository code and tests exist.
+
+\begin{table*}[ht]
+  \centering
+  \caption{Current implementation status.}
+  \label{tab:status}
+  \begin{tabular}{p{0.34\textwidth}p{0.14\textwidth}p{0.43\textwidth}}
+    \toprule
+    Component & Status & Evidence or next gate \\
+    \midrule
+    Proposal and initial literature set & \implemented & Submitted proposal and four local study papers \\
+    Versioned vehicle and dock contract & \implemented & Specification and strict YAML configuration \\
+    Shared state, command, and geometry & \implemented & Unit tests and randomized transform checks \\
+    Provenance and conformance tooling & \implemented & Fingerprints and executable conformance report \\
+    Command supervision & \implemented & Auditable clipping and violation tests \\
+    2D kinematic propagation & \planned & Equation, integration, and convergence tests \\
+    Paths, previews, collision, and goal logic & \planned & Geometry and deterministic scenario tests \\
+    Gymnasium environment & \planned & API checker and seeded rollout tests \\
+    Simple closed-loop tracker & \planned & Straight and curved reference tracking \\
+    NMPC & \planned & Solver, feasibility, and timing validation \\
+    PPO & \planned & Training, evaluation, and curriculum evidence \\
+    MuJoCo vehicle and dock & \planned & Neutral pose, joint, contact, and parity checks \\
+    Comparative experiments & \planned & Frozen held-out scenarios and saved results \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+The immediate development gate is a verified 2D state-transition model. The
+next report revision must replace the planned kinematics description with the
+implemented equations, integrator, validation protocol, and measured errors.

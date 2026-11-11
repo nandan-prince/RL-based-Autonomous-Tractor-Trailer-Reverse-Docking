@@ -1,0 +1,36 @@
+\section{Experimental Protocol}
+
+\planned{} Experiments will be identified by immutable IDs and linked to a
+versioned configuration, Git state, dependency versions, vehicle and dock
+fingerprints, seeds, output paths, validity status, and interpretation notes.
+Large checkpoints and trajectories will remain outside the tracked manuscript,
+while compact metrics, summaries, and reproducible figures will be retained.
+
+The primary comparison will evaluate PPO and NMPC on identical held-out starts,
+target docks, geometry, plant limits, state availability, and safety definitions.
+Methodological asymmetries will be stated explicitly: NMPC receives an explicit
+prediction model, while PPO receives training experience and a selected
+observation representation. Offline training/tuning cost will be separated
+from online control computation.
+
+Planned metrics are:
+\begin{itemize}
+  \item docking success, collision, and jackknife rates;
+  \item final longitudinal, lateral, and trailer-heading error;
+  \item maximum articulation angle;
+  \item maneuver time and path length;
+  \item steering-rate magnitude and smoothness;
+  \item controller computation time and numerical failures; and
+  \item safety-supervisor intervention count.
+\end{itemize}
+
+After nominal performance is established, candidate robustness studies include
+held-out start poses, hitch-to-axle distances, bay dimensions, clearance, state
+noise, and model mismatch. Geometry variation alone will be described as
+sensitivity, robustness, or generalization; the term \emph{ablation} will be
+reserved for removing or modifying a defined component.
+
+Transfer evaluation will proceed only after 2D/MuJoCo parity checks establish
+matching frames, signs, dimensions, command timing, semantic sites, and event
+definitions. Zero-shot transfer, domain-randomized transfer, and MuJoCo
+fine-tuning will be reported as separate conditions if they are implemented.

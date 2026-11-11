@@ -1,0 +1,54 @@
+\section{Problem Formulation}
+
+\subsection{Task}
+
+The task contains one front-steered tractor and one non-steered, single-axle
+semitrailer operating at low speed on a level surface. The map and target dock
+are known. Simulator ground truth supplies the core state; perception, mapping,
+and dock recognition are not required for the primary comparison.
+
+An episode succeeds when the trailer docking point reaches the target within
+longitudinal, lateral, and heading tolerances, the complete trailer footprint
+is inside the bay, no collision has occurred, and articulation remains below
+the hard safety limit. Collision, jackknife, operating-boundary exit, numerical
+failure, and timeout will be categorized separately.
+
+\subsection{Coordinate conventions}
+
+The world frame is right-handed. The planar $x$ axis points right in an
+overhead plot, $y$ points up, and MuJoCo $z$ points upward. Body $x$ points
+forward and body $y$ points left. Yaw is counterclockwise from world $+x$.
+Longitudinal speed is positive forward and negative in reverse. Steering is
+positive to the left.
+
+The tractor pose $(x_t,y_t,\psi_t)$ is measured at the tractor rear-axle
+midpoint. The trailer pose $(x_r,y_r,\psi_r)$ is measured at the trailer-axle
+midpoint. Articulation is
+\begin{equation}
+  \alpha = \operatorname{wrap}(\psi_t-\psi_r),
+\end{equation}
+with values in $[-\pi,\pi)$.
+
+\subsection{Shared state and command}
+
+The implemented simulator-independent state contract is
+\begin{align}
+  s = (&x_t,y_t,\psi_t,x_r,y_r,\psi_r,x_h,y_h,\delta,\dot{\delta},v,\\
+       &\dot{\psi}_t,\dot{\psi}_r,t),
+\end{align}
+where $(x_h,y_h)$ is the measured hitch position, $\delta$ is the virtual
+bicycle steering angle, $v$ is longitudinal speed at the tractor rear axle,
+and $t$ is simulation time. Articulation and articulation rate are derived:
+\begin{equation}
+  \dot{\alpha}=\dot{\psi}_t-\dot{\psi}_r.
+\end{equation}
+They cannot be independently assigned in the shared state object.
+
+The high-level plant command is
+\begin{equation}
+  u=(\dot{\delta}_{\mathrm{cmd}},v_{\mathrm{target}}).
+\end{equation}
+For the primary comparison, $v_{\mathrm{target}}=-0.2\,\mathrm{m/s}$ is fixed
+by configuration and only steering rate is selected by the controller. The
+target-speed field is retained for scripted validation and separately defined
+future experiments.

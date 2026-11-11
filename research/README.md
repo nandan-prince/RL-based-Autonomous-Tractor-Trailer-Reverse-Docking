@@ -2,6 +2,11 @@
 
 This directory tracks the academic foundation for the autonomous tractor–trailer reverse-docking project. The initial reading set covers trajectory-aware reinforcement learning, nonlinear model predictive control, hierarchical motion planning, and imitation/offline reinforcement learning.
 
+Project-level research records:
+
+- [Engineering and research decisions](decisions.md)
+- [Open research questions](open_questions.md)
+
 ## Core papers
 
 | Paper | Main contribution | Project use |
@@ -39,6 +44,20 @@ For every paper, record:
 - Comparison table covering state, action, reward/cost, constraints, simulator, and metrics
 - Final rationale for the project’s observation, action, baseline, and evaluation choices
 
+## Current project decisions
+
+The first comparison uses the same low-speed on-axle vehicle contract for both
+controllers: steering rate is controller-selected, target speed is fixed at
+`-0.20 m/s`, and steering angle remains part of state. Vehicle/dock parameters
+and required MuJoCo names are versioned in YAML. See the
+[decision log](decisions.md) and frozen
+[vehicle/environment specification](../docs/design/vehicle-and-environment-specification.md)
+before translating a paper's notation into code.
+
 ## PDF policy
 
-The `papers/` directory is intended for local reading copies only and is ignored by Git. Do not redistribute publisher PDFs unless their licenses explicitly allow it. Prefer the stable links above in reports and repository documentation.
+The `papers/` directory contains local study copies and its PDFs are currently
+tracked in this working repository. Tracking is not evidence of redistribution
+permission. Before publishing or sharing the repository, audit every file's
+license and remove any copy that cannot legally be redistributed. Prefer the
+stable links above in reports and shared documentation.
