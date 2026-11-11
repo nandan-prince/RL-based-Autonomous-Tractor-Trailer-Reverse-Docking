@@ -107,8 +107,10 @@ These systems reinforce the project’s modular design: perception and localizat
 - Frozen version-1 vehicle and dock specification created
 - Shared vehicle state, command, geometry, strict configuration, provenance,
   command supervision, and conformance validation implemented
-- Complete MuJoCo naming contract and contributor handoff documented; the MJCF
-  model and Python adapter are not yet implemented
+- First MuJoCo vehicle, nominal dock scene, and shared-contract adapter
+  implemented and generated from the YAML specifications; validated against the
+  specification's kinematic equations, not yet against the 2D simulator
+- Local 3D and top-down viewers available (see below)
 - Living IEEE-format LaTeX report initialized from verified project state
 - Kinematic state propagation and simulator implementation not yet started
 
@@ -139,6 +141,26 @@ For MuJoCo development, install the additional maintained Python bindings:
 The optional dependency currently admits MuJoCo 3.14 releases through the next
 major version. See the MuJoCo contributor guide before creating or renaming any
 MJCF element.
+
+## Viewing the dock and vehicle
+
+Install the viewer extras and open the generated scene:
+
+```bash
+.venv/bin/pip install -e '.[dev,mujoco,viz]'
+.venv/bin/python -m trailer_docking.visualization.viewer --mode both
+```
+
+On Windows the interpreter is `.venv\Scripts\python`. `--mode 3d` opens the
+MuJoCo window, `--mode 2d` a top-down plot drawn from the shared planar state,
+and `--mode both` shows the two together from one simulation. Click a window,
+then use Up/Down to drive forward/reverse, Left/Right to steer, Space to stop,
+and Backspace to reset. `--demo` reverses straight into the bay, `--variant
+short|nominal|long` selects the trailer, `--no-dock` shows an empty yard, and
+`--speed 4` plays faster than real time.
+
+The MuJoCo backend supplies the motion in every mode until the 2D kinematic
+simulator exists; the top-down view itself depends only on the shared state.
 
 ## Team workflow
 

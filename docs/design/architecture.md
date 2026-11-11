@@ -29,7 +29,8 @@ src/trailer_docking/
 │   └── mujoco/                  MuJoCo adapter, XML models, scenes, and assets
 ├── environments/                Gymnasium API wrapper around the 2D stack
 ├── controllers/                 Geometric, NMPC, and PPO controller adapters
-└── evaluation/                  Scenarios, metrics, rollout runner, and reports
+├── evaluation/                  Scenarios, metrics, rollout runner, and reports
+└── visualization/               Local 3D and top-down viewers of the shared state
 tests/
 ├── unit/                        Mathematics and geometry tests
 └── integration/                 Environment, controller, and simulator-contract tests

@@ -16,6 +16,9 @@ dependencies = [
 mujoco = [
   "mujoco>=3.14,<4",
 ]
+viz = [
+  "matplotlib>=3.8",
+]
 dev = [
   "mypy>=1.10",
   "pytest>=8.0",

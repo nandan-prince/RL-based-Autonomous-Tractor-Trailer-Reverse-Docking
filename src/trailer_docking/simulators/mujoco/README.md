@@ -50,6 +50,10 @@ Regenerate the committed MJCF after any specification or tuning change with:
 python -m trailer_docking.simulators.mujoco.builder --write
 ```
 
+To look at the model and drive it from the keyboard, install the `viz` extra
+and run `python -m trailer_docking.visualization.viewer --mode both` (3D
+window plus a top-down plot of the shared state; see the repository README).
+
 ### Implementation choices to know about
 
 These are recorded with their evidence in `research/decisions.md` (D-007):
