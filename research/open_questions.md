@@ -30,12 +30,21 @@ command, and event parity checks pass.
 `state_limit_violations` defaults to a `1e-12` tolerance, which suits the
 exact 2D plant. In MuJoCo, with every command inside its limit, measured
 steering angle overshoots `0.50 rad` by about `0.001 rad`, measured steering
-rate reached `0.314 rad/s` against `0.30`, and measured speed `0.211 m/s`
+rate reached `0.349 rad/s` against `0.30`, and measured speed `0.214 m/s`
 against `0.20`. The function now accepts a `MeasurementTolerance`, and the
 MuJoCo backend publishes `MUJOCO_MEASUREMENT_TOLERANCE`. Still to decide: the
 environment-level rule, that is whether termination uses measured state with
 a per-backend tolerance or only commanded quantities, so that 2D and MuJoCo
 episodes end under the same conditions.
+
+## Q-007 — Steered front wheels outside the collision footprint
+
+Collision is defined on the chassis footprints in both simulators. At full
+steering lock the inner front wheel of the nominal vehicle extends about
+`0.11 m` beyond the body side, so that corner can overlap a dock wall with no
+collision reported. It only matters when the tractor itself is beside or
+inside the bay. Decide whether to accept this, widen the tractor footprint, or
+add the steered wheels to the planar collision test.
 
 ## Q-005 — Rigid pitch coupling at the hitch
 

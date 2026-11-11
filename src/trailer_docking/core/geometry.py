@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import cos, hypot, isclose, isfinite, sin
+from numbers import Real
 
 from trailer_docking.core.state import Point2D, Pose2D, VehicleState, wrap_angle
 
@@ -14,7 +15,7 @@ class GeometryValidationError(ValueError):
 
 
 def _is_real(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return isinstance(value, Real) and not isinstance(value, bool)
 
 
 def _positive(value: float, name: str) -> float:
@@ -279,7 +280,10 @@ class VehicleGeometry:
         if not isinstance(self.wheels, WheelGeometry):
             raise GeometryValidationError("vehicle wheels must be WheelGeometry")
         # Collision is evaluated on the chassis footprints only, in both
-        # simulators, so every wheel has to lie inside its body's footprint.
+        # simulators, so every wheel has to lie inside its body's footprint in
+        # the straight-ahead pose.  A front wheel at full steering lock can
+        # still swing slightly past the body side (about 0.11 m for the
+        # nominal vehicle); that corner is outside the collision contract.
         slack = 1e-9
         for name, track, body_width in (
             ("tractor front", self.tractor.front_track, self.tractor.body_width),
