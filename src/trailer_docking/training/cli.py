@@ -154,6 +154,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Invalid numeric options (for example --timesteps 0 or --episodes 0).
         print(f"error: {error}", file=sys.stderr)
         return EXIT_USAGE
+    except ImportError as error:
+        # Loading a saved policy needs PyTorch and Stable-Baselines3, which
+        # are optional so the rest of the package installs without them.
+        print(
+            f"error: {error}. Install the optional training dependencies with"
+            " pip install -e '.[rl,train]'.",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
 
 
 if __name__ == "__main__":
