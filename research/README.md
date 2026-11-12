@@ -54,6 +54,11 @@ and required MuJoCo names are versioned in YAML. See the
 [vehicle/environment specification](../docs/design/vehicle-and-environment-specification.md)
 before translating a paper's notation into code.
 
+The first MuJoCo vehicle, dock, and shared-state adapter are implemented and
+audited against that contract. This is engineering validation, not a controller
+result or claim of real-vehicle fidelity. Direct 2D/MuJoCo parity remains
+pending; see the [alignment audit](../docs/design/mujoco-alignment-audit.md).
+
 ## PDF policy
 
 The `papers/` directory contains local study copies and its PDFs are currently

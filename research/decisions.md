@@ -24,7 +24,7 @@ specification ID.
 ## D-002 — Initial control authority
 
 **Date:** 2026-11-11  
-**Status:** accepted; plant propagation not yet implemented
+**Status:** accepted; enforced by MuJoCo plant, 2D propagation planned
 
 The primary PPO-versus-NMPC comparison uses bounded steering rate as the only
 controller-selected action and a fixed reverse-speed target of `-0.2 m/s`.
@@ -77,18 +77,19 @@ template requires an explicit later decision.
 ## D-006 — MuJoCo model API and contributor handoff
 
 **Date:** 2026-11-11  
-**Status:** naming and documentation contract implemented; model planned
+**Status:** superseded by implemented model decision D-007
 
 The version-1 MuJoCo interface freezes names for the free joint, hitch,
 steering links and joints, every wheel body and spin joint, six semantic sites,
 and four steering/drive actuators. The complete contract lives in the vehicle
 YAML, strict configuration validation, frozen design specification, and the
-MuJoCo contributor guide. This avoids coupling the future adapter to MJCF
+MuJoCo contributor guide. This avoids coupling the adapter to MJCF
 element order or to undocumented names selected independently by the 3D team.
 
-Collision geometry will use primitives that match the planar footprints;
-decorative meshes remain visual-only. The vehicle XML, dock scene, adapter, and
-cross-simulator tests are still planned and must not be reported as implemented.
+Collision geometry uses primitives that match the planar footprints and
+decorative meshes remain visual-only. D-007 records the subsequent vehicle,
+dock, and adapter implementation; direct comparison with the project 2D
+simulator remains planned.
 
 ## D-007 — First MuJoCo vehicle, dock, and adapter
 
@@ -138,3 +139,27 @@ scenario only and are not a transfer result.
 The MuJoCo-only tuning values live in `MujocoTuning` in code because the
 strict version-1 YAML schema has no field for them. Moving them into the
 vehicle configuration needs a schema revision.
+
+## D-008 — MuJoCo alignment audit and verification scope
+
+**Date:** 2026-11-12
+**Status:** accepted
+
+The first MuJoCo implementation was re-audited against the frozen vehicle and
+dock contracts after merge. Geometry, semantic sites, names, signs, Ackermann
+mapping, command limits, timing, configured physical values, dock outlines,
+collision behavior, variants, deterministic stepping, and low-speed agreement
+with the specified equations are covered by automated tests. The detailed
+matrix is stored in `docs/design/mujoco-alignment-audit.md`.
+
+Direct parity with the project 2D simulator, environment-level safety and
+success events, and controller transfer remain unverified because those layers
+do not yet exist. MuJoCo-only tuning remains versioned in `MujocoTuning` rather
+than in the YAML fingerprint. Until a configuration-schema revision, every
+reported MuJoCo experiment must capture the Git revision and complete resolved
+tuning values in its manifest.
+
+Static analysis and branch-aware coverage now include the non-interactive
+MuJoCo adapter, Ackermann mapping, and generator. Interactive GUI loops remain
+outside the coverage gate and are checked through focused viewer tests and
+manual smoke use.

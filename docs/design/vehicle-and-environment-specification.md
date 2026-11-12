@@ -1,7 +1,9 @@
 # Vehicle and environment specification
 
 **Specification ID:** `compact-semitrailer-v1`  
-**Status:** frozen for the first 2D and MuJoCo implementations  
+**Status:** frozen; vehicle core and first MuJoCo implementation verified,
+2D implementation pending
+
 **Machine-readable sources:**
 [`configs/vehicles/compact_semitrailer_v1.yaml`](../../configs/vehicles/compact_semitrailer_v1.yaml)
 and
@@ -368,7 +370,7 @@ The nominal bay is:
 | Interior width | `1.50 m` |
 | Interior depth | `6.00 m` |
 | Wall thickness | `0.10 m` |
-| Wall height in MuJoCo | `1.00 m` |
+| Visible wall height in MuJoCo | `1.00 m` |
 | Collision margin | `0.03 m` |
 
 The interior occupies `x in [0, 6]` and `y in [-0.75, 0.75]`. Side walls
@@ -406,8 +408,8 @@ fixed reverse speed and terminates when the target tolerance is entered.
 
 ### 12.1 Required body and joint hierarchy
 
-The first MuJoCo model should follow this logical hierarchy; XML nesting may be
-factored into included files.
+The implemented MuJoCo model follows this logical hierarchy; generated XML may
+be factored differently in a later compatible revision.
 
 ```text
 tractor_body [tractor_free: free joint]
@@ -483,17 +485,28 @@ These are initial MuJoCo parameters, not inputs to the 2D kinematic equations:
 | Rear-wheel actuator torque limit | `400 N m` per wheel |
 | Steering actuator torque limit | `200 N m` per wheel |
 
-Initial inertias may be inferred from simple box and cylinder collision geometry.
-Mass, inertia, contact, damping, and actuator gains may be tuned for stable
-simulation without changing the shared vehicle contract. Any tuned values must
-be committed to the machine-readable vehicle configuration.
+Initial inertias may be inferred from simple box and cylinder geometry. Mass,
+inertia, contact, damping, and actuator gains may be tuned for stable simulation
+without changing the shared vehicle contract. The current resolved tuning is
+versioned in the `MujocoTuning` dataclass and recorded in research decision
+D-007, because schema version 1 does not contain those fields. Before a reported
+experiment, the complete tuning must be copied into its manifest or moved into
+a new machine-readable configuration schema; a vehicle YAML fingerprint alone
+does not identify it.
 
 ### 12.4 Collision geometry
 
-The first model must use simple box collision geometry for the tractor and
-trailer and simple cylinders for wheels. Decorative meshes must be visual-only.
-The planar projection of the chassis collision boxes must match the dimensions
-in Section 5.
+The implemented model uses simple box collision geometry for the tractor and
+trailer and cylinders for wheels. Decorative meshes are visual-only. The
+planar projection of the chassis collision boxes matches Section 5. Wheel
+contact uses a thin cylinder on each wheel center plane to avoid rigid-rim scrub;
+a separate full-width cylinder carries wheel mass and visual width.
+
+Dock collision implements the planar wall rule: collision volumes retain the
+configured wall outline and are vertically extruded above every chassis. A
+separate visual geom retains the configured wall height. This prevents a body
+from passing over a low wall while keeping 2D and 3D footprint collision
+semantics comparable.
 
 ## 13. Cross-simulator parity checks
 
@@ -514,6 +527,11 @@ Before either controller is transferred, the following checks must pass:
 Exact trajectory equality is not required because MuJoCo includes contact and
 actuator dynamics. Coordinate, geometry, command, and event equality is
 required.
+
+Items 1--7 and the MuJoCo side of items 8--10 are covered by automated tests.
+Full event equality and direct trajectory comparison remain pending until the
+2D simulator and Gymnasium task exist. The evidence and remaining gates are
+tracked in the [MuJoCo alignment audit](mujoco-alignment-audit.md).
 
 ## 14. Change control
 

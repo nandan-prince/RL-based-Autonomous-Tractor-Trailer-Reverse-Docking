@@ -320,7 +320,7 @@ class NamedPoint3D:
 
 @dataclass(frozen=True, slots=True)
 class MujocoNames:
-    """Stable MuJoCo identifiers used by the future adapter."""
+    """Stable MuJoCo identifiers resolved by the simulator adapter."""
 
     bodies: tuple[str, ...]
     joints: tuple[str, ...]

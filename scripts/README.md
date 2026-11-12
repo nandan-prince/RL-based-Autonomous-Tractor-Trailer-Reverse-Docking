@@ -14,9 +14,13 @@ fingerprints, accept an explicit seed, and write evidence under a unique
 experiment ID. They must not contain a second implementation of dynamics,
 observations, rewards, controllers, or metrics.
 
-The currently implemented conformance entry point lives in the package and can
-be run directly:
+Currently implemented utility entry points live in the package and can be run
+directly:
 
 ```bash
 .venv/bin/python -m trailer_docking.validation.vehicle_spec
+.venv/bin/python -m trailer_docking.simulators.mujoco.builder
+.venv/bin/python -m trailer_docking.visualization.viewer --mode 2d
 ```
+
+See the root README for platform-specific MuJoCo 3D viewer commands.

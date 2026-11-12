@@ -42,7 +42,12 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["trailer_docking.core", "trailer_docking.safety", "trailer_docking.validation"]
+source = [
+  "trailer_docking.core",
+  "trailer_docking.safety",
+  "trailer_docking.simulators.mujoco",
+  "trailer_docking.validation",
+]
 
 [tool.coverage.report]
 fail_under = 85
@@ -59,8 +64,13 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src/trailer_docking/core", "src/trailer_docking/safety", "src/trailer_docking/validation"]
+files = [
+  "src/trailer_docking/core",
+  "src/trailer_docking/safety",
+  "src/trailer_docking/simulators/mujoco",
+  "src/trailer_docking/validation",
+]
 
 [[tool.mypy.overrides]]
-module = "yaml"
+module = ["yaml", "mujoco", "mujoco.*"]
 ignore_missing_imports = true

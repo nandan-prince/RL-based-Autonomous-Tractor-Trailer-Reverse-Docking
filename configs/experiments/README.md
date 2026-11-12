@@ -6,6 +6,7 @@ least:
 - experiment ID and purpose
 - source revision and vehicle/dock specification fingerprints
 - simulator and controller configuration
+- complete resolved `MujocoTuning` values for every MuJoCo run
 - scenario distribution and held-out split
 - random seeds
 - trailer-length and dock-dimension variations

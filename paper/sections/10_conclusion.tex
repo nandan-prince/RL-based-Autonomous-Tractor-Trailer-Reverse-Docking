@@ -3,7 +3,9 @@
 The project currently has a frozen, executable cross-simulator contract for a
 compact tractor--semitrailer and loading dock. Shared state, command, geometry,
 configuration, provenance, safety-supervision, and conformance-validation code
-is implemented and tested. The next milestone is the two-dimensional kinematic
-state-transition model and its quantitative validation. Conclusions about PPO,
-NMPC, robustness, or MuJoCo transfer are deferred until reproducible experiments
-exist.
+is implemented and tested. A configuration-generated MuJoCo vehicle, dock, and
+shared-state adapter now satisfy the model-side contract and low-speed
+engineering checks. The next milestone is the two-dimensional kinematic
+state-transition model and its quantitative validation, followed by direct
+cross-backend parity. Conclusions about PPO, NMPC, robustness, or transfer are
+deferred until reproducible experiments exist.

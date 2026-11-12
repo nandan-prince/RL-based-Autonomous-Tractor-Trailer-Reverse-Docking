@@ -3,14 +3,15 @@
 No controller-training or comparative experimental results exist yet.
 
 The current evidence is limited to engineering validation of the shared core.
-The repository test suite contains 191 passing tests, including the MuJoCo model checks, with branch-aware coverage
-of approximately $91\%$ across the core, safety, and validation packages. Lint
-and strict static type checks pass. The executable conformance report verifies
+The repository test suite contains 192 passing tests, including the MuJoCo
+model checks, with branch-aware coverage of approximately $92\%$ across the
+core, safety, validation, and non-interactive MuJoCo packages. Lint and strict
+static type checks pass. The executable conformance report verifies
 the neutral rigid-hitch constraint, tractor and trailer footprint areas,
 integer 2D/MuJoCo timing ratios, nominal speed bounds, nominal trailer fit in
 the configured dock, and semantic-site coverage.
 
-These checks establish internal consistency of the software contract; they are
-not evidence that the vehicle kinematics, NMPC, PPO, or MuJoCo dynamics are
-correct. Numerical controller results, plots, confidence intervals, and failure
+These checks establish internal consistency and low-speed model behavior; they
+do not establish real-vehicle physical fidelity or controller performance.
+Numerical controller results, plots, confidence intervals, and failure
 categories will be added only from saved experiment IDs.

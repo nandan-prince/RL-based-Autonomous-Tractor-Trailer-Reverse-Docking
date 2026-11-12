@@ -62,6 +62,8 @@ responsibilities and implementation order. A 2D contributor should then read
 the [vehicle and environment specification](docs/design/vehicle-and-environment-specification.md).
 A 3D contributor should use the self-contained
 [MuJoCo contributor guide](src/trailer_docking/simulators/mujoco/README.md).
+The verified contract coverage and remaining 2D-parity gates are recorded in
+the [MuJoCo alignment audit](docs/design/mujoco-alignment-audit.md).
 
 The frozen cross-simulator dimensions, coordinate conventions, state and
 command contracts, dock geometry, and MuJoCo naming requirements are defined
@@ -111,7 +113,7 @@ These systems reinforce the project’s modular design: perception and localizat
   implemented and generated from the YAML specifications; validated against the
   specification's kinematic equations, not yet against the 2D simulator
 - Local 3D and top-down viewers available (see below)
-- Living IEEE-format LaTeX report initialized from verified project state
+- Living IEEE-format LaTeX report updated through the MuJoCo implementation
 - Kinematic state propagation and simulator implementation not yet started
 
 ## Vehicle-core verification
@@ -120,11 +122,12 @@ From the repository root:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e '.[dev]'
+.venv/bin/pip install -e '.[dev,mujoco,viz]'
 .venv/bin/ruff check src tests
 .venv/bin/mypy
 .venv/bin/pytest --cov --cov-report=term-missing
 .venv/bin/python -m trailer_docking.validation.vehicle_spec
+.venv/bin/python -m trailer_docking.simulators.mujoco.builder
 ```
 
 The conformance command loads the versioned YAML specifications, validates all
@@ -132,15 +135,9 @@ fields and cross-field constraints, reconstructs the neutral assembly, checks
 rigid geometry and dock fit, and prints configuration fingerprints suitable for
 future experiment manifests.
 
-For MuJoCo development, install the additional maintained Python bindings:
-
-```bash
-.venv/bin/pip install -e '.[dev,mujoco]'
-```
-
-The optional dependency currently admits MuJoCo 3.14 releases through the next
-major version. See the MuJoCo contributor guide before creating or renaming any
-MJCF element.
+The `mujoco` extra currently admits MuJoCo 3.14 releases through the next major
+version, and `viz` adds Matplotlib for the top-down viewer. See the MuJoCo
+contributor guide before creating or renaming any MJCF element.
 
 ## Demo
 
@@ -158,18 +155,38 @@ python3 -m venv .venv
 ```
 
 On Windows use `py -3.12 -m venv .venv` and replace `.venv/bin/` with
-`.venv\Scripts\` in every command below. On macOS the 3D window needs
-MuJoCo's launcher: use `.venv/bin/mjpython` in place of `.venv/bin/python` for
-`--mode 3d` and `--mode both` (`--mode 2d` works with plain `python`). Run all commands from the repository
+`.venv\Scripts\` in every command below. Run all commands from the repository
 root.
+
+On macOS, the 3D window requires MuJoCo's launcher. Because this repository
+path contains spaces, invoke that launcher through the virtual-environment
+Python:
+
+```bash
+.venv/bin/python .venv/bin/mjpython -m trailer_docking.visualization.viewer --mode 3d
+```
+
+The native MuJoCo and Matplotlib macOS event loops cannot currently share the
+same process, so `--mode both` is not supported on macOS. Run `--mode 3d` and
+`--mode 2d` in separate terminals. Those processes have independent simulator
+instances; use one at a time when exact synchronized playback matters. On
+platforms without that event-loop restriction, the commands below can use
+`.venv/bin/python` directly.
 
 ### 1. See the generated dock and vehicle — Available
 
 ```bash
+# Linux/Windows: both windows from one process
 .venv/bin/python -m trailer_docking.visualization.viewer --mode both
+
+# macOS terminal 1: MuJoCo 3D
+.venv/bin/python .venv/bin/mjpython -m trailer_docking.visualization.viewer --mode 3d
+
+# macOS terminal 2: shared-state top-down view
+.venv/bin/python -m trailer_docking.visualization.viewer --mode 2d
 ```
 
-Two windows open, driven by one simulation:
+In combined mode, two windows open and are driven by one simulation:
 
 - **3D (MuJoCo):** the tractor, trailer, and loading bay generated from the
   YAML specifications.
@@ -196,7 +213,11 @@ left uncorrected.
 ### 3. Watch a scripted reverse — Available
 
 ```bash
+# Linux/Windows
 .venv/bin/python -m trailer_docking.visualization.viewer --mode both --demo --speed 4
+
+# macOS 3D demo
+.venv/bin/python .venv/bin/mjpython -m trailer_docking.visualization.viewer --mode 3d --demo --speed 4
 ```
 
 The vehicle reverses straight into the bay and stops when the trailer touches

@@ -24,9 +24,9 @@ src/trailer_docking/
 ├── observations/                Controller-facing observation construction
 ├── safety/                      Collision, jackknife, limits, and command supervision
 ├── simulators/
-│   ├── base.py                  Common simulator protocol
-│   ├── kinematic/               Fast deterministic 2D state propagation
-│   └── mujoco/                  MuJoCo adapter, XML models, scenes, and assets
+│   ├── base.py                  Planned common simulator protocol
+│   ├── kinematic/               Planned deterministic 2D state propagation
+│   └── mujoco/                  Implemented adapter, generator, MJCF, and assets
 ├── environments/                Gymnasium API wrapper around the 2D stack
 ├── controllers/                 Geometric, NMPC, and PPO controller adapters
 ├── evaluation/                  Scenarios, metrics, rollout runner, and reports
@@ -40,7 +40,8 @@ tests/
 
 - `core` has no dependency on Gymnasium, Stable-Baselines3, CasADi, or MuJoCo.
 - `paths`, `observations`, and `safety` operate on shared core types.
-- simulator implementations conform to the protocol in `simulators/base.py`.
+- simulator implementations will conform to the protocol in
+  `simulators/base.py`; that protocol is still a placeholder.
 - controllers conform to the protocol in `controllers/base.py`.
 - the Gymnasium environment composes the 2D simulator and shared modules; it
   does not own a separate vehicle model.
@@ -59,5 +60,11 @@ logic.
 3. Implement paths, geometry, collision, jackknife, and preview calculations.
 4. Compose those modules into the Gymnasium environment.
 5. Add a simple controller, then NMPC and PPO.
-6. Implement the MuJoCo model and validate simulator-interface parity.
+6. Implement the MuJoCo model and validate its side of the simulator contract.
 7. Run shared held-out scenarios through the evaluation runner.
+
+Steps 1 and the MuJoCo portion of step 6 are implemented. The next critical
+step is the verified 2D kinematic simulator, after which direct cross-backend
+state, command, geometry, safety-event, and goal-event parity can be tested.
+See the [MuJoCo alignment audit](mujoco-alignment-audit.md) for the current
+contract-by-contract status.

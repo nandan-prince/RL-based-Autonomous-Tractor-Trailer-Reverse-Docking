@@ -23,6 +23,9 @@ equations, because the 2D backend does not exist yet), the common simulator
 protocol in `simulators/base.py`, and any controller or policy transfer result.
 Do not describe a transfer result as complete until those exist.
 
+The requirement-by-requirement evidence is summarized in the repository's
+[MuJoCo alignment audit](../../../../docs/design/mujoco-alignment-audit.md).
+
 ### Using the backend
 
 ```python
@@ -50,9 +53,12 @@ Regenerate the committed MJCF after any specification or tuning change with:
 python -m trailer_docking.simulators.mujoco.builder --write
 ```
 
-To look at the model and drive it from the keyboard, install the `viz` extra
-and run `python -m trailer_docking.visualization.viewer --mode both` (3D
-window plus a top-down plot of the shared state; see the repository README).
+To look at the model and drive it from the keyboard, install the `viz` extra.
+On Linux/Windows, run
+`python -m trailer_docking.visualization.viewer --mode both`. On macOS, run
+the 3D view through `mjpython` and the 2D view through ordinary Python in
+separate terminals; the two native GUI event loops cannot share one process.
+The exact commands are in the repository README.
 
 ### Implementation choices to know about
 
@@ -78,7 +84,9 @@ These are recorded with their evidence in `research/decisions.md` (D-007):
   limited inside `step`; the acceleration ramp is taken from the last applied
   speed target, not from measured speed.
 - **MuJoCo-only tuning** (gains, damping, armature, contact solver) lives in
-  `MujocoTuning` because the version-1 YAML schema has no place for it.
+  version-controlled `MujocoTuning` because the version-1 YAML schema has no
+  place for it. Its resolved values must be captured in experiment manifests
+  until a later schema moves them into configuration.
 
 ## Read these sources in order
 
@@ -159,8 +167,8 @@ be parameterized rather than copied into three unrelated models.
 ## Required MJCF API
 
 The exact names below are frozen in `mujoco.required_names`. The Python loader
-validates that the configuration retains them; the future adapter must validate
-that the compiled `MjModel` contains them.
+validates that the configuration retains them, and the implemented adapter
+validates that the compiled `MjModel` contains them.
 
 ### Bodies
 
@@ -269,13 +277,15 @@ worlds in `scenes/`, and optional appearance assets in `assets/`.
   test that detects drift. Prefer a small deterministic generator or model
   builder once multiple vehicle variants are required.
 
-## Intended files
+## Implemented files
 
-The first contribution should establish this layout:
+The current implementation has this layout:
 
 ```text
 mujoco/
 ├── adapter.py                         # Shared command/state translation
+├── ackermann.py                       # Virtual/physical steering mapping
+├── builder.py                         # Configuration-driven MJCF generation
 ├── models/
 │   └── compact_semitrailer_v1.xml     # Reusable vehicle model
 ├── scenes/
@@ -286,18 +296,22 @@ mujoco/
 Put MuJoCo integration tests under `tests/integration/mujoco/`. Reusable Python
 logic belongs in the package, not in one-off scripts or notebooks.
 
-## Recommended implementation sequence
+## Implemented development sequence
 
-1. Build and compile the primitive vehicle skeleton with every required name.
+Steps 1--7 below are complete and covered by tests:
+
+1. Compile the primitive vehicle skeleton with every required name.
 2. Match all six neutral semantic-site positions and collision footprints.
 3. Verify a free tractor and passive hitch settle without explosive contacts.
-4. Add passive wheel spin, then Ackermann steering position actuators.
-5. Add rear-wheel velocity actuation and verify straight forward/reverse signs.
-6. Build the nominal dock from the environment YAML and verify wall contacts.
-7. Implement the adapter from `VehicleCommand` to actuators and from named
-   MuJoCo objects to `VehicleState`.
-8. Add deterministic smoke tests and 2D/MuJoCo parity tests before controller
-   integration or visual polishing.
+4. Add passive wheel spin and Ackermann steering position actuators.
+5. Add rear-wheel velocity actuation and verify forward/reverse signs.
+6. Generate the nominal dock from environment YAML and verify wall contacts.
+7. Translate `VehicleCommand` to actuators and named MuJoCo state to
+   `VehicleState`.
+
+The remaining step is direct parity against the project 2D simulator, followed
+by controller integration. Current trajectory checks use a test-local RK4
+integration of the frozen equations.
 
 ## Required validation gates
 
@@ -328,6 +342,7 @@ tests, the decision log, and the living paper. Keep screenshots and videos as
 debugging evidence, but preserve machine-readable manifests and metrics for any
 claim used in the report.
 
-A MuJoCo handoff is complete only when another contributor can install the
+The model-level MuJoCo handoff is complete: another contributor can install the
 extra, load the named scene, run the tests, reproduce the neutral pose, and
-trace every model value back to a versioned repository source.
+trace model values to versioned sources. The research handoff is not complete
+until 2D event parity and controller transfer are evaluated.

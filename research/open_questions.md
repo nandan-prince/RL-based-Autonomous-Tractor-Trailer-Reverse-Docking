@@ -63,3 +63,13 @@ With the docking point at `x = 0.25 m`, the `long` variant's front face is at
 success rule cannot be met. The conformance check only evaluates the nominal
 variant. Decide on a deeper bay, a variant-specific rule, or dropping the rule
 for length-generalization experiments.
+
+## Q-008 — MuJoCo tuning provenance
+
+The vehicle YAML fingerprints geometry, limits, timing, masses, friction, and
+actuator force limits, but not `MujocoTuning` gains, damping, armature, contact
+width, solver choices, or rear-differential setting. Before reported MuJoCo
+experiments, decide whether to introduce a new configuration schema or require
+the experiment runner to serialize the complete resolved tuning object into
+every manifest. Git revision alone is reproducible but makes controlled tuning
+studies and configuration comparison less explicit.

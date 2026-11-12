@@ -3,6 +3,8 @@
 \planned{} Experiments will be identified by immutable IDs and linked to a
 versioned configuration, Git state, dependency versions, vehicle and dock
 fingerprints, seeds, output paths, validity status, and interpretation notes.
+MuJoCo runs will additionally store the complete resolved tuning values because
+those values are not part of the version-1 vehicle fingerprint.
 Large checkpoints and trajectories will remain outside the tracked manuscript,
 while compact metrics, summaries, and reproducible figures will be retained.
 

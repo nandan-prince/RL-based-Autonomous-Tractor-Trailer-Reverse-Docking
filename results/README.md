@@ -20,6 +20,10 @@ Large or regenerable outputs belong under ignored
 `artifacts/<experiment-id>/` paths. Record their locations and checksums in the
 manifest when they are needed for reproduction.
 
+For MuJoCo runs, the manifest must include the complete resolved
+`MujocoTuning` values as well as vehicle/dock fingerprints and the Git revision.
+The tuning values are not currently included in the vehicle YAML fingerprint.
+
 Never overwrite a completed result directory. Preserve meaningful failed or
 negative runs and label invalid implementation runs clearly. Every manuscript
 number, table, and experimental figure must identify the experiment IDs from

@@ -64,7 +64,7 @@ The versioned vehicle configuration now also freezes the complete MuJoCo
 identifier contract for the tractor and trailer bodies, steering links, wheel
 bodies, free joint, hitch and steering joints, passive wheel-spin joints, and
 four actuators. This naming layer is part of the simulator API: it permits the
-future adapter and parity tests to resolve model elements deterministically
+implemented adapter and parity tests to resolve model elements deterministically
 without depending on XML ordering.
 
 A first MuJoCo model now implements this contract. The MJCF for the vehicle
@@ -85,3 +85,8 @@ Vehicle and dock YAML files contain separate schema versions and specification
 identifiers. Normalized configuration fingerprints are designed to be recorded
 with future experiment manifests. A new dimension set therefore changes the
 result provenance without requiring controller-interface changes.
+
+MuJoCo-only gains, damping, armature, contact width, and solver choices are
+versioned in code rather than in the version-1 YAML schema. Consequently, a
+reported MuJoCo experiment must also record the source revision and resolved
+tuning values; the vehicle fingerprint alone is insufficient provenance.

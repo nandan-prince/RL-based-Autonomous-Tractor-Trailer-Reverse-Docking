@@ -1,6 +1,6 @@
 """Interactive local viewers for the generated dock and vehicle.
 
-Run from the repository root::
+On Linux and Windows, run from the repository root::
 
     python -m trailer_docking.visualization.viewer --mode both
 
@@ -15,6 +15,11 @@ the same shared state.  Click a window to give it keyboard focus, then:
 
 ``--demo`` replaces the keyboard with a scripted straight reverse into the bay.
 
+On macOS, MuJoCo 3D must run through ``mjpython`` while Matplotlib's native
+top-down window must run through ordinary Python. The two GUI event loops cannot
+share the current process, so use ``--mode 3d`` and ``--mode 2d`` in separate
+terminals instead of ``--mode both``.
+
 The MuJoCo backend is the state source in every mode, because the project's 2D
 kinematic simulator is not implemented yet; the top-down plot only consumes the
 shared ``VehicleState`` and will work unchanged with that backend.
@@ -23,6 +28,7 @@ shared ``VehicleState`` and will work unchanged with that backend.
 from __future__ import annotations
 
 import argparse
+import platform
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -135,6 +141,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.speed <= 0.0:
         raise SystemExit("--speed must be positive")
+    if platform.system() == "Darwin" and args.mode == "both":
+        raise SystemExit(
+            "--mode both is not supported on macOS: run --mode 3d through "
+            "mjpython and --mode 2d through ordinary Python in separate terminals"
+        )
 
     # Imported here so --help works without the optional dependencies.
     from trailer_docking.simulators.mujoco.adapter import MujocoSimulator
@@ -188,8 +199,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 plt.close("all")
             raise SystemExit(
                 f"error: cannot open the 3D viewer: {error}. On macOS run this"
-                " command with .venv/bin/mjpython instead of python, or use"
-                " --mode 2d."
+                " command through the virtual-environment mjpython launcher,"
+                " or use --mode 2d with ordinary Python."
             ) from error
         viewer.cam.lookat[:] = (9.0 if dock is not None else 0.0, 0.0, 0.5)
         viewer.cam.distance = 24.0
