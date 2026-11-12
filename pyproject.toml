@@ -16,6 +16,13 @@ dependencies = [
 mujoco = [
   "mujoco>=3.14,<4",
 ]
+rl = [
+  "gymnasium>=1.0",
+  "numpy>=1.26",
+]
+train = [
+  "stable-baselines3>=2.3",
+]
 viz = [
   "matplotlib>=3.8",
 ]

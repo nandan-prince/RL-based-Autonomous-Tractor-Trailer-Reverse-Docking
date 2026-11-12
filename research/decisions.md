@@ -138,3 +138,54 @@ scenario only and are not a transfer result.
 The MuJoCo-only tuning values live in `MujocoTuning` in code because the
 strict version-1 YAML schema has no field for them. Moving them into the
 vehicle configuration needs a schema revision.
+
+## D-008 — Learning-pipeline and control-UI skeleton
+
+**Date:** 2026-11-11
+**Status:** interfaces implemented and tested; reward, planner, and
+observation scaling are placeholders; no trained result exists
+
+The skeleton follows the proposal's pipeline: start state and dock, then a
+path planner, then path-relative errors and preview points, then the policy,
+then a bounded steering-rate command at the fixed reverse speed.
+
+- *Simulator protocol.* `simulators/base.py` defines `reset`, `step`, `state`,
+  `applied_command`, and `controller_period`. The environment, training, and
+  UI depend only on it. MuJoCo is the default backend until the 2D simulator
+  exists.
+- *Reference path.* The path is the route of the trailer-axle midpoint, with
+  the desired trailer heading at each waypoint, arc length, and curvature.
+  This matches the tracked point of the trajectory-state paper (Yan et al.,
+  2024) and of the NMPC paper's reference pose.
+- *Planner.* `FixedDockingPlanner` is a predefined curve onto the bay axis
+  followed by a straight reverse, the proposal's "predefined straight and
+  curved docking paths". It is geometric only: it does not verify trailer
+  feasibility or collisions. The trajectory-state paper uses Dubins paths; the
+  proposal names Reeds-Shepp or Hybrid A* as later options.
+- *Observation.* Trailer lateral error, trailer and tractor heading errors,
+  articulation angle and rate, steering angle and rate, remaining distance,
+  and three preview points at 1, 2, and 4 m. Each preview carries the error
+  triple of the trajectory-state paper (lateral offset in the trailer frame,
+  trailer and tractor heading errors). That paper does not state the preview
+  count, spacing, sign convention, or normalization, so those are project
+  choices still to be made and are plain constants for now.
+- *Reward.* Progress along the path, lateral, heading, and articulation
+  penalties, a small steering-rate penalty, a docking bonus, and a failure
+  penalty, as listed in the proposal. All weights are untuned placeholders.
+- *Termination.* Docking success (specification section 11.1), jackknife,
+  planar wall collision, leaving the path corridor, and timeout, all computed
+  from the shared planar state so they are identical across backends.
+- *Scenario.* An editable scenario is the frozen base specifications plus
+  explicit overrides and a start-pose distribution. The frozen YAML files are
+  never modified. Mass and ground friction are marked physics-only because
+  the 2D kinematic model has no counterpart for them.
+
+Evidence so far is limited to software checks: the environment passes the
+Gymnasium API checker, a zero-steer command docks from an aligned start, and a
+30,000-step PPO smoke run completed, saved and reloaded a policy, and reached
+0 % success. That run is a pipeline check, not an experiment.
+
+Path generation, collision checking, and baseline control are led by Nandan in
+the proposal's division of work; the planner, collision, and success modules
+here are minimal stand-ins that define the interfaces and are expected to be
+replaced or extended.

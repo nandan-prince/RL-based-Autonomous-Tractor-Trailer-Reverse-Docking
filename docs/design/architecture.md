@@ -27,7 +27,9 @@ src/trailer_docking/
 │   ├── base.py                  Common simulator protocol
 │   ├── kinematic/               Fast deterministic 2D state propagation
 │   └── mujoco/                  MuJoCo adapter, XML models, scenes, and assets
-├── environments/                Gymnasium API wrapper around the 2D stack
+├── environments/                Gymnasium API wrapper over any simulator backend
+├── training/                    PPO training sessions, docking tests, and CLI
+├── ui/                          Desktop control UI (parameters, training, tests)
 ├── controllers/                 Geometric, NMPC, and PPO controller adapters
 ├── evaluation/                  Scenarios, metrics, rollout runner, and reports
 └── visualization/               Local 3D and top-down viewers of the shared state
