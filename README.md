@@ -111,6 +111,10 @@ These systems reinforce the project’s modular design: perception and localizat
   implemented and generated from the YAML specifications; validated against the
   specification's kinematic equations, not yet against the 2D simulator
 - Local 3D and top-down viewers available (see below)
+- Skeleton of the learning pipeline: planner interface with a fixed
+  docking path, path-relative observation, Gymnasium environment, PPO
+  training and docking-test runner, and a control UI; interfaces are in
+  place, reward and planner are placeholders, no trained result yet
 - Living IEEE-format LaTeX report initialized from verified project state
 - Kinematic state propagation and simulator implementation not yet started
 
@@ -213,37 +217,90 @@ Any vehicle or dock YAML that passes validation can be viewed this way; copy
 one of the files under `configs/`, change a value such as the bay width, and
 pass the new path.
 
-### 5. Adjust parameters in a UI — Planned
+### 5. See the planned route — Available (skeleton planner)
 
-A control panel for dock dimensions, vehicle size and mass, and ground and
-contact physics, saving each edited scenario as a new named configuration.
+Every docking episode starts with a path planner producing a reference route
+for the trailer axle from the start pose to the dock; the agent's job is to
+follow it. The viewer from steps 1–3 draws that route as a green line in both
+windows. Press `P` to show or hide it.
 
-_To be documented: how to open the panel, which parameters affect both
-simulators and which affect only the 3D physics, and where saved
-configurations are written._
+The current planner is a fixed curve-then-straight path. It does not yet check
+that the trailer can actually follow the curve or that it clears obstacles;
+Reeds–Shepp or Hybrid A* planners can replace it behind the same interface.
 
-### 6. Train a docking policy and watch it learn — Planned
+### 6. Adjust parameters in the control UI — Available (skeleton)
 
-Start PPO training from the UI and watch episodes play back in the viewers as
-the policy improves.
+```bash
+.venv/bin/pip install -e '.[dev,mujoco,viz,rl,train]'
+.venv/bin/python -m trailer_docking.ui.app
+```
 
-_To be documented: the training command and UI control, where checkpoints and
-metrics are stored, and how to resume or stop a run._
+The **Scenario** tab edits a scenario: the frozen vehicle and dock
+specifications plus a small set of overrides. **Apply** rebuilds the scene;
+**Save scenario…** writes the scenario to its own YAML file. The frozen
+specification files are never modified.
 
-### 7. Run a docking test with a trained policy — Planned
+| Group | Parameters | Affects |
+|---|---|---|
+| Dock | Interior width and depth | 2D and 3D |
+| Vehicle | Trailer variant | 2D and 3D |
+| Start pose | Standoff, lateral offset, trailer yaw, articulation ranges | 2D and 3D |
+| Physics (3D only) | Tractor and trailer mass, ground friction | MuJoCo only |
 
-Choose a scenario and a trained policy, run a simulated docking attempt in 2D
-or 3D, and read the outcome (success, final error, collisions, jackknife).
+The live top-down view on the right shows the current scene, and **Show
+planned route** toggles the route.
 
-_To be documented: selecting a checkpoint, running a single test or a batch,
-and interpreting the reported metrics._
+_To be expanded: more dock and vehicle dimensions, obstacle placement, and
+contact and actuator settings._
+
+### 7. Train a docking policy and watch it learn — Available (skeleton)
+
+In the **Training** tab set a timestep budget and press **Start training**.
+PPO trains in the background while the top-down view shows the training
+episodes as they happen: early on the truck jackknifes, leaves the route, or
+hits the dock, and the status panel reports the recent success rate. **Stop**
+ends the run cleanly and keeps the latest checkpoint.
+
+The same run without the UI:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli train --timesteps 200000
+```
+
+Each run gets an experiment ID and writes `results/<id>/manifest.yaml` and
+`metrics.csv` (tracked) and `artifacts/<id>/checkpoints/` (ignored).
+
+**Read this before interpreting anything:** the reward weights, preview
+spacing, and observation scaling are placeholders, and the planner is
+unverified. A short run does not learn to dock. Training currently runs
+against the MuJoCo backend because the 2D simulator does not exist yet.
+
+_To be expanded: curriculum (straight, then curved, then randomized),
+domain randomization, parallel environments, resuming a run, and TensorBoard._
+
+### 8. Run a docking test — Available (skeleton)
+
+In the **Docking test** tab choose the latest checkpoint, a saved `.zip`
+policy, or the untrained straight-reverse baseline, set the number of
+episodes, and press **Run test**. The episodes play in the view and each one
+is listed with its outcome (docked, jackknife, collision, off path, timeout)
+and final errors.
+
+From the command line:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli test --episodes 20
+.venv/bin/python -m trailer_docking.training.cli test --policy PATH/policy_final.zip --episodes 20
+```
+
+_To be expanded: NMPC as a second controller on the same route, held-out
+scenario sets, 3D playback of a test, and saved evaluation reports._
 
 ### What the demo currently does not show
 
-The 2D kinematic simulator, the Gymnasium environment, NMPC, and PPO are not
-implemented yet, so steps 1–4 use the MuJoCo backend for motion and there is no
-trained agent. The top-down view depends only on the shared state and will
-display the 2D simulator unchanged once it exists.
+The 2D kinematic simulator and NMPC are not implemented yet, so every step
+uses the MuJoCo backend for motion. The RL pieces are a working skeleton, not
+a result: no policy in this repository has been shown to dock reliably.
 
 ## Team workflow
 

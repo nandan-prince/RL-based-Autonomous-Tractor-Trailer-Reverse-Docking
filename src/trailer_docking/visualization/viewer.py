@@ -12,6 +12,7 @@ the same shared state.  Click a window to give it keyboard focus, then:
     Left / Right     steer left / right in small steps
     Space            stop (zero speed, hold steering)
     Backspace        reset to the start pose
+    P                show / hide the planned route
 
 ``--demo`` replaces the keyboard with a scripted straight reverse into the bay.
 
@@ -23,20 +24,23 @@ shared ``VehicleState`` and will work unchanged with that backend.
 from __future__ import annotations
 
 import argparse
+import itertools
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from trailer_docking.core.config import (
     VehicleLimits,
     load_dock_configuration,
     load_vehicle_configuration,
 )
-from trailer_docking.core.state import VehicleCommand, VehicleState
+from trailer_docking.core.state import Point2D, VehicleCommand, VehicleState
+from trailer_docking.paths.generators import plan_docking_route
 
 # GLFW key codes delivered by the MuJoCo viewer.
-KEY_SPACE, KEY_BACKSPACE = 32, 259
+KEY_SPACE, KEY_BACKSPACE, KEY_P = 32, 259, 80
 KEY_RIGHT, KEY_LEFT, KEY_DOWN, KEY_UP = 262, 263, 264, 265
 MATPLOTLIB_KEYS = {
     "up": KEY_UP,
@@ -46,6 +50,7 @@ MATPLOTLIB_KEYS = {
     " ": KEY_SPACE,
     "space": KEY_SPACE,
     "backspace": KEY_BACKSPACE,
+    "p": KEY_P,
 }
 STEERING_STEP = 0.05
 
@@ -63,6 +68,7 @@ class Teleop:
     desired_speed: float = 0.0
     desired_steering: float = 0.0
     reset_requested: bool = False
+    show_route: bool = True
 
     def press(self, key: int) -> None:
         limit = self.limits.steering_angle_abs_max
@@ -82,6 +88,8 @@ class Teleop:
             )
         elif key == KEY_BACKSPACE:
             self.reset_requested = True
+        elif key == KEY_P:
+            self.show_route = not self.show_route
 
     def clear(self) -> None:
         self.desired_speed = 0.0
@@ -94,6 +102,45 @@ class Teleop:
         rate_limit = self.limits.steering_rate_abs_max
         rate = (self.desired_steering - steering_target) / self.controller_period
         return VehicleCommand(_clip(rate, -rate_limit, rate_limit), self.desired_speed)
+
+
+def draw_route_3d(viewer: Any, points: Sequence[Point2D]) -> None:
+    """Draw the planned route on the ground of a MuJoCo passive viewer.
+
+    Passing no points clears it.  The route is purely visual: it lives in the
+    viewer's user scene and never enters the physics model.
+    """
+
+    import mujoco
+    import numpy as np
+
+    scene = viewer.user_scn
+    scene.ngeom = 0
+    stride = max(len(points) // 80, 1)
+    sampled = list(points[::stride])
+    if points and sampled[-1] is not points[-1]:
+        sampled.append(points[-1])
+    color = np.array([0.1, 0.75, 0.25, 1.0], dtype=np.float32)
+    for start, end in itertools.pairwise(sampled):
+        if scene.ngeom >= scene.maxgeom:
+            break
+        geom = scene.geoms[scene.ngeom]
+        mujoco.mjv_initGeom(
+            geom,
+            mujoco.mjtGeom.mjGEOM_CAPSULE,
+            np.zeros(3),
+            np.zeros(3),
+            np.zeros(9),
+            color,
+        )
+        mujoco.mjv_connector(
+            geom,
+            mujoco.mjtGeom.mjGEOM_CAPSULE,
+            0.03,
+            np.array([start.x, start.y, 0.02]),
+            np.array([end.x, end.y, 0.02]),
+        )
+        scene.ngeom += 1
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -183,6 +230,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(__doc__)
     state: VehicleState = simulator.state
+
+    def plan_route(start: VehicleState) -> tuple[Point2D, ...]:
+        # The same planner the docking environment uses, so what is drawn
+        # here is the route an agent would be asked to follow.
+        if dock is None:
+            return ()
+        return plan_docking_route(vehicle.geometry, dock.geometry, start).points
+
+    route = plan_route(state)
+    shown_route: tuple[Point2D, ...] | None = None
     try:
         while True:
             started = time.perf_counter()
@@ -206,6 +263,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                         state = simulator.reset()
                 else:
                     state = simulator.reset()
+                route = plan_route(state)
+                shown_route = None
+            wanted_route = route if teleop.show_route else ()
+            if wanted_route != shown_route:
+                shown_route = wanted_route
+                if topdown is not None:
+                    topdown.set_route(wanted_route)
+                if viewer is not None:
+                    with viewer.lock():
+                        draw_route_3d(viewer, wanted_route)
             if args.demo:
                 command = VehicleCommand(0.0, -vehicle.limits.reverse_speed_abs_max)
                 if simulator.wall_contacts():
