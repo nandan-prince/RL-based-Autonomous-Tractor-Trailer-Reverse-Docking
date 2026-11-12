@@ -84,7 +84,8 @@ def test_measurement_tolerance_never_relaxes_the_jackknife_threshold(
             MeasurementTolerance(speed=bad)
 
 
-@pytest.mark.parametrize("step", ["1e-320", "1e-9", "1e-300"])
+# YAML 1.1 only reads exponent notation as a float when it has a decimal point.
+@pytest.mark.parametrize("step", ["1.0e-320", "1.0e-9", "1.0e-300", "0.0000001"])
 @pytest.mark.parametrize("field", ["mujoco_physics_step", "kinematic_integration_step"])
 def test_absurd_integration_steps_are_configuration_errors(
     tmp_path: Path, vehicle_config: VehicleConfiguration, field: str, step: str
@@ -97,7 +98,7 @@ def test_absurd_integration_steps_are_configuration_errors(
     assert original in text
     path = tmp_path / "tiny_step.yaml"
     path.write_text(text.replace(original, f"  {field}: {step}\n"), encoding="utf-8")
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(ConfigurationError, match="too small"):
         load_vehicle_configuration(path)
     assert vehicle_spec.main(["--vehicle", str(path)]) == 2
 
