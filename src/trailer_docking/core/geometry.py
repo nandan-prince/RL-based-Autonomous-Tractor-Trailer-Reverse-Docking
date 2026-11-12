@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import cos, hypot, isclose, isfinite, sin
+from numbers import Real
 
 from trailer_docking.core.state import Point2D, Pose2D, VehicleState, wrap_angle
 
@@ -13,8 +14,33 @@ class GeometryValidationError(ValueError):
     """Raised when dimensions or geometric relationships are invalid."""
 
 
+def _is_real(value: object) -> bool:
+    return isinstance(value, Real) and not isinstance(value, bool)
+
+
+def _coerce_numbers(instance: object, names: tuple[str, ...]) -> None:
+    """Store the named fields as finite floats or raise a validation error.
+
+    Any real number (including NumPy scalars and fractions) is accepted and
+    converted, so later arithmetic and JSON fingerprinting see plain floats.
+    """
+
+    owner = type(instance).__name__
+    for name in names:
+        value = getattr(instance, name)
+        if not _is_real(value):
+            raise GeometryValidationError(f"{owner}.{name} must be a real number")
+        try:
+            converted = float(value)
+        except OverflowError as error:
+            raise GeometryValidationError(f"{owner}.{name} must be finite") from error
+        if not isfinite(converted):
+            raise GeometryValidationError(f"{owner}.{name} must be finite")
+        object.__setattr__(instance, name, converted)
+
+
 def _positive(value: float, name: str) -> float:
-    if not isfinite(value) or value <= 0.0:
+    if not _is_real(value) or not isfinite(value) or value <= 0.0:
         raise GeometryValidationError(f"{name} must be finite and greater than zero")
     return value
 
@@ -27,8 +53,7 @@ class Bounds1D:
     maximum: float
 
     def __post_init__(self) -> None:
-        if not isfinite(self.minimum) or not isfinite(self.maximum):
-            raise GeometryValidationError("bounds must be finite")
+        _coerce_numbers(self, ("minimum", "maximum"))
         if self.minimum >= self.maximum:
             raise GeometryValidationError("bounds require minimum < maximum")
 
@@ -109,6 +134,22 @@ class TractorGeometry:
     footprint_y: Bounds1D
 
     def __post_init__(self) -> None:
+        _coerce_numbers(
+            self,
+            (
+                "wheelbase",
+                "front_overhang",
+                "rear_overhang",
+                "body_width",
+                "front_track",
+                "rear_track",
+                "body_height",
+                "body_bottom_height",
+                "hitch_longitudinal",
+                "hitch_lateral",
+                "hitch_height",
+            ),
+        )
         for name in (
             "wheelbase",
             "front_overhang",
@@ -183,8 +224,20 @@ class TrailerGeometry:
     footprint_y: Bounds1D
 
     def __post_init__(self) -> None:
-        if not self.variant.strip():
-            raise GeometryValidationError("trailer variant cannot be empty")
+        if not isinstance(self.variant, str) or not self.variant.strip():
+            raise GeometryValidationError("trailer variant must be a non-empty string")
+        _coerce_numbers(
+            self,
+            (
+                "hitch_to_axle",
+                "front_overhang",
+                "rear_overhang",
+                "body_width",
+                "axle_track",
+                "body_height",
+                "body_bottom_height",
+            ),
+        )
         for name in (
             "hitch_to_axle",
             "front_overhang",
@@ -253,6 +306,7 @@ class WheelGeometry:
     width: float
 
     def __post_init__(self) -> None:
+        _coerce_numbers(self, ("radius", "width"))
         _positive(self.radius, "WheelGeometry.radius")
         _positive(self.width, "WheelGeometry.width")
 
@@ -272,6 +326,32 @@ class VehicleGeometry:
             raise GeometryValidationError("vehicle trailer must be TrailerGeometry")
         if not isinstance(self.wheels, WheelGeometry):
             raise GeometryValidationError("vehicle wheels must be WheelGeometry")
+        # Collision is evaluated on the chassis footprints only, in both
+        # simulators, so every wheel has to lie inside its body's footprint in
+        # the straight-ahead pose.  A front wheel at full steering lock can
+        # still swing slightly past the body side (about 0.11 m for the
+        # nominal vehicle); that corner is outside the collision contract.
+        slack = 1e-9
+        for name, track, body_width in (
+            ("tractor front", self.tractor.front_track, self.tractor.body_width),
+            ("tractor rear", self.tractor.rear_track, self.tractor.body_width),
+            ("trailer", self.trailer.axle_track, self.trailer.body_width),
+        ):
+            if track + self.wheels.width > body_width + slack:
+                raise GeometryValidationError(
+                    f"{name} wheels extend beyond the body width; collision"
+                    " footprints would not cover them"
+                )
+        for name, overhang in (
+            ("tractor front", self.tractor.front_overhang),
+            ("tractor rear", self.tractor.rear_overhang),
+            ("trailer rear", self.trailer.rear_overhang),
+        ):
+            if self.wheels.radius > overhang + slack:
+                raise GeometryValidationError(
+                    f"wheels extend beyond the {name} overhang; collision"
+                    " footprints would not cover them"
+                )
 
     def trailer_pose_from_hitch(self, hitch: Point2D, trailer_yaw: float) -> Pose2D:
         offset = rotate(Point2D(self.trailer.hitch_to_axle, 0.0), trailer_yaw)
@@ -353,6 +433,20 @@ class DockGeometry:
     def __post_init__(self) -> None:
         if not self.specification_id.strip():
             raise GeometryValidationError("dock specification_id cannot be empty")
+        _coerce_numbers(
+            self,
+            (
+                "interior_width",
+                "interior_depth",
+                "wall_thickness",
+                "wall_height",
+                "collision_margin",
+                "target_trailer_yaw",
+                "longitudinal_tolerance",
+                "lateral_tolerance",
+                "trailer_yaw_tolerance",
+            ),
+        )
         for name in (
             "interior_width",
             "interior_depth",
@@ -363,8 +457,12 @@ class DockGeometry:
             "trailer_yaw_tolerance",
         ):
             _positive(getattr(self, name), f"DockGeometry.{name}")
-        if self.collision_margin < 0.0:
-            raise GeometryValidationError("dock collision_margin cannot be negative")
+        if not isfinite(self.collision_margin) or self.collision_margin < 0.0:
+            raise GeometryValidationError(
+                "dock collision_margin must be finite and non-negative"
+            )
+        if not isinstance(self.target_position, Point2D):
+            raise GeometryValidationError("dock target_position must be Point2D")
         if self.collision_margin * 2.0 >= self.interior_width:
             raise GeometryValidationError("dock collision margins consume bay width")
         object.__setattr__(

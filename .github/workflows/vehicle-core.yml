@@ -14,7 +14,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install
-        run: python -m pip install -e '.[dev]'
+        run: python -m pip install -e '.[dev,mujoco,viz]'
       - name: Lint
         run: ruff check src tests
       - name: Type check
@@ -23,3 +23,5 @@ jobs:
         run: pytest --cov --cov-report=term-missing
       - name: Specification conformance
         run: python -m trailer_docking.validation.vehicle_spec
+      - name: Generated MJCF is up to date
+        run: python -m trailer_docking.simulators.mujoco.builder

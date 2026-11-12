@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from math import isfinite, pi
+from numbers import Real
 from typing import Any
 
 
@@ -21,19 +22,36 @@ class StateValidationError(ValueError):
 def _finite_float(value: float, field_name: str) -> float:
     """Return *value* as a float after rejecting booleans and non-finite data."""
 
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    # ``Real`` admits NumPy scalars such as float32, which policies emit.
+    if isinstance(value, bool) or not isinstance(value, Real):
         raise StateValidationError(f"{field_name} must be a real number")
-    converted = float(value)
+    try:
+        converted = float(value)
+    except OverflowError as error:
+        raise StateValidationError(f"{field_name} must be finite") from error
     if not isfinite(converted):
         raise StateValidationError(f"{field_name} must be finite")
     return converted
+
+
+def _require_mapping(data: Any, type_name: str) -> None:
+    if not isinstance(data, Mapping):
+        raise StateValidationError(f"{type_name} data must be a mapping")
 
 
 def wrap_angle(angle: float) -> float:
     """Wrap an angle in radians to the half-open interval ``[-pi, pi)``."""
 
     value = _finite_float(angle, "angle")
+    if -pi <= value < pi:
+        # Already in range: return it unchanged rather than perturbing the
+        # last bits through the modulo below.
+        return 0.0 if value == 0.0 else value
     wrapped = (value + pi) % (2.0 * pi) - pi
+    # Floating-point modulo can round a tiny negative operand up to the full
+    # period, which would return +pi; fold that back into the interval.
+    if wrapped >= pi:
+        wrapped = -pi
     # Do not expose negative zero in serialized states or diagnostics.
     return 0.0 if wrapped == 0.0 else wrapped
 
@@ -58,6 +76,7 @@ class Point2D:
     def from_dict(cls, data: Mapping[str, Any]) -> Point2D:
         """Construct a point from an exact ``x``/``y`` mapping."""
 
+        _require_mapping(data, "Point2D")
         if set(data) != {"x", "y"}:
             raise StateValidationError("Point2D mapping must contain only x and y")
         return cls(x=data["x"], y=data["y"])
@@ -91,6 +110,7 @@ class Pose2D:
     def from_dict(cls, data: Mapping[str, Any]) -> Pose2D:
         """Construct a pose from an exact ``x``/``y``/``yaw`` mapping."""
 
+        _require_mapping(data, "Pose2D")
         if set(data) != {"x", "y", "yaw"}:
             raise StateValidationError("Pose2D mapping must contain only x, y, and yaw")
         return cls(x=data["x"], y=data["y"], yaw=data["yaw"])
@@ -129,6 +149,7 @@ class VehicleCommand:
     def from_dict(cls, data: Mapping[str, Any]) -> VehicleCommand:
         """Construct a command without accepting silent extra fields."""
 
+        _require_mapping(data, "VehicleCommand")
         if set(data) != {"steering_rate", "target_speed"}:
             raise StateValidationError(
                 "VehicleCommand mapping must contain only steering_rate and "
@@ -231,6 +252,7 @@ class VehicleState:
             "simulation_time",
         }
         derived_fields = {"articulation_angle", "articulation_rate"}
+        _require_mapping(data, "VehicleState")
         keys = set(data)
         if not primitive_fields <= keys or keys - primitive_fields - derived_fields:
             missing = sorted(primitive_fields - keys)
@@ -253,7 +275,12 @@ class VehicleState:
         tolerance = 1e-12
         if (
             "articulation_angle" in data
-            and abs(wrap_angle(data["articulation_angle"] - state.articulation_angle))
+            and abs(
+                wrap_angle(
+                    _finite_float(data["articulation_angle"], "articulation_angle")
+                    - state.articulation_angle
+                )
+            )
             > tolerance
         ):
             raise StateValidationError("Serialized articulation_angle is inconsistent")

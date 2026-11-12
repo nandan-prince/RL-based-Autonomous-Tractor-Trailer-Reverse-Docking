@@ -1,0 +1,109 @@
+<!--
+  GENERATED FILE - do not edit by hand.
+  Source: configs/vehicles + configs/environments
+  Vehicle specification: compact-semitrailer-v1 (trailer variant: nominal)
+  Regenerate with the write option of
+  trailer_docking.simulators.mujoco.builder (see its module docstring).
+-->
+<mujoco model="nominal-dock-v1">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="10"/>
+  <default>
+    <default class="wheel">
+      <geom type="cylinder" size="0.3 0.01" zaxis="0 1 0" mass="0" friction="1 0.005 0.0001" condim="3" contype="1" conaffinity="0" group="3"/>
+    </default>
+    <default class="wheel_visual">
+      <geom type="cylinder" size="0.3 0.06" zaxis="0 1 0" mass="10" contype="0" conaffinity="0" rgba="0.12 0.12 0.12 1"/>
+    </default>
+    <default class="chassis">
+      <geom type="box" friction="1 0.005 0.0001" contype="2" conaffinity="0"/>
+    </default>
+    <default class="wheel_spin">
+      <joint type="hinge" axis="0 1 0" damping="0.05" armature="0.05"/>
+    </default>
+    <default class="semantic">
+      <site type="sphere" size="0.04" rgba="1 0.8 0 1"/>
+    </default>
+  </default>
+  <asset>
+    <texture name="yard" type="2d" builtin="checker" width="256" height="256" rgb1="0.36 0.38 0.4" rgb2="0.32 0.34 0.36"/>
+    <material name="yard" texture="yard" texrepeat="1 1" texuniform="true" reflectance="0"/>
+  </asset>
+  <visual>
+    <headlight ambient="0.45 0.45 0.45" diffuse="0.6 0.6 0.6"/>
+    <map zfar="200"/>
+  </visual>
+  <worldbody>
+    <light name="sun" pos="0 0 30" dir="0.2 0.1 -1" directional="true"/>
+    <geom name="ground" type="plane" size="0 0 1" material="yard" friction="1 0.005 0.0001" condim="3" contype="0" conaffinity="1"/>
+    <camera name="overhead" pos="9 0 26" xyaxes="1 0 0 0 1 0"/>
+    <camera name="yard" pos="9 -16 9" xyaxes="1 0 0 0 0.469 0.883"/>
+    <geom name="dock_back_wall" type="box" contype="0" conaffinity="2" group="3" pos="-0.05 0 1.275" size="0.05 0.85 1.275"/>
+    <geom name="dock_back_wall_visual" type="box" contype="0" conaffinity="0" rgba="0.55 0.55 0.5 1" pos="-0.05 0 0.5" size="0.05 0.85 0.5"/>
+    <geom name="dock_left_wall" type="box" contype="0" conaffinity="2" group="3" pos="3 0.8 1.275" size="3 0.05 1.275"/>
+    <geom name="dock_left_wall_visual" type="box" contype="0" conaffinity="0" rgba="0.55 0.55 0.5 1" pos="3 0.8 0.5" size="3 0.05 0.5"/>
+    <geom name="dock_right_wall" type="box" contype="0" conaffinity="2" group="3" pos="3 -0.8 1.275" size="3 0.05 1.275"/>
+    <geom name="dock_right_wall_visual" type="box" contype="0" conaffinity="0" rgba="0.55 0.55 0.5 1" pos="3 -0.8 0.5" size="3 0.05 0.5"/>
+    <site name="dock_origin" pos="0 0 0" size="0.05" rgba="0 0 0 1"/>
+    <site name="dock_target" pos="0.25 0 0" size="0.06" rgba="0.1 0.8 0.2 1"/>
+    <site name="dock_bay_floor" type="box" pos="3 0 0" size="3 0.75 0.002" rgba="0.95 0.85 0.2 0.35"/>
+    <body name="tractor_body" pos="15 0 0" quat="1 0 0 0">
+      <freejoint name="tractor_free"/>
+      <geom name="tractor_chassis_collision" class="chassis" pos="1.05 0 1" size="1.45 0.5 0.7" mass="760" rgba="0.16 0.36 0.72 1"/>
+      <site name="tractor_rear_axle" class="semantic" pos="0 0 0.3"/>
+      <site name="tractor_front_axle" class="semantic" pos="1.9 0 0.3"/>
+      <site name="hitch" class="semantic" pos="0 0 0.75"/>
+      <body name="front_left_steer_link" pos="1.9 0.4 0.3">
+        <inertial pos="0 0 0" mass="2" diaginertia="0.05 0.05 0.05"/>
+        <joint name="front_left_steer" type="hinge" axis="0 0 1" range="-0.45557737670447235 0.5530420927387643" damping="120" armature="1"/>
+        <body name="front_left_wheel" pos="0 0 0">
+          <joint name="front_left_wheel_spin" class="wheel_spin"/>
+          <geom name="front_left_wheel_collision" class="wheel"/>
+          <geom name="front_left_wheel_visual" class="wheel_visual"/>
+        </body>
+      </body>
+      <body name="front_right_steer_link" pos="1.9 -0.4 0.3">
+        <inertial pos="0 0 0" mass="2" diaginertia="0.05 0.05 0.05"/>
+        <joint name="front_right_steer" type="hinge" axis="0 0 1" range="-0.5530420927387643 0.45557737670447235" damping="120" armature="1"/>
+        <body name="front_right_wheel" pos="0 0 0">
+          <joint name="front_right_wheel_spin" class="wheel_spin"/>
+          <geom name="front_right_wheel_collision" class="wheel"/>
+          <geom name="front_right_wheel_visual" class="wheel_visual"/>
+        </body>
+      </body>
+      <body name="rear_left_wheel" pos="0 0.4 0.3">
+        <joint name="rear_left_wheel_spin" class="wheel_spin"/>
+        <geom name="rear_left_wheel_collision" class="wheel"/>
+        <geom name="rear_left_wheel_visual" class="wheel_visual"/>
+      </body>
+      <body name="rear_right_wheel" pos="0 -0.4 0.3">
+        <joint name="rear_right_wheel_spin" class="wheel_spin"/>
+        <geom name="rear_right_wheel_collision" class="wheel"/>
+        <geom name="rear_right_wheel_visual" class="wheel_visual"/>
+      </body>
+      <body name="trailer_body" pos="0 0 0.75">
+        <joint name="hitch_yaw" type="hinge" axis="0 0 1" range="-1.48353 1.48353" damping="5"/>
+        <geom name="trailer_body_collision" class="chassis" pos="-2.25 0 0.8999999999999999" size="2.75 0.5 0.9" mass="1180" rgba="0.82 0.82 0.85 0.85"/>
+        <site name="trailer_axle" class="semantic" pos="-4 0 -0.45"/>
+        <site name="trailer_rear_face" class="semantic" pos="-5 0 0.8999999999999999"/>
+        <site name="docking_point" class="semantic" pos="-5 0 -0.75" rgba="1 0.2 0.2 1"/>
+        <body name="trailer_left_wheel" pos="-4 0.4 -0.45">
+          <joint name="trailer_left_wheel_spin" class="wheel_spin"/>
+          <geom name="trailer_left_wheel_collision" class="wheel"/>
+          <geom name="trailer_left_wheel_visual" class="wheel_visual"/>
+        </body>
+        <body name="trailer_right_wheel" pos="-4 -0.4 -0.45">
+          <joint name="trailer_right_wheel_spin" class="wheel_spin"/>
+          <geom name="trailer_right_wheel_collision" class="wheel"/>
+          <geom name="trailer_right_wheel_visual" class="wheel_visual"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <position name="front_left_steer_position" joint="front_left_steer" kp="20000" ctrlrange="-0.45557737670447235 0.5530420927387643" forcerange="-200 200"/>
+    <position name="front_right_steer_position" joint="front_right_steer" kp="20000" ctrlrange="-0.5530420927387643 0.45557737670447235" forcerange="-200 200"/>
+    <velocity name="rear_left_wheel_velocity" joint="rear_left_wheel_spin" kv="1500" forcerange="-400 400"/>
+    <velocity name="rear_right_wheel_velocity" joint="rear_right_wheel_spin" kv="1500" forcerange="-400 400"/>
+  </actuator>
+</mujoco>

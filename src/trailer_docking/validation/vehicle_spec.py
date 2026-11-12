@@ -15,6 +15,7 @@ from math import cos, isclose, sin
 from pathlib import Path
 
 from trailer_docking.core.config import (
+    ConfigurationError,
     DockConfiguration,
     VehicleConfiguration,
     load_dock_configuration,
@@ -159,8 +160,12 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    vehicle = load_vehicle_configuration(args.vehicle)
-    dock = load_dock_configuration(args.dock)
+    try:
+        vehicle = load_vehicle_configuration(args.vehicle)
+        dock = load_dock_configuration(args.dock)
+    except ConfigurationError as error:
+        print(f"error: {error} (run from the repository root or pass paths)")
+        return 2
     report = run_conformance_checks(vehicle, dock)
     if args.json_output:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))

@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
-from math import isclose, isfinite
+from math import isclose, isfinite, pi, tan
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +23,9 @@ from trailer_docking.core.geometry import (
 from trailer_docking.core.state import Point2D, wrap_angle
 
 CURRENT_SCHEMA_VERSION = 1
+# Upper bound on integration substeps per controller period.  It rejects
+# denormal or mistyped step sizes that would never finish one step.
+MAX_SUBSTEPS_PER_CONTROL = 100_000
 
 
 class ConfigurationError(ValueError):
@@ -56,7 +59,10 @@ def _text(value: Any, path: str) -> str:
 def _number(value: Any, path: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ConfigurationError(f"{path} must be a real number")
-    converted = float(value)
+    try:
+        converted = float(value)
+    except OverflowError as error:
+        raise ConfigurationError(f"{path} must be finite") from error
     if not isfinite(converted):
         raise ConfigurationError(f"{path} must be finite")
     return converted
@@ -104,12 +110,55 @@ def _normalized_fingerprint(data: Mapping[str, Any]) -> str:
     return sha256(serialized.encode("utf-8")).hexdigest()
 
 
+class _StrictLoader(yaml.SafeLoader):  # type: ignore[misc]
+    """Safe YAML loader that rejects duplicate mapping keys.
+
+    Plain ``safe_load`` silently keeps the last duplicate, which would let a
+    frozen value be overridden further down a file without any error.
+    """
+
+
+def _construct_unique_mapping(
+    loader: _StrictLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    seen: set[Any] = set()
+    for key_node, _ in node.value:
+        if key_node.tag == "tag:yaml.org,2002:merge":
+            # ``<<: *anchor`` is resolved by the base constructor below; keys
+            # it brings in may legitimately be overridden by explicit ones.
+            continue
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            duplicate = key in seen
+        except TypeError:
+            # Unhashable keys are rejected by the base constructor below.
+            continue
+        if duplicate:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"found duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        seen.add(key)
+    return dict(loader.construct_mapping(node, deep=deep))
+
+
+_StrictLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_unique_mapping
+)
+
+
 def _read_yaml(path: str | Path) -> tuple[Mapping[str, Any], Path]:
     resolved = Path(path).expanduser().resolve()
     if not resolved.is_file():
         raise ConfigurationError(f"configuration file does not exist: {resolved}")
     try:
-        loaded = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+        # The loader class is a SafeLoader subclass that also rejects
+        # duplicate mapping keys.
+        loaded = yaml.load(resolved.read_text(encoding="utf-8"), Loader=_StrictLoader)
+    except (OSError, UnicodeDecodeError) as error:
+        raise ConfigurationError(f"cannot read {resolved}: {error}") from error
     except yaml.YAMLError as error:
         raise ConfigurationError(f"invalid YAML in {resolved}: {error}") from error
     return _mapping(loaded, str(resolved)), resolved
@@ -216,7 +265,14 @@ class SimulationTiming:
             ("mujoco_physics_step", self.mujoco_physics_step),
         ):
             ratio = self.controller_period / step
-            if not isclose(ratio, round(ratio), rel_tol=0.0, abs_tol=1e-10):
+            if not isfinite(ratio) or ratio > MAX_SUBSTEPS_PER_CONTROL:
+                raise ConfigurationError(
+                    f"{step_name} is too small: more than"
+                    f" {MAX_SUBSTEPS_PER_CONTROL} substeps per controller period"
+                )
+            if round(ratio) < 1 or not isclose(
+                ratio, round(ratio), rel_tol=0.0, abs_tol=1e-10
+            ):
                 raise ConfigurationError(
                     f"controller_period must be an integer multiple of {step_name}"
                 )
@@ -349,6 +405,12 @@ class MujocoParameters:
             raise ConfigurationError("MuJoCo vectors must be finite")
         if any(value < 0.0 for value in self.contact_friction):
             raise ConfigurationError("MuJoCo contact friction cannot be negative")
+        # The shared contract fixes +z up with the vehicle resting on the
+        # ground, so gravity has to act along -z and the ground needs grip.
+        if self.gravity[2] >= 0.0 or self.gravity[0] != 0.0 or self.gravity[1] != 0.0:
+            raise ConfigurationError("MuJoCo gravity must point down along -z")
+        if self.contact_friction[0] <= 0.0:
+            raise ConfigurationError("MuJoCo sliding friction must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -384,6 +446,15 @@ class VehicleConfiguration:
             raise ConfigurationError("trailer variant names must be unique")
         if self.trailer.variant not in names:
             raise ConfigurationError("selected trailer variant is not defined")
+        # Every named variant must form a valid vehicle, not only the
+        # selected one, so selecting a variant later cannot fail.
+        for variant in self.trailer_variants:
+            try:
+                VehicleGeometry(self.tractor, variant, self.wheels)
+            except ValueError as error:
+                raise ConfigurationError(
+                    f"trailer variant {variant.variant!r} is invalid: {error}"
+                ) from error
         selected = self.trailer_variant(self.trailer.variant)
         for field_name in ("hitch_to_axle", "front_overhang", "rear_overhang"):
             if not isclose(
@@ -398,6 +469,18 @@ class VehicleConfiguration:
             <= self.limits.forward_speed_max
         ):
             raise ConfigurationError("nominal target speed exceeds vehicle limits")
+        # The inner wheel of an Ackermann pair reaches 90 degrees when the
+        # turning radius equals half the front track; beyond that the virtual
+        # steering angle has no physical wheel angles.
+        steering_limit = self.limits.steering_angle_abs_max
+        if steering_limit >= pi / 2.0 or (
+            tan(steering_limit) * self.tractor.front_track / 2.0
+            >= self.tractor.wheelbase
+        ):
+            raise ConfigurationError(
+                "steering_angle_abs_max is not reachable by an Ackermann pair"
+                " with this wheelbase and front track"
+            )
         self._validate_neutral_pose_sites()
 
     @property
@@ -891,7 +974,7 @@ def load_vehicle_configuration(path: str | Path) -> VehicleConfiguration:
             source_path=resolved,
             source_fingerprint=_normalized_fingerprint(data),
         )
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         if isinstance(error, ConfigurationError):
             raise
         raise ConfigurationError(f"invalid vehicle configuration: {error}") from error
@@ -990,7 +1073,7 @@ def load_dock_configuration(path: str | Path) -> DockConfiguration:
             source_path=resolved,
             source_fingerprint=_normalized_fingerprint(data),
         )
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         if isinstance(error, ConfigurationError):
             raise
         raise ConfigurationError(f"invalid dock configuration: {error}") from error

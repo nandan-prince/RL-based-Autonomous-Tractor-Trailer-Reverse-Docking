@@ -32,6 +32,9 @@ runs/
 wandb/
 artifacts/
 
+# MuJoCo runtime warning log
+MUJOCO_LOG.TXT
+
 # OS and editor files
 .DS_Store
 .idea/

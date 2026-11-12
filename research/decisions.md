@@ -89,3 +89,52 @@ element order or to undocumented names selected independently by the 3D team.
 Collision geometry will use primitives that match the planar footprints;
 decorative meshes remain visual-only. The vehicle XML, dock scene, adapter, and
 cross-simulator tests are still planned and must not be reported as implemented.
+
+## D-007 — First MuJoCo vehicle, dock, and adapter
+
+**Date:** 2026-11-11
+**Status:** implemented; validated against the specification's kinematic
+equations, not yet against the project's 2D simulator
+
+The MJCF is generated from the vehicle and dock YAML by
+`simulators/mujoco/builder.py`; the committed XML files are generator output
+guarded by a drift test. `MujocoSimulator` exposes the shared command and state
+contract at the `10 Hz` controller period with 50 physics steps per command.
+
+Modeling choices made while validating the model, with the observation that
+motivated each:
+
+- *Collision masks.* Wheels collide only with the ground; chassis boxes only
+  with dock walls. The front wheels lie inside the tractor collision box and
+  are grandchildren of the tractor body, so MuJoCo's parent-child filter does
+  not exclude that contact.
+- *Planar wall collision.* Dock wall collision volumes extend above every
+  chassis box regardless of the configured wall height, which only sets the
+  visible wall. A wall lower than the trailer floor (`0.75 m`) otherwise let
+  the trailer reverse `4 m` through the back wall with no contact reported.
+- *Thin wheel contact geometry.* With full-width `0.12 m` cylinders the two rim
+  contacts scrub whenever a wheel yaws. Steering then needed the full
+  `200 N m` actuator limit and reached only about `0.04 rad/s` of the
+  commanded `0.30 rad/s`. Collision now uses a `0.02 m` cylinder on the wheel
+  centre plane while the full-width cylinder keeps the mass and inertia.
+  Steering tracks the ramp within `0.003 rad` and holds within `0.0013 rad`.
+- *Steering servo.* `kp = 20000 N m/rad`, joint damping `120 N m s/rad`,
+  armature `1.0 kg m^2`, with mechanical stops at the Ackermann angles of the
+  virtual limit. Measured overshoot past `0.50 rad` is at most `0.0012 rad`.
+- *Drive.* Velocity servos with `kv = 1500 N m s/rad` and a rear differential
+  term. With the differential, steady turning speed was `0.1993 m/s` for a
+  `0.2 m/s` target, against `0.1984 m/s` without it.
+- *Contact solver.* Elliptic friction cones with `impratio = 10` and the
+  `implicitfast` integrator, chosen to suppress lateral tire creep.
+- *Acceleration limit.* The speed target ramps from the last applied target,
+  not from measured speed, so a lagging plant cannot stall the ramp.
+
+Evidence from the automated tests (nominal variant, flat ground): neutral
+semantic sites match the configuration to `1e-9 m`; an S-shaped `3 m` maneuver
+at `+-0.2 m/s` ends within `0.009 m` and `0.001 rad` of an RK4 integration of
+the specification's on-axle equations. These numbers come from the test
+scenario only and are not a transfer result.
+
+The MuJoCo-only tuning values live in `MujocoTuning` in code because the
+strict version-1 YAML schema has no field for them. Moving them into the
+vehicle configuration needs a schema revision.

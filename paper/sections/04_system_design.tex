@@ -67,6 +67,18 @@ four actuators. This naming layer is part of the simulator API: it permits the
 future adapter and parity tests to resolve model elements deterministically
 without depending on XML ordering.
 
+A first MuJoCo model now implements this contract. The MJCF for the vehicle
+and the nominal dock is generated from the same YAML files that define the
+planar geometry, and an adapter returns the shared planar state from the named
+sites at the $10\,\mathrm{Hz}$ command boundary. Wheels contact the ground
+through a thin cylinder on the wheel centre plane, because full-width rigid
+cylinders scrubbed at both rims and saturated the steering actuators. On a
+scripted $3\,\mathrm{m}$ low-speed maneuver the model ended within
+$0.009\,\mathrm{m}$ and $0.001\,\mathrm{rad}$ of a numerical integration of
+the on-axle kinematic equations. This is a model-validation check on one
+scenario; comparison with the project's 2D simulator and any controller
+transfer remain planned.
+
 \subsection{Reproducibility}
 
 Vehicle and dock YAML files contain separate schema versions and specification
