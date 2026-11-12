@@ -10,6 +10,7 @@ Matplotlib is an optional dependency (``pip install -e '.[viz]'``).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from trailer_docking.core.config import DockConfiguration, VehicleConfiguration
@@ -148,6 +149,15 @@ class TopDownView:
             [], [], color="red", linewidth=0.8, alpha=0.6, label="docking-point path"
         )
         self._trail_points: list[tuple[float, float]] = []
+        (self._route,) = self.axes.plot(
+            [],
+            [],
+            color="#1a9c3c",
+            linewidth=1.6,
+            linestyle="--",
+            label="planned route (trailer axle)",
+            zorder=3,
+        )
         self._readout = self.axes.text(
             0.01,
             0.98,
@@ -176,6 +186,16 @@ class TopDownView:
 
     def clear_trail(self) -> None:
         self._trail_points.clear()
+
+    def set_route(self, points: Sequence[Point2D] | None) -> None:
+        """Show the planner's reference route, or hide it with ``None``."""
+
+        if not points:
+            self._route.set_data([], [])
+            return
+        self._route.set_data(
+            [point.x for point in points], [point.y for point in points]
+        )
 
     def update(self, state: VehicleState, *, note: str = "") -> None:
         """Redraw the vehicle for one shared state."""
