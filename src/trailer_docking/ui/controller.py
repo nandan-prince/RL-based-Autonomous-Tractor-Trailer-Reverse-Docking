@@ -581,11 +581,18 @@ class AppController:
         try:
             state = session.spectator_state
             episodes = session.progress.episodes
+            # The session reports the environment's own reference path, which
+            # is exact; replanning from a polled state is only a fallback.
+            exact_route = getattr(session, "spectator_route", None)
         except Exception:
             return None
         with self._lock:
             if self._session is session and self._spectator_source == "training":
-                self._observe(state, episodes)
+                if exact_route is not None:
+                    self._route = tuple(exact_route)
+                    self._route_state, self._route_marker = state, episodes
+                else:
+                    self._observe(state, episodes)
         return state
 
     @property

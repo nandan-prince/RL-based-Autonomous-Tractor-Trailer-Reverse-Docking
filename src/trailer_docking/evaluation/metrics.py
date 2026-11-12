@@ -8,6 +8,7 @@ scored identically.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import hypot
 
 from trailer_docking.core.config import VehicleLimits
 from trailer_docking.core.geometry import DockGeometry, VehicleGeometry, world_to_local
@@ -31,7 +32,7 @@ class DockingError:
 
     @property
     def distance(self) -> float:
-        return (self.longitudinal**2 + self.lateral**2) ** 0.5
+        return hypot(self.longitudinal, self.lateral)
 
 
 @dataclass(frozen=True, slots=True)

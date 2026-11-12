@@ -42,13 +42,36 @@ class TrackingErrors:
     previews: tuple[PreviewPoint, ...]
 
 
-def closest_arc_length(path: ReferencePath, pose: Pose2D) -> float:
-    """Return the travelled distance of the path point closest to ``pose``."""
+# Search window around the previous projection, in metres of arc length.
+# One control step moves the vehicle about 0.02 m.  On the inside of a curve
+# the projection moves faster than the vehicle, so the window allows several
+# times that, while still preventing a jump to a far part of the path.
+SEARCH_BEHIND = 0.15
+SEARCH_AHEAD = 0.15
+
+
+def closest_arc_length(
+    path: ReferencePath, pose: Pose2D, previous: float | None = None
+) -> float:
+    """Return the travelled distance of the path point closest to ``pose``.
+
+    With ``previous`` (the projection from the last control step) only a
+    window around it is searched.  On the inside of a curve the globally
+    closest point can lie far ahead; without the window the projection would
+    jump there and report metres of progress the vehicle never made.
+    """
 
     best_distance = float("inf")
-    best_arc = 0.0
+    if previous is not None:
+        previous = min(max(previous, 0.0), path.length)
+    best_arc = 0.0 if previous is None else previous
     poses, arcs = path.poses, path.arc_lengths
     for index in range(len(poses) - 1):
+        if previous is not None and (
+            arcs[index + 1] < previous - SEARCH_BEHIND
+            or arcs[index] > previous + SEARCH_AHEAD
+        ):
+            continue
         start, end = poses[index], poses[index + 1]
         segment_x, segment_y = end.x - start.x, end.y - start.y
         length_squared = segment_x**2 + segment_y**2
@@ -69,11 +92,17 @@ def tracking_errors(
     path: ReferencePath,
     state: VehicleState,
     preview_distances: tuple[float, ...] = (1.0, 2.0, 4.0),
+    *,
+    previous_arc_length: float | None = None,
 ) -> TrackingErrors:
-    """Measure the vehicle against a trailer-axle reference path."""
+    """Measure the vehicle against a trailer-axle reference path.
+
+    Pass the previous step's ``arc_length`` as ``previous_arc_length`` when
+    tracking continuously; omit it for a one-off or first measurement.
+    """
 
     trailer = state.trailer_pose
-    arc = closest_arc_length(path, trailer)
+    arc = closest_arc_length(path, trailer, previous_arc_length)
     reference = path.pose_at(arc)
     # Lateral error is the trailer axle's sideways position in the path frame.
     lateral = world_to_local(trailer.position, reference).y

@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import zipfile
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -106,9 +107,18 @@ def _train(arguments: argparse.Namespace) -> int:
 
 def _test(arguments: argparse.Namespace) -> int:
     scenario = _load_scenario(arguments.scenario)
+    if arguments.seed < 0:
+        raise ValueError("--seed cannot be negative")
     policy: Policy = straight_reverse_policy
     if arguments.policy is not None:
-        policy = load_policy(arguments.policy)
+        try:
+            policy = load_policy(arguments.policy)
+        except FileNotFoundError:
+            raise
+        except (OSError, zipfile.BadZipFile, KeyError, EOFError) as error:
+            raise ValueError(
+                f"{arguments.policy} is not a saved policy: {error}"
+            ) from error
     results = run_docking_test(
         scenario, policy, episodes=arguments.episodes, seed=arguments.seed
     )

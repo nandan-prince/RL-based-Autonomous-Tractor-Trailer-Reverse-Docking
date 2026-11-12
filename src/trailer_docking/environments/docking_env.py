@@ -92,6 +92,7 @@ class DockingEnv(gymnasium.Env[np.ndarray, np.ndarray]):
         planner: Planner | None = None,
         max_episode_steps: int = 900,
         on_state: Callable[[VehicleState], None] | None = None,
+        on_route: Callable[[ReferencePath], None] | None = None,
     ) -> None:
         if max_episode_steps < 1:
             raise ValueError("max_episode_steps must be at least 1")
@@ -105,6 +106,8 @@ class DockingEnv(gymnasium.Env[np.ndarray, np.ndarray]):
         self.max_episode_steps = max_episode_steps
         # Called with every new state so a UI can watch episodes live.
         self.on_state = on_state
+        # Called with each episode's reference path as soon as it is planned.
+        self.on_route = on_route
         self.layout = ObservationLayout(preview_count=len(PREVIEW_DISTANCES))
         self.action_space = gymnasium.spaces.Box(-1.0, 1.0, (1,), dtype=np.float32)
         self.observation_space = gymnasium.spaces.Box(
@@ -122,10 +125,15 @@ class DockingEnv(gymnasium.Env[np.ndarray, np.ndarray]):
             state, self.vehicle.geometry, self.dock.geometry, self.vehicle.limits
         )
 
-    def _track(self, state: VehicleState) -> TrackingErrors:
+    def _track(self, state: VehicleState, *, first: bool = False) -> TrackingErrors:
         if self.reference_path is None:
             raise RuntimeError("reset() must be called before step()")
-        return tracking_errors(self.reference_path, state, PREVIEW_DISTANCES)
+        return tracking_errors(
+            self.reference_path,
+            state,
+            PREVIEW_DISTANCES,
+            previous_arc_length=None if first else self._previous_arc_length,
+        )
 
     def _observation(self, state: VehicleState, errors: TrackingErrors) -> np.ndarray:
         values = np.array(
@@ -171,8 +179,10 @@ class DockingEnv(gymnasium.Env[np.ndarray, np.ndarray]):
         self.reference_path = self.planner.plan(
             self.vehicle.geometry, self.dock.geometry, state
         )
+        if self.on_route is not None:
+            self.on_route(self.reference_path)
         self._steps = 0
-        errors = self._track(state)
+        errors = self._track(state, first=True)
         self._previous_arc_length = errors.arc_length
         outcome = self._evaluate(state)
         if self.on_state is not None:

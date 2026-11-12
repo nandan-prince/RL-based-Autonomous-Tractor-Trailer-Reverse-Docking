@@ -20,7 +20,7 @@ import json
 import random
 from dataclasses import asdict, dataclass, field, fields, replace
 from hashlib import sha256
-from math import cos, isfinite, sin
+from math import cos, isfinite, pi, sin
 from numbers import Real
 from pathlib import Path
 from typing import Any
@@ -79,9 +79,13 @@ class StartDistribution:
     def __post_init__(self) -> None:
         for item in fields(self):
             value = tuple(float(v) for v in getattr(self, item.name))
-            if len(value) != 2 or not value[0] <= value[1]:
+            if (
+                len(value) != 2
+                or not all(isfinite(bound) for bound in value)
+                or not value[0] <= value[1]
+            ):
                 raise ConfigurationError(
-                    f"start range {item.name} must be (minimum, maximum)"
+                    f"start range {item.name} must be finite (minimum, maximum)"
                 )
             object.__setattr__(self, item.name, value)
         if self.standoff[0] < 0.0:
@@ -174,6 +178,15 @@ class Scenario:
             bay["interior_depth"] = float(changes.dock_interior_depth)
         if bay:
             dock = replace(dock, geometry=replace(dock.geometry, **bay))
+        # An episode must not begin already jackknifed.
+        hard_limit = vehicle.limits.articulation_hard_abs_max
+        if max(abs(bound) for bound in self.start.articulation) >= hard_limit:
+            raise ConfigurationError(
+                "start articulation range must stay inside the"
+                f" +-{hard_limit:.3f} rad jackknife threshold"
+            )
+        if max(abs(bound) for bound in self.start.trailer_yaw) > pi:
+            raise ConfigurationError("start trailer_yaw range must be within +-pi")
         return BuiltScenario(vehicle=vehicle, dock=dock)
 
     # ------------------------------------------------------- serialization

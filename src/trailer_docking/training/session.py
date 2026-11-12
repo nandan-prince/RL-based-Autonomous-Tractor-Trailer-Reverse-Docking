@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from trailer_docking.core.state import VehicleState
+from trailer_docking.core.state import Point2D, VehicleState
 from trailer_docking.evaluation.scenarios import Scenario
 from trailer_docking.training.config import TrainingConfig
 
@@ -159,6 +159,7 @@ class TrainingSession:
         self._experiment_id: str | None = None
         self._checkpoint_path: Path | None = None
         self._spectator_state: VehicleState | None = None
+        self._spectator_route: tuple[Point2D, ...] | None = None
         self._history: list[EpisodeRecord] = []
         self._recent: deque[EpisodeRecord] = deque(maxlen=RECENT_EPISODES)
         self._stopped_early = False
@@ -224,6 +225,13 @@ class TrainingSession:
             )
 
     @property
+    def spectator_route(self) -> tuple[Point2D, ...] | None:
+        """Reference route of the training episode in progress, if any."""
+
+        with self._lock:
+            return self._spectator_route
+
+    @property
     def spectator_state(self) -> VehicleState | None:
         """Latest vehicle state seen by the training environment."""
 
@@ -242,6 +250,10 @@ class TrainingSession:
     def _on_state(self, state: VehicleState) -> None:
         with self._lock:
             self._spectator_state = state
+
+    def _on_route(self, route: Any) -> None:
+        with self._lock:
+            self._spectator_route = tuple(route.points)
 
     def _set_timesteps(self, timesteps: int) -> None:
         with self._lock:
@@ -405,6 +417,7 @@ class TrainingSession:
                 simulator_factory=self._simulator_factory,
                 max_episode_steps=self.config.max_episode_steps,
                 on_state=self._on_state,
+                on_route=self._on_route,
             )
             model = PPO(
                 "MlpPolicy",
