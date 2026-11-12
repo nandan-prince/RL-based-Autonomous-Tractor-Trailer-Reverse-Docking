@@ -1,9 +1,11 @@
 # Tests
 
-Unit tests will additionally verify dynamics equations, timestep convergence,
-collision, reference tracking, and deterministic integration. Integration
-tests will verify Gymnasium compliance, controller/simulator contracts,
-reproducible seeding, and 2D/MuJoCo state-action parity.
+Unit tests verify the 2D dynamics equations, timestep convergence, rigid
+geometry reconstruction, deterministic integration, forward/reverse motion,
+steering and acceleration limits, angle wrapping, articulation behavior, and
+invalid-input rejection. Future tests will add collision and reference
+tracking. Integration tests currently verify direct low-speed 2D/MuJoCo
+trajectory parity; Gymnasium compliance and event parity remain planned.
 
 The current vehicle-core suite verifies strict schema handling, invalid-input
 rejection, golden neutral geometry, coordinate-transform round trips, footprint
@@ -22,6 +24,11 @@ The MuJoCo suite under `tests/integration/mujoco/` covers those gates for the
 first model, plus dock geometry, wall contact, plant limits, reset behavior,
 trailer variants, measured-state tolerances, and agreement with a test-local
 integration of the specification's kinematic equations.
+
+The canonical 2D tests live under `tests/unit/simulators/kinematic/`. The
+cross-backend command-sequence check is
+`tests/integration/test_kinematic_mujoco_parity.py` and skips cleanly if MuJoCo
+is unavailable.
 
 MuJoCo tests live under `tests/integration/mujoco/` and skip cleanly when the
 optional dependency is absent. The full verification command should install

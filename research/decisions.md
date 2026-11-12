@@ -152,9 +152,11 @@ collision behavior, variants, deterministic stepping, and low-speed agreement
 with the specified equations are covered by automated tests. The detailed
 matrix is stored in `docs/design/mujoco-alignment-audit.md`.
 
-Direct parity with the project 2D simulator, environment-level safety and
-success events, and controller transfer remain unverified because those layers
-do not yet exist. MuJoCo-only tuning remains versioned in `MujocoTuning` rather
+At the time of this audit, direct parity with the project 2D simulator,
+environment-level safety and success events, and controller transfer remained
+unverified. D-009 records the subsequent plant-level parity work; event parity
+and controller transfer still require higher layers. MuJoCo-only tuning remains
+versioned in `MujocoTuning` rather
 than in the YAML fingerprint. Until a configuration-schema revision, every
 reported MuJoCo experiment must capture the Git revision and complete resolved
 tuning values in its manifest.
@@ -163,3 +165,29 @@ Static analysis and branch-aware coverage now include the non-interactive
 MuJoCo adapter, Ackermann mapping, and generator. Interactive GUI loops remain
 outside the coverage gate and are checked through focused viewer tests and
 manual smoke use.
+
+## D-009 — Canonical two-dimensional kinematic backend
+
+**Date:** 2026-11-12
+**Status:** implemented and engineering-validated
+
+The canonical 2D plant integrates the independent state
+`[tractor_x, tractor_y, tractor_yaw, trailer_yaw, steering_angle, speed]` with
+fixed-step classical RK4. At the frozen timing this means five `0.02 s`
+substeps per `0.10 s` controller command. The simulator applies the shared
+command supervisor once per command period, uses bounded acceleration to reach
+the applied speed target, and holds the applied steering rate through the
+substeps.
+
+The trailer yaw equation includes both signed longitudinal and lateral tractor
+hitch offsets. Hitch and trailer positions are reconstructed from shared rigid
+geometry rather than integrated, preventing constraint drift. This keeps the
+nominal on-axle case and configured off-axle variants in one implementation.
+
+Automated tests cover analytic derivatives, forward and reverse motion,
+constant steering, articulation response, angle wrapping, acceleration and
+steering limits, exact rigid reconstruction, timestep convergence,
+determinism, variants, and invalid input. Shared forward and reverse command
+sequences also compare the 2D plant directly with MuJoCo. This is
+plant-model validation, not evidence of controller transfer, docking success,
+or physical fidelity.
