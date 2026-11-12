@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from math import isfinite, pi
+from numbers import Real
 from typing import Any
 
 
@@ -21,7 +22,8 @@ class StateValidationError(ValueError):
 def _finite_float(value: float, field_name: str) -> float:
     """Return *value* as a float after rejecting booleans and non-finite data."""
 
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    # ``Real`` admits NumPy scalars such as float32, which policies emit.
+    if isinstance(value, bool) or not isinstance(value, Real):
         raise StateValidationError(f"{field_name} must be a real number")
     try:
         converted = float(value)

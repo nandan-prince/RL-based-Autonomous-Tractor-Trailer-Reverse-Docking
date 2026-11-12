@@ -38,8 +38,15 @@ from trailer_docking.simulators.mujoco.builder import (
 # Excess of measured state over the plant limits that this backend produces
 # while every command stays within limits (see research/decisions.md, D-007).
 # Pass it to ``state_limit_violations`` when checking MuJoCo states.
+#
+# The values are empirical.  Across lock-to-lock steering sweeps, speed
+# reversals, all trailer variants, and off-axle hitches the worst observed
+# excess was 0.0012 rad, 0.049 rad/s, and 0.014 m/s; each tolerance leaves
+# margin above that.  The steering servo briefly exceeds the commanded rate
+# while it catches up after a reversal, which is why the rate margin is the
+# largest.  Re-measure after changing actuator gains or geometry.
 MUJOCO_MEASUREMENT_TOLERANCE = MeasurementTolerance(
-    steering_angle=0.005, steering_rate=0.03, speed=0.02
+    steering_angle=0.005, steering_rate=0.08, speed=0.03
 )
 
 

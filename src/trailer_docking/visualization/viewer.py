@@ -29,7 +29,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from trailer_docking.core.config import (
-    ConfigurationError,
     VehicleLimits,
     load_dock_configuration,
     load_vehicle_configuration,
@@ -145,7 +144,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.variant:
             vehicle = vehicle.with_trailer_variant(args.variant)
         dock = None if args.no_dock else load_dock_configuration(args.dock)
-    except ConfigurationError as error:
+    except ValueError as error:
         raise SystemExit(
             f"error: {error} (run from the repository root or pass paths)"
         ) from error

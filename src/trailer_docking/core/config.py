@@ -123,6 +123,10 @@ def _construct_unique_mapping(
 ) -> dict[Any, Any]:
     seen: set[Any] = set()
     for key_node, _ in node.value:
+        if key_node.tag == "tag:yaml.org,2002:merge":
+            # ``<<: *anchor`` is resolved by the base constructor below; keys
+            # it brings in may legitimately be overridden by explicit ones.
+            continue
         key = loader.construct_object(key_node, deep=deep)
         try:
             duplicate = key in seen
@@ -436,6 +440,15 @@ class VehicleConfiguration:
             raise ConfigurationError("trailer variant names must be unique")
         if self.trailer.variant not in names:
             raise ConfigurationError("selected trailer variant is not defined")
+        # Every named variant must form a valid vehicle, not only the
+        # selected one, so selecting a variant later cannot fail.
+        for variant in self.trailer_variants:
+            try:
+                VehicleGeometry(self.tractor, variant, self.wheels)
+            except ValueError as error:
+                raise ConfigurationError(
+                    f"trailer variant {variant.variant!r} is invalid: {error}"
+                ) from error
         selected = self.trailer_variant(self.trailer.variant)
         for field_name in ("hitch_to_axle", "front_overhang", "rear_overhang"):
             if not isclose(
