@@ -405,6 +405,12 @@ class MujocoParameters:
             raise ConfigurationError("MuJoCo vectors must be finite")
         if any(value < 0.0 for value in self.contact_friction):
             raise ConfigurationError("MuJoCo contact friction cannot be negative")
+        # The shared contract fixes +z up with the vehicle resting on the
+        # ground, so gravity has to act along -z and the ground needs grip.
+        if self.gravity[2] >= 0.0 or self.gravity[0] != 0.0 or self.gravity[1] != 0.0:
+            raise ConfigurationError("MuJoCo gravity must point down along -z")
+        if self.contact_friction[0] <= 0.0:
+            raise ConfigurationError("MuJoCo sliding friction must be positive")
 
 
 @dataclass(frozen=True, slots=True)
