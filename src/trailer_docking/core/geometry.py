@@ -18,6 +18,27 @@ def _is_real(value: object) -> bool:
     return isinstance(value, Real) and not isinstance(value, bool)
 
 
+def _coerce_numbers(instance: object, names: tuple[str, ...]) -> None:
+    """Store the named fields as finite floats or raise a validation error.
+
+    Any real number (including NumPy scalars and fractions) is accepted and
+    converted, so later arithmetic and JSON fingerprinting see plain floats.
+    """
+
+    owner = type(instance).__name__
+    for name in names:
+        value = getattr(instance, name)
+        if not _is_real(value):
+            raise GeometryValidationError(f"{owner}.{name} must be a real number")
+        try:
+            converted = float(value)
+        except OverflowError as error:
+            raise GeometryValidationError(f"{owner}.{name} must be finite") from error
+        if not isfinite(converted):
+            raise GeometryValidationError(f"{owner}.{name} must be finite")
+        object.__setattr__(instance, name, converted)
+
+
 def _positive(value: float, name: str) -> float:
     if not _is_real(value) or not isfinite(value) or value <= 0.0:
         raise GeometryValidationError(f"{name} must be finite and greater than zero")
@@ -32,10 +53,7 @@ class Bounds1D:
     maximum: float
 
     def __post_init__(self) -> None:
-        if not (_is_real(self.minimum) and _is_real(self.maximum)):
-            raise GeometryValidationError("bounds must be real numbers")
-        if not isfinite(self.minimum) or not isfinite(self.maximum):
-            raise GeometryValidationError("bounds must be finite")
+        _coerce_numbers(self, ("minimum", "maximum"))
         if self.minimum >= self.maximum:
             raise GeometryValidationError("bounds require minimum < maximum")
 
@@ -116,6 +134,22 @@ class TractorGeometry:
     footprint_y: Bounds1D
 
     def __post_init__(self) -> None:
+        _coerce_numbers(
+            self,
+            (
+                "wheelbase",
+                "front_overhang",
+                "rear_overhang",
+                "body_width",
+                "front_track",
+                "rear_track",
+                "body_height",
+                "body_bottom_height",
+                "hitch_longitudinal",
+                "hitch_lateral",
+                "hitch_height",
+            ),
+        )
         for name in (
             "wheelbase",
             "front_overhang",
@@ -192,6 +226,18 @@ class TrailerGeometry:
     def __post_init__(self) -> None:
         if not isinstance(self.variant, str) or not self.variant.strip():
             raise GeometryValidationError("trailer variant must be a non-empty string")
+        _coerce_numbers(
+            self,
+            (
+                "hitch_to_axle",
+                "front_overhang",
+                "rear_overhang",
+                "body_width",
+                "axle_track",
+                "body_height",
+                "body_bottom_height",
+            ),
+        )
         for name in (
             "hitch_to_axle",
             "front_overhang",
@@ -260,6 +306,7 @@ class WheelGeometry:
     width: float
 
     def __post_init__(self) -> None:
+        _coerce_numbers(self, ("radius", "width"))
         _positive(self.radius, "WheelGeometry.radius")
         _positive(self.width, "WheelGeometry.width")
 
@@ -386,6 +433,20 @@ class DockGeometry:
     def __post_init__(self) -> None:
         if not self.specification_id.strip():
             raise GeometryValidationError("dock specification_id cannot be empty")
+        _coerce_numbers(
+            self,
+            (
+                "interior_width",
+                "interior_depth",
+                "wall_thickness",
+                "wall_height",
+                "collision_margin",
+                "target_trailer_yaw",
+                "longitudinal_tolerance",
+                "lateral_tolerance",
+                "trailer_yaw_tolerance",
+            ),
+        )
         for name in (
             "interior_width",
             "interior_depth",

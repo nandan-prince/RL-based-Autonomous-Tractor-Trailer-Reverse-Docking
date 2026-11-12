@@ -10,6 +10,7 @@ contract therefore needs no MuJoCo-specific observation or action code.
 from __future__ import annotations
 
 from math import atan2, cos, isclose, isfinite, sin
+from numbers import Real
 from typing import Any
 
 import mujoco
@@ -41,10 +42,16 @@ from trailer_docking.simulators.mujoco.builder import (
 #
 # The values are empirical.  Across lock-to-lock steering sweeps, speed
 # reversals, all trailer variants, and off-axle hitches the worst observed
-# excess was 0.0012 rad, 0.049 rad/s, and 0.014 m/s; each tolerance leaves
+# excess was 0.0012 rad, 0.054 rad/s, and 0.014 m/s; each tolerance leaves
 # margin above that.  The steering servo briefly exceeds the commanded rate
 # while it catches up after a reversal, which is why the rate margin is the
 # largest.  Re-measure after changing actuator gains or geometry.
+#
+# The tolerance holds only below the jackknife threshold.  With the hitch
+# driven onto its mechanical stop (articulation about 1.48 rad) the measured
+# steering rate has exceeded the limit by up to 0.098 rad/s.  An episode ends
+# at the jackknife threshold long before that, so no tolerance is published
+# for the post-jackknife regime.
 MUJOCO_MEASUREMENT_TOLERANCE = MeasurementTolerance(
     steering_angle=0.005, steering_rate=0.08, speed=0.03
 )
@@ -202,7 +209,7 @@ class MujocoSimulator:
             ("steering_angle", steering_angle),
             ("settle_time", settle_time),
         ):
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            if isinstance(value, bool) or not isinstance(value, Real):
                 raise ValueError(f"{name} must be a real number")
         try:
             steering = float(steering_angle)

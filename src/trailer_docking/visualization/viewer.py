@@ -195,7 +195,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit(
             f"error: {error} (run from the repository root or pass paths)"
         ) from error
-    simulator = MujocoSimulator(vehicle, dock)
+    try:
+        simulator = MujocoSimulator(vehicle, dock)
+    except (ValueError, NotImplementedError, RuntimeError) as error:
+        # A specification can be valid and still not be simulable by this
+        # backend, for example a nonzero command delay.
+        raise SystemExit(f"error: cannot build the MuJoCo scene: {error}") from error
     teleop = Teleop(vehicle.limits, simulator.controller_period)
 
     topdown = None

@@ -213,7 +213,8 @@ the back wall. This is a fixed command, not a controller.
 | `--speed N` | Play N times faster than real time |
 | `--vehicle PATH`, `--dock PATH` | Load a different vehicle or dock YAML |
 
-Any vehicle or dock YAML that passes validation can be viewed this way; copy
+Any vehicle or dock YAML that passes validation and that the MuJoCo backend
+supports (for example, zero command delay) can be viewed this way; copy
 one of the files under `configs/`, change a value such as the bay width, and
 pass the new path.
 

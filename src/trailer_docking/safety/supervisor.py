@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from numbers import Real
 
 from trailer_docking.core.config import SimulationTiming, VehicleLimits
 from trailer_docking.core.state import VehicleCommand, VehicleState
@@ -118,8 +119,16 @@ class MeasurementTolerance:
     def __post_init__(self) -> None:
         for name in ("steering_angle", "steering_rate", "speed"):
             value = getattr(self, name)
-            if not isinstance(value, (int, float)) or not 0.0 <= value < float("inf"):
-                raise ValueError(f"{name} tolerance must be finite and non-negative")
+            message = f"{name} tolerance must be finite and non-negative"
+            if isinstance(value, bool) or not isinstance(value, Real):
+                raise ValueError(message)
+            try:
+                number = float(value)
+            except OverflowError as error:
+                raise ValueError(message) from error
+            if not 0.0 <= number < float("inf"):
+                raise ValueError(message)
+            object.__setattr__(self, name, number)
 
 
 EXACT_PLANT_TOLERANCE = MeasurementTolerance()

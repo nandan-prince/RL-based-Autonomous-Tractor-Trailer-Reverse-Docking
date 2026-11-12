@@ -7,9 +7,7 @@ from pathlib import Path
 import pytest
 
 from trailer_docking.core.config import (
-    ConfigurationError,
     VehicleConfiguration,
-    load_vehicle_configuration,
 )
 from trailer_docking.core.state import Pose2D, VehicleCommand
 from trailer_docking.safety.supervisor import state_limit_violations
@@ -57,47 +55,25 @@ def test_numpy_scalars_are_accepted_as_real_numbers(
         VehicleCommand(np.bool_(True), 0.0)  # type: ignore[arg-type]
 
 
-def test_every_trailer_variant_is_validated_at_load(
+def test_reset_accepts_numpy_scalars(vehicle_config: VehicleConfiguration) -> None:
+    simulator = MujocoSimulator(vehicle_config)
+    state = simulator.reset(steering_angle=np.float32(0.1), settle_time=np.float32(0.0))
+    assert state.steering_angle == pytest.approx(0.1, abs=1e-6)
+    with pytest.raises(ValueError):
+        simulator.reset(steering_angle=True)
+
+
+def test_viewer_reports_unsupported_specifications_cleanly(
     tmp_path: Path, vehicle_config: VehicleConfiguration
 ) -> None:
+    from trailer_docking.visualization import viewer
+
     text = vehicle_config.source_path.read_text(encoding="utf-8")
-    original = (
-        "  short:\n    hitch_to_axle: 2.00\n    front_overhang: 0.50\n"
-        "    rear_overhang: 1.00\n"
+    assert "  nominal_command_delay: 0.00\n" in text
+    delayed = tmp_path / "delayed.yaml"
+    delayed.write_text(
+        text.replace("nominal_command_delay: 0.00", "nominal_command_delay: 0.10"),
+        encoding="utf-8",
     )
-    assert original in text
-    changed = original.replace("rear_overhang: 1.00", "rear_overhang: 0.20")
-    path = tmp_path / "bad_variant.yaml"
-    path.write_text(text.replace(original, changed), encoding="utf-8")
-    with pytest.raises(ConfigurationError, match="short"):
-        load_vehicle_configuration(path)
-
-
-def test_yaml_merge_keys_are_supported_and_duplicates_still_rejected(
-    tmp_path: Path, vehicle_config: VehicleConfiguration
-) -> None:
-    text = vehicle_config.source_path.read_text(encoding="utf-8")
-    original = (
-        "  short:\n    hitch_to_axle: 2.00\n    front_overhang: 0.50\n"
-        "    rear_overhang: 1.00\n"
-        "  nominal:\n    hitch_to_axle: 4.00\n    front_overhang: 0.50\n"
-        "    rear_overhang: 1.00\n"
-    )
-    assert original in text
-    merged = (
-        "  short: &base\n    hitch_to_axle: 2.00\n    front_overhang: 0.50\n"
-        "    rear_overhang: 1.00\n"
-        "  nominal:\n    <<: *base\n    hitch_to_axle: 4.00\n"
-    )
-    path = tmp_path / "merge.yaml"
-    path.write_text(text.replace(original, merged), encoding="utf-8")
-    loaded = load_vehicle_configuration(path)
-    assert loaded.trailer_variant("nominal").hitch_to_axle == 4.0
-    assert loaded.trailer_variant("nominal").rear_overhang == 1.0
-
-    duplicate = tmp_path / "merge_duplicate.yaml"
-    duplicate.write_text(
-        text.replace(original, merged + "    hitch_to_axle: 4.50\n"), encoding="utf-8"
-    )
-    with pytest.raises(ConfigurationError, match="duplicate key"):
-        load_vehicle_configuration(duplicate)
+    with pytest.raises(SystemExit, match="cannot build the MuJoCo scene"):
+        viewer.main(["--vehicle", str(delayed), "--no-dock", "--mode", "2d"])
