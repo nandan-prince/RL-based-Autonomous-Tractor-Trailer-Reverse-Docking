@@ -225,9 +225,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.mode in ("3d", "both"):
         import mujoco.viewer
 
-        viewer = mujoco.viewer.launch_passive(
-            simulator.model, simulator.data, key_callback=teleop.press
-        )
+        try:
+            viewer = mujoco.viewer.launch_passive(
+                simulator.model, simulator.data, key_callback=teleop.press
+            )
+        except RuntimeError as error:
+            # On macOS the passive viewer only runs under MuJoCo's ``mjpython``.
+            if plt is not None:
+                plt.close("all")
+            raise SystemExit(
+                f"error: cannot open the 3D viewer: {error}. On macOS run this"
+                " command with .venv/bin/mjpython instead of python, or use"
+                " --mode 2d."
+            ) from error
         viewer.cam.lookat[:] = (9.0 if dock is not None else 0.0, 0.0, 0.5)
         viewer.cam.distance = 24.0
         viewer.cam.azimuth = 90.0

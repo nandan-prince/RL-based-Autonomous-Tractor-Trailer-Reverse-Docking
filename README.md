@@ -162,7 +162,9 @@ python3 -m venv .venv
 ```
 
 On Windows use `py -3.12 -m venv .venv` and replace `.venv/bin/` with
-`.venv\Scripts\` in every command below. Run all commands from the repository
+`.venv\Scripts\` in every command below. On macOS the 3D window needs
+MuJoCo's launcher: use `.venv/bin/mjpython` in place of `.venv/bin/python` for
+`--mode 3d` and `--mode both` (`--mode 2d` works with plain `python`). Run all commands from the repository
 root.
 
 ### 1. See the generated dock and vehicle — Available
