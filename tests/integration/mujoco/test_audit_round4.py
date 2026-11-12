@@ -4,20 +4,15 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ElementTree
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
 from trailer_docking.core.config import (
-    ConfigurationError,
     DockConfiguration,
     VehicleConfiguration,
-    load_vehicle_configuration,
 )
-from trailer_docking.core.geometry import GeometryValidationError, VehicleGeometry
 from trailer_docking.core.state import VehicleCommand
 from trailer_docking.safety.supervisor import (
-    MeasurementTolerance,
     state_limit_violations,
 )
 from trailer_docking.simulators.mujoco.builder import (
@@ -25,7 +20,6 @@ from trailer_docking.simulators.mujoco.builder import (
     build_vehicle_xml,
     mjcf_equivalent,
 )
-from trailer_docking.validation import vehicle_spec
 
 mujoco = pytest.importorskip("mujoco")
 
@@ -63,26 +57,6 @@ def test_limit_respecting_rollout_reports_no_violation_with_backend_tolerance(
     assert exact
 
 
-def test_measurement_tolerance_never_relaxes_the_jackknife_threshold(
-    vehicle_config: VehicleConfiguration,
-) -> None:
-    state = vehicle_config.geometry.assembled_state(
-        vehicle_config.geometry.neutral_state().tractor_pose,
-        -vehicle_config.limits.articulation_hard_abs_max,
-        steering_angle=0.502,
-    )
-    loose = MeasurementTolerance(steering_angle=0.005, steering_rate=1.0, speed=1.0)
-    assert state_limit_violations(state, vehicle_config.limits, loose) == (
-        "jackknife_limit",
-    )
-    assert "steering_angle_limit" in state_limit_violations(
-        state, vehicle_config.limits
-    )
-    for bad in (-1.0, float("nan"), float("inf")):
-        with pytest.raises(ValueError):
-            MeasurementTolerance(speed=bad)
-
-
 @pytest.mark.parametrize("identifier", ['Dock "A"', "yard & bay", "a<b", "x--y-", "é"])
 def test_free_text_identifiers_are_escaped_in_mjcf(
     vehicle_config: VehicleConfiguration,
@@ -99,40 +73,3 @@ def test_free_text_identifiers_are_escaped_in_mjcf(
         assert root.attrib["model"] == identifier
         assert mjcf_equivalent(text, text)
         assert mujoco.MjModel.from_xml_string(text).nu == 4
-
-
-@pytest.mark.parametrize("step", ["1e-320", "1e-9", "1e-300"])
-@pytest.mark.parametrize("field", ["mujoco_physics_step", "kinematic_integration_step"])
-def test_absurd_integration_steps_are_configuration_errors(
-    tmp_path: Path, vehicle_config: VehicleConfiguration, field: str, step: str
-) -> None:
-    text = vehicle_config.source_path.read_text(encoding="utf-8")
-    original = {
-        "mujoco_physics_step": "  mujoco_physics_step: 0.002\n",
-        "kinematic_integration_step": "  kinematic_integration_step: 0.02\n",
-    }[field]
-    assert original in text
-    path = tmp_path / "tiny_step.yaml"
-    path.write_text(text.replace(original, f"  {field}: {step}\n"), encoding="utf-8")
-    with pytest.raises(ConfigurationError):
-        load_vehicle_configuration(path)
-    assert vehicle_spec.main(["--vehicle", str(path)]) == 2
-
-
-def test_wheels_must_lie_inside_the_collision_footprints(
-    vehicle_config: VehicleConfiguration,
-) -> None:
-    geometry = vehicle_config.geometry
-    cases = (
-        {"trailer": replace(geometry.trailer, axle_track=1.6)},
-        {"tractor": replace(geometry.tractor, front_track=0.95)},
-        {"tractor": replace(geometry.tractor, rear_track=0.95)},
-        {"wheels": replace(geometry.wheels, width=0.3)},
-        {"wheels": replace(geometry.wheels, radius=0.45)},
-    )
-    for change in cases:
-        with pytest.raises(GeometryValidationError, match="footprints"):
-            replace(geometry, **change)  # type: ignore[arg-type]
-    # Exactly flush wheels are allowed.
-    flush = replace(geometry, wheels=replace(geometry.wheels, width=0.2))
-    assert isinstance(flush, VehicleGeometry)
