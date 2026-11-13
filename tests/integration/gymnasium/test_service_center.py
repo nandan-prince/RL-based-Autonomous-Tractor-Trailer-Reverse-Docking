@@ -74,9 +74,7 @@ def test_service_center_facade_is_collision_geometry() -> None:
     vehicle = load_vehicle_configuration(VEHICLE)
     dock = load_dock_configuration(DOCK)
     state = vehicle.geometry.assembled_state(Pose2D(1.0, 8.0, pi), pi)
-    contacts = vehicle_dock_collision(
-        state, vehicle.geometry, dock.geometry
-    ).contacts
+    contacts = vehicle_dock_collision(state, vehicle.geometry, dock.geometry).contacts
     assert "tractor:building_left_facade" in contacts
 
 

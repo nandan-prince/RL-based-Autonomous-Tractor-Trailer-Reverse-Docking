@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from trailer_docking.core.state import VehicleCommand, VehicleState
+from trailer_docking.core.state import Pose2D, VehicleCommand, VehicleState
 
 
 @runtime_checkable
@@ -12,7 +12,8 @@ class SimulatorBackend(Protocol):
     """Minimum interface used by controllers, tasks, and evaluation code.
 
     Backends may expose richer reset arguments and diagnostics, but every
-    backend must support a no-argument reset and one-command control step.
+    backend must support a no-argument reset, a reset to an articulated pose,
+    and a one-command control step.
     """
 
     @property
@@ -33,8 +34,14 @@ class SimulatorBackend(Protocol):
 
         ...
 
-    def reset(self) -> VehicleState:
-        """Reset to the backend's default initial state."""
+    def reset(
+        self,
+        tractor_pose: Pose2D | None = None,
+        trailer_yaw: float | None = None,
+        *,
+        steering_angle: float = 0.0,
+    ) -> VehicleState:
+        """Reset at rest, by default to the backend's initial state."""
 
         ...
 

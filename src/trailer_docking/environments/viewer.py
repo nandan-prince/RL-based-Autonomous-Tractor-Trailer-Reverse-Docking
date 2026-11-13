@@ -82,9 +82,7 @@ class KeyboardControl:
 
     def action(self, steering_angle: float) -> NDArray[np.float32]:
         rate = (self.desired_steering - steering_angle) / self.controller_period
-        normalized_rate = _clip(
-            rate / self.limits.steering_rate_abs_max, -1.0, 1.0
-        )
+        normalized_rate = _clip(rate / self.limits.steering_rate_abs_max, -1.0, 1.0)
         speed_limit = (
             self.limits.forward_speed_max
             if self.desired_speed >= 0.0
@@ -162,8 +160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ended = terminated or truncated
                 if ended:
                     print(
-                        f"Episode ended: {info['termination_reason']}; "
-                        "press R to reset"
+                        f"Episode ended: {info['termination_reason']}; press R to reset"
                     )
             figure.canvas.flush_events()
             remaining = env.simulator.controller_period / args.speed - (

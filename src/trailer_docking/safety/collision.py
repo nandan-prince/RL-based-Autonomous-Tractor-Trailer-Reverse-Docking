@@ -128,9 +128,9 @@ def vehicle_inside_workspace(
 ) -> bool:
     """Return true only when both complete chassis footprints are in bounds."""
 
-    points = vehicle.tractor.footprint(
-        state.tractor_pose
-    ) + vehicle.trailer.footprint(state.trailer_pose)
+    points = vehicle.tractor.footprint(state.tractor_pose) + vehicle.trailer.footprint(
+        state.trailer_pose
+    )
     return all(
         x_bounds.minimum <= point.x <= x_bounds.maximum
         and y_bounds.minimum <= point.y <= y_bounds.maximum

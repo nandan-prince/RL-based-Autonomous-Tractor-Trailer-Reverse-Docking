@@ -93,17 +93,32 @@ def default_start_pose(
     return aligned_pose_for_docking_point(vehicle, rear_point)
 
 
+NOSE_CLEARANCE = 0.5
+"""Room kept ahead of the tractor nose at the start pose.  With the nominal
+tractor (nose 2.5 m ahead of its rear axle) and 3.0 m of front padding this
+gives exactly the bound the task has always used."""
+
+
 def workspace_bounds(
     start_pose: Pose2D,
     dock: DockGeometry,
     settings: DockingTaskConfiguration,
+    vehicle: VehicleConfiguration | None = None,
 ) -> tuple[Bounds1D, Bounds1D]:
-    """Finite operating region used for out-of-bounds termination."""
+    """Finite operating region used for out-of-bounds termination.
 
+    The outward bound is measured from the start pose.  When *vehicle* is
+    given it is never closer than ``NOSE_CLEARANCE`` ahead of the tractor
+    nose, so a longer tractor does not begin an episode out of bounds.
+    """
+
+    padding = settings.workspace_front_padding
+    if vehicle is not None:
+        padding = max(padding, vehicle.tractor.footprint_x.maximum + NOSE_CLEARANCE)
     outward_maximum = (
         settings.workspace_outward_limit
         if settings.workspace_outward_limit is not None
-        else max(start_pose.x, dock.interior_depth) + settings.workspace_front_padding
+        else max(start_pose.x, dock.interior_depth) + padding
     )
     return (
         Bounds1D(
@@ -143,9 +158,7 @@ def evaluate_task(
     collision = vehicle_dock_collision(state, vehicle.geometry, dock)
     articulation = articulation_status(state, vehicle.limits)
     inside = trailer_inside_bay(state, vehicle.geometry, dock)
-    out = not vehicle_inside_workspace(
-        state, vehicle.geometry, x_bounds, y_bounds
-    )
+    out = not vehicle_inside_workspace(state, vehicle.geometry, x_bounds, y_bounds)
     within_pose = (
         abs(errors.longitudinal) <= dock.longitudinal_tolerance
         and abs(errors.lateral) <= dock.lateral_tolerance

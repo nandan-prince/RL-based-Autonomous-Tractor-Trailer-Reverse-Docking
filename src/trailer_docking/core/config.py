@@ -1236,24 +1236,14 @@ def load_docking_task_configuration(path: str | Path) -> DockingTaskConfiguratio
         preview_distances=previews,
         reward_progress=_number(reward["progress"], "reward.progress"),
         reward_time=_number(reward["time"], "reward.time"),
-        reward_lateral_error=_number(
-            reward["lateral_error"], "reward.lateral_error"
-        ),
-        reward_heading_error=_number(
-            reward["heading_error"], "reward.heading_error"
-        ),
-        reward_articulation=_number(
-            reward["articulation"], "reward.articulation"
-        ),
-        reward_steering_rate=_number(
-            reward["steering_rate"], "reward.steering_rate"
-        ),
+        reward_lateral_error=_number(reward["lateral_error"], "reward.lateral_error"),
+        reward_heading_error=_number(reward["heading_error"], "reward.heading_error"),
+        reward_articulation=_number(reward["articulation"], "reward.articulation"),
+        reward_steering_rate=_number(reward["steering_rate"], "reward.steering_rate"),
         reward_success=_number(reward["success"], "reward.success"),
         reward_collision=_number(reward["collision"], "reward.collision"),
         reward_jackknife=_number(reward["jackknife"], "reward.jackknife"),
-        reward_out_of_bounds=_number(
-            reward["out_of_bounds"], "reward.out_of_bounds"
-        ),
+        reward_out_of_bounds=_number(reward["out_of_bounds"], "reward.out_of_bounds"),
         source_path=resolved,
         source_fingerprint=_normalized_fingerprint(data),
     )
