@@ -29,6 +29,7 @@ from trailer_docking.evaluation.scenarios import Scenario
 from trailer_docking.ui.controller import (
     BACKENDS,
     GROUPS,
+    OBSTACLE_NOTE,
     PARAMETERS,
     PHYSICS_GROUP,
     PHYSICS_GROUP_NOTE,
@@ -157,6 +158,11 @@ class DockingApp:
             row = 0
             if group == PHYSICS_GROUP:
                 ttk.Label(frame, text=PHYSICS_GROUP_NOTE, foreground="#a04000").grid(
+                    row=row, column=0, columnspan=3, sticky=tk.W, pady=(0, 4)
+                )
+                row += 1
+            if group == "Obstacles":
+                ttk.Label(frame, text=OBSTACLE_NOTE, foreground="#555555").grid(
                     row=row, column=0, columnspan=3, sticky=tk.W, pady=(0, 4)
                 )
                 row += 1
@@ -400,6 +406,7 @@ class DockingApp:
             plt.close(self._view.figure)
         built = self.controller.built
         self._view = TopDownView(built.vehicle, built.dock)
+        self._view.set_obstacles(built.obstacles)
         self._view.figure.set_layout_engine("tight")
         self._canvas = FigureCanvasTkAgg(self._view.figure, master=self._view_frame)
         self._canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)

@@ -60,3 +60,8 @@ campaigns, the PPO/NMPC method switch, policy bundles, and safe policy loading
 (`tests/unit/training/`), and the control-UI logic (`tests/unit/ui/`). The
 Tkinter window itself is exercised only by its `--smoke-test` option and by
 hand.
+
+`tests/unit/paths/test_planners.py` covers the swappable route planners and the
+route-following reward weights, and `tests/integration/test_obstacles.py`
+covers static obstacles in the 2D task, the MuJoCo scene, the A* planner, and
+the UI's obstacle field.

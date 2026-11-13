@@ -16,6 +16,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from trailer_docking.core.config import DockConfiguration, VehicleConfiguration
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import Point2D, Pose2D
 
 FRAME_WIDTH = 640
@@ -142,12 +143,13 @@ def render_scene(
     *,
     standoff: float = 6.0,
     route: Sequence[Point2D] | None = None,
+    obstacles: Sequence[Obstacle] = (),
 ) -> NDArray[np.uint8]:
     """Render one still image of a vehicle and dock at a start pose."""
 
     from trailer_docking.simulators.mujoco.adapter import MujocoSimulator
 
-    simulator = MujocoSimulator(vehicle, dock)
+    simulator = MujocoSimulator(vehicle, dock, obstacles=obstacles)
     simulator.reset(tractor_pose, trailer_yaw)
     renderer = MujocoFrameRenderer(
         simulator.model, scene_length=scene_length(vehicle, dock, standoff)

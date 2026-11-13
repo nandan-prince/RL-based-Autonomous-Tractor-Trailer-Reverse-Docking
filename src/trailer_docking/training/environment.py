@@ -113,6 +113,7 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
             action_mode="fixed_reverse",
             backend=self.backend,
             planner=self.scenario.planner,
+            obstacles=built.obstacles,
         )
 
     @property

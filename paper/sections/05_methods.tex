@@ -87,6 +87,19 @@ experiment. The task reward's lateral and heading terms penalize deviation
 from whichever route is planned, and their weights can be overridden per
 scenario.
 
+\subsection{Static obstacles}
+
+\implemented{} A scenario may contain static rectangular obstacles given in the
+dock frame. In the planar task a chassis footprint overlapping an obstacle is
+a collision, evaluated with the same separating-axis test as the dock walls;
+the MuJoCo scene contains each obstacle as a body whose collision volume is
+extruded above both chassis, so the two plants apply the same planar rule.
+The A* planner routes around obstacles; the default planner does not. The
+policy observation contains no obstacle information, so avoidance depends
+entirely on tracking a route planned around them. A scenario is rejected when
+an obstacle overlaps the docked vehicle or an extreme start pose. No
+experiment with obstacles has been run.
+
 \subsection{PPO training framework}
 
 \implemented{} PPO is trained with Stable-Baselines3 \cite{raffin2021sb3} on

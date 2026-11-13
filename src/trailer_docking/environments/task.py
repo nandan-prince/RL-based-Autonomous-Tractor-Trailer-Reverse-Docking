@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from math import cos, sin
 
@@ -10,12 +11,14 @@ from trailer_docking.core.config import (
     VehicleConfiguration,
 )
 from trailer_docking.core.geometry import Bounds1D, DockGeometry
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import Point2D, Pose2D, VehicleState, wrap_angle
 from trailer_docking.safety.collision import (
     CollisionReport,
     trailer_inside_bay,
     vehicle_dock_collision,
     vehicle_inside_workspace,
+    vehicle_obstacle_contacts,
 )
 from trailer_docking.safety.jackknife import ArticulationStatus, articulation_status
 
@@ -151,11 +154,21 @@ def evaluate_task(
     dock: DockGeometry,
     x_bounds: Bounds1D,
     y_bounds: Bounds1D,
+    obstacles: Sequence[Obstacle] = (),
 ) -> TaskStatus:
-    """Evaluate collision, jackknife, boundary, and docking success separately."""
+    """Evaluate collision, jackknife, boundary, and docking success separately.
+
+    Touching a static obstacle is a collision exactly like touching a dock
+    wall; the report names the obstacle.
+    """
 
     errors = docking_errors(state, vehicle, dock)
     collision = vehicle_dock_collision(state, vehicle.geometry, dock)
+    if obstacles:
+        collision = CollisionReport(
+            collision.contacts
+            + vehicle_obstacle_contacts(state, vehicle.geometry, obstacles)
+        )
     articulation = articulation_status(state, vehicle.limits)
     inside = trailer_inside_bay(state, vehicle.geometry, dock)
     out = not vehicle_inside_workspace(state, vehicle.geometry, x_bounds, y_bounds)

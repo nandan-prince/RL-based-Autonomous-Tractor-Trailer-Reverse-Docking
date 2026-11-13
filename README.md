@@ -127,8 +127,8 @@ These systems reinforce the project’s modular design: perception and localizat
   color-highlighted active loading zone without collidable side walls; its
   soft/terminal articulation thresholds are 35/60 degrees
 - PPO training framework on the shared Gymnasium task: one control UI that
-  sets truck dimensions, limits, dock size, physics, start ranges, and domain
-  randomization, runs repeated training on the 2D or 3D simulator, tests each
+  sets truck dimensions, limits, dock size, physics, start ranges, domain
+  randomization, static obstacles, and the route planner, runs repeated training on the 2D or 3D simulator, tests each
   run, and exports the best policy as a portable bundle that can be loaded and
   run in a fresh simulator. It is a working pipeline, not a result: reward
   weights and start ranges are untuned and no run is registered as an
@@ -325,6 +325,7 @@ files are never modified.
 | Physics (3D only) | Tractor and trailer mass, ground friction | 3D only |
 | Start pose | Standoff, lateral offset, trailer yaw, articulation ranges | 2D and 3D |
 | Randomization | Trailer length drawn per episode; observation noise | 2D and 3D |
+| Obstacles | Static boxes in the yard | 2D and 3D |
 
 The **route planner** produces each episode's reference route from the start
 pose to the dock. `entry` is the default: straight along the bay centreline,
@@ -336,6 +337,17 @@ truck can follow the route in reverse; further planners register in
 penalizes leaving the route (squared lateral and heading deviation from it),
 and the two **Reward** fields set how strongly; blank keeps the task file's
 weights (0.5 and 0.2).
+
+**Obstacles** are static boxes, typed one per entry and separated by `;`:
+`x, y, length, width`, optionally followed by a yaw in radians and a height.
+`x` is metres out from the bay's rear wall and `y` is to the left, the same
+frame the top-down view uses, so `9, 3, 1, 1; 12, -3, 2, 0.5, 0.4` places a
+1 m cube and an angled barrier. Touching one ends the episode as a collision
+in both simulators, and they appear in both displays. The policy does not
+sense obstacles; it avoids them only by following a route planned around
+them, so choose the `astar` planner when obstacles lie near the route (the
+`entry` planner ignores them). An obstacle that overlaps a start pose or the
+docked vehicle is refused.
 
 **Show planned route** above the display draws or hides the route in both the
 top-down and the 3D view, before a run and while one is in progress.

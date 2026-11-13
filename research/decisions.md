@@ -426,3 +426,43 @@ route, and the route should be toggleable in the display.
 Changing the planner or the weights changes the learning problem, so runs with
 different settings are different experimental conditions, not repeats.
 
+## D-015 — Static obstacles in both simulators
+
+**Date:** 2026-11-13
+**Status:** implemented and software-tested; added after the D-013 audits and
+not itself independently audited; no experiment uses obstacles yet
+
+The proposal's task includes avoiding obstacles as well as dock walls, and the
+user asked for them in both simulators.
+
+- *Model.* An obstacle is a rectangle in the dock frame (`core/obstacles.py`):
+  centre, length, width, yaw, and height. A scenario holds a list of them;
+  they are part of its fingerprint. The default is none, so the frozen task
+  and the generated MuJoCo files are unchanged.
+- *2D.* `evaluate_task` adds obstacle overlaps to the collision report
+  (`trailer:obstacle_1`), using the existing separating-axis test on the
+  chassis footprints. An obstacle collision terminates the episode with the
+  same penalty as a wall collision.
+- *3D.* The scene generator adds each obstacle as a box whose collision
+  volume is extruded above both chassis (as for dock walls), so a low box
+  cannot be driven over and the planar rule of the 2D task holds. Episode
+  events still come from the shared planar check, not from MuJoCo contacts.
+- *Planning.* The A* planner treats obstacles like walls. The clearance
+  around walls and obstacles is now a cost penalty (factor 8) rather than a
+  hard block, so a start that stands inside a clearance zone can still be
+  planned; the real geometry remains impassable. Rotated obstacles are covered
+  by their bounding boxes. The `entry` planner ignores obstacles.
+- *What the policy sees.* Nothing: the observation is path-relative only. A
+  policy avoids an obstacle only by tracking a route planned around it. This
+  is a deliberate limit, consistent with the proposal's separation of path
+  generation from tracking, and it means obstacle scenarios test route
+  tracking accuracy rather than learned avoidance.
+- *Validation.* A scenario is rejected when an obstacle overlaps the docked
+  vehicle or an extreme of the start ranges. An obstacle between a start and
+  the dock with the `entry` planner is accepted and simply makes the route
+  collide; this is not detected.
+- *UI.* Obstacles are entered as text, `x, y, length, width[, yaw[, height]]`
+  separated by `;`, and are drawn in the top-down and 3D displays.
+
+Dynamic obstacles remain a stretch goal and are not implemented.
+

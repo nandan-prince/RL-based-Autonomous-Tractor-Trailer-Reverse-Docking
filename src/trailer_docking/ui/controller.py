@@ -23,6 +23,7 @@ from math import cos, isfinite, sin
 from pathlib import Path
 from typing import Any
 
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import Point2D, VehicleState
 from trailer_docking.evaluation.scenarios import (
     BuiltScenario,
@@ -40,6 +41,12 @@ GROUPS = (
     "Physics (3D only)",
     "Start pose",
     "Randomization",
+    "Obstacles",
+)
+OBSTACLE_NOTE = (
+    "One box per entry, separated by ';':\n"
+    "x, y, length, width[, yaw rad[, height]]\n"
+    "x is metres out from the bay's rear wall, y to the left."
 )
 BACKENDS = ("2d", "3d")
 PHYSICS_GROUP = "Physics (3D only)"
@@ -81,7 +88,7 @@ class ParameterSpec:
     def __post_init__(self) -> None:
         if self.group not in GROUPS:
             raise ValueError(f"unknown parameter group: {self.group}")
-        if self.kind not in {"float", "choice", "range", "optional_range"}:
+        if self.kind not in {"float", "choice", "range", "optional_range", "text"}:
             raise ValueError(f"unknown parameter kind: {self.kind}")
 
 
@@ -164,6 +171,7 @@ PARAMETERS: tuple[ParameterSpec, ...] = (
         "trailer_yaw", "Trailer yaw offset", "Start pose", "range", unit="rad"
     ),
     ParameterSpec("articulation", "Articulation", "Start pose", "range", unit="rad"),
+    ParameterSpec("obstacles", "Boxes", "Obstacles", "text", unit="m"),
     ParameterSpec(
         "random_trailer_hitch_to_axle",
         "Trailer length per episode",
@@ -182,10 +190,46 @@ PARAMETERS: tuple[ParameterSpec, ...] = (
 
 _OVERRIDE_KEYS = frozenset(item.name for item in fields(ScenarioOverrides))
 _START_KEYS = frozenset(item.name for item in fields(StartDistribution))
+_OBSTACLES_KEY = "obstacles"
 _PLANNER_KEY = "planner"
 _RANDOM_TRAILER_KEY = "random_trailer_hitch_to_axle"
 _NOISE_KEY = "observation_noise_std"
 _SPEC_BY_KEY = {spec.key: spec for spec in PARAMETERS}
+
+
+def format_obstacles(obstacles: Any) -> str:
+    """Render obstacles as the text :func:`parse_obstacles` reads back."""
+
+    entries = []
+    for item in obstacles:
+        numbers = [item.x, item.y, item.length, item.width]
+        default = Obstacle(0.0, 0.0, 1.0, 1.0)
+        if item.yaw != default.yaw or item.height != default.height:
+            numbers.append(item.yaw)
+        if item.height != default.height:
+            numbers.append(item.height)
+        entries.append(", ".join(f"{number:g}" for number in numbers))
+    return "; ".join(entries)
+
+
+def parse_obstacles(text: str) -> tuple[Obstacle, ...]:
+    """Parse ``x, y, length, width[, yaw[, height]]; ...``; blank means none."""
+
+    obstacles = []
+    for index, entry in enumerate(text.split(";"), start=1):
+        if not entry.strip():
+            continue
+        parts = [part.strip() for part in entry.split(",")]
+        if not 4 <= len(parts) <= 6:
+            raise ParameterError(
+                f"Obstacle {index}: enter x, y, length, width and optionally"
+                f" yaw and height, got '{entry.strip()}'"
+            )
+        try:
+            obstacles.append(Obstacle(*(float(part) for part in parts)))
+        except ValueError as error:
+            raise ParameterError(f"Obstacle {index}: {error}") from None
+    return tuple(obstacles)
 
 
 def _format_number(value: float) -> str:
@@ -336,6 +380,9 @@ class AppController:
             if spec.key == _PLANNER_KEY:
                 values[spec.key] = scenario.planner
                 continue
+            if spec.key == _OBSTACLES_KEY:
+                values[spec.key] = format_obstacles(scenario.obstacles)
+                continue
             if spec.key == _RANDOM_TRAILER_KEY:
                 bounds = scenario.randomization.trailer_hitch_to_axle
                 values[spec.key] = (
@@ -380,11 +427,14 @@ class AppController:
             start: dict[str, Any] = {}
             randomization: dict[str, Any] = {}
             planner = self._scenario.planner
+            obstacles = self._scenario.obstacles
             defaults = StartDistribution()
             for key, text in values.items():
                 spec = _SPEC_BY_KEY[key]
-                parsed = _parse_value(spec, str(text))
-                if key == _PLANNER_KEY:
+                parsed = None if spec.kind == "text" else _parse_value(spec, str(text))
+                if key == _OBSTACLES_KEY:
+                    obstacles = parse_obstacles(str(text))
+                elif key == _PLANNER_KEY:
                     planner = parsed or DEFAULT_PLANNER
                 elif key == _RANDOM_TRAILER_KEY:
                     randomization["trailer_hitch_to_axle"] = parsed
@@ -403,6 +453,7 @@ class AppController:
                         self._scenario.randomization, **randomization
                     ),
                     planner=planner,
+                    obstacles=obstacles,
                 )
                 built = candidate.build()
             except ValueError as error:
@@ -803,6 +854,7 @@ class AppController:
                 state.trailer_pose.yaw,
                 standoff=max(self.scenario.start.standoff),
                 route=self.preview_route() if show_route else None,
+                obstacles=built.obstacles,
             )
         except Exception as error:
             raise ControllerError(f"3D preview unavailable: {error}") from error
@@ -898,7 +950,9 @@ class AppController:
         from trailer_docking.paths.planners import plan_reference
 
         return tuple(
-            plan_reference(self._scenario.planner, geometry, dock, state).points
+            plan_reference(
+                self._scenario.planner, geometry, dock, state, self._built.obstacles
+            ).points
         )
 
     def preview_route(self) -> tuple[Point2D, ...]:

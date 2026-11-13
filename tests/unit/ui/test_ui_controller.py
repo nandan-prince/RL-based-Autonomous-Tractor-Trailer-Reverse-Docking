@@ -198,7 +198,8 @@ def test_parameters_cover_every_scenario_field() -> None:
     start_keys = {item.name for item in fields(StartDistribution)}
     assert len(keys) == len(set(keys))
     random_keys = {"random_trailer_hitch_to_axle", "observation_noise_std"}
-    assert set(keys) == override_keys | start_keys | random_keys | {"planner"}
+    extra = {"planner", "obstacles"}
+    assert set(keys) == override_keys | start_keys | random_keys | extra
     for spec in PARAMETERS:
         assert spec.group in GROUPS
         assert spec.physics_only == (spec.key in PHYSICS_ONLY_FIELDS)

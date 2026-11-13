@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -20,6 +20,7 @@ from trailer_docking.core.config import (
     load_vehicle_configuration,
 )
 from trailer_docking.core.geometry import Bounds1D
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import Pose2D, VehicleCommand, VehicleState
 from trailer_docking.environments.rendering import DockingRenderer
 from trailer_docking.environments.task import (
@@ -74,6 +75,11 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
     (:mod:`trailer_docking.paths.planners`) that produces each episode's
     reference path.  The reward's lateral and heading terms penalize deviation
     from that path, so the planner defines what "staying on the route" means.
+
+    ``obstacles`` are static boxes in the dock frame.  Touching one ends the
+    episode as a collision in both backends, and the MuJoCo scene contains
+    them as bodies.  The observation does not describe them: a controller
+    avoids them only by following a route planned around them.
     """
 
     metadata: dict[str, Any] = {  # noqa: RUF012
@@ -93,6 +99,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         action_mode: ActionMode = "fixed_reverse",
         backend: Backend = "2d",
         planner: str = DEFAULT_PLANNER,
+        obstacles: Sequence[Obstacle] = (),
         render_mode: Literal["human", "rgb_array"] | None = None,
         task_settings: DockingTaskConfiguration | None = None,
     ) -> None:
@@ -110,6 +117,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         self.action_mode = action_mode
         self.backend: Backend = backend
         self.planner = validate_planner(planner)
+        self.obstacles: tuple[Obstacle, ...] = tuple(obstacles)
         self.render_mode = render_mode
         self.settings = task_settings or load_docking_task_configuration(task_path)
         action_size = 1 if action_mode == "fixed_reverse" else 2
@@ -144,7 +152,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         # Imported here so the 2D task needs no MuJoCo installation.
         from trailer_docking.simulators.mujoco.adapter import MujocoSimulator
 
-        return MujocoSimulator(self.vehicle, self.dock)
+        return MujocoSimulator(self.vehicle, self.dock, obstacles=self.obstacles)
 
     @property
     def state(self) -> VehicleState:
@@ -178,7 +186,11 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
 
     def _build_path(self, state: VehicleState) -> ReferencePath:
         return plan_reference(
-            self.planner, self.vehicle.geometry, self.dock.geometry, state
+            self.planner,
+            self.vehicle.geometry,
+            self.dock.geometry,
+            state,
+            self.obstacles,
         )
 
     def _tracking(self, state: VehicleState) -> TrackingState:
@@ -255,6 +267,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.dock.geometry,
             self._x_bounds,
             self._y_bounds,
+            self.obstacles,
         )
         self._previous_distance = self.tracking.distance_to_goal
         self._steps = 0
@@ -333,6 +346,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.dock.geometry,
             self._x_bounds,
             self._y_bounds,
+            self.obstacles,
         )
         reward = self._reward(state)
         self._last_reward = reward

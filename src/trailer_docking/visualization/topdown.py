@@ -344,6 +344,27 @@ class TopDownView:
     def clear_trail(self) -> None:
         self._trail_points.clear()
 
+    def set_obstacles(self, obstacles: Sequence[Any]) -> None:
+        """Draw static obstacles; each needs a ``polygon()`` of points."""
+
+        from matplotlib.patches import Polygon
+
+        for patch in getattr(self, "_obstacle_patches", ()):
+            patch.remove()
+        self._obstacle_patches = []
+        for obstacle in obstacles:
+            corners = [self._display_point(point) for point in obstacle.polygon()]
+            patch = Polygon(
+                [(point.x, point.y) for point in corners],
+                closed=True,
+                facecolor="#d9731a",
+                edgecolor="black",
+                alpha=0.85,
+                zorder=2,
+            )
+            self.axes.add_patch(patch)
+            self._obstacle_patches.append(patch)
+
     def set_route(self, points: Sequence[Point2D] | None) -> None:
         """Show a docking-point reference route, or hide it with ``None``."""
 

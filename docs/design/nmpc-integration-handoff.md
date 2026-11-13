@@ -220,6 +220,14 @@ wait for the merge or branch from `chris/rl-ui-reconcile`.
   are piecewise linear with heading discontinuities at the corners, and
   neither is checked for trailer feasibility, so treat the path as a guide to
   track, not a trajectory the vehicle can follow exactly.
+- A scenario may contain static obstacles: `env.built.obstacles` is a tuple
+  of `Obstacle` boxes (`x`, `y`, `length`, `width`, `yaw`, `height`, and
+  `polygon()` for the corners) in the dock frame. Touching one is a
+  collision. The reference path avoids them only with the `astar` planner.
+  NMPC can add them as constraints (the reference paper does static-obstacle
+  avoidance), but PPO has no obstacle input, so for the primary comparison
+  say explicitly whether NMPC uses obstacle constraints or only tracks the
+  same route.
 - Each episode's `info` includes `scenario_fingerprint`, which covers every
   override and range; the task's own `vehicle_fingerprint` does not.
 - Simulated time does not wait for the controller. A slow solver does not

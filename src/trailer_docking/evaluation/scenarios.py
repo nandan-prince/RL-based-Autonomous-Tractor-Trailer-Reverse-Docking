@@ -9,8 +9,8 @@ baseline plus a small, serializable set of changes.
 Parameters fall in two groups:
 
 * *shared* parameters (dock size, truck dimensions, steering and speed
-  limits, start-pose ranges) change the planar problem and therefore apply to
-  every simulator backend;
+  limits, start-pose ranges, static obstacles) change the planar problem and
+  therefore apply to every simulator backend;
 * *physics-only* parameters (masses, ground friction) exist only in the
   MuJoCo backend and have no counterpart in the 2D kinematic model.  They
   take effect only when a run uses the 3D backend.
@@ -40,6 +40,7 @@ from trailer_docking.core.config import (
     load_vehicle_configuration,
 )
 from trailer_docking.core.geometry import Bounds1D, VehicleGeometry
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import Point2D, Pose2D, VehicleState, wrap_angle
 from trailer_docking.paths.planners import DEFAULT_PLANNER, validate_planner
 
@@ -212,6 +213,7 @@ class BuiltScenario:
     vehicle: VehicleConfiguration
     dock: DockConfiguration
     task: DockingTaskConfiguration
+    obstacles: tuple[Obstacle, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,8 +228,13 @@ class Scenario:
     start: StartDistribution = field(default_factory=StartDistribution)
     randomization: DomainRandomization = field(default_factory=DomainRandomization)
     planner: str = DEFAULT_PLANNER
+    obstacles: tuple[Obstacle, ...] = ()
 
     def __post_init__(self) -> None:
+        obstacles = tuple(self.obstacles)
+        if not all(isinstance(item, Obstacle) for item in obstacles):
+            raise ConfigurationError("obstacles must be Obstacle objects")
+        object.__setattr__(self, "obstacles", obstacles)
         if not isinstance(self.name, str) or not self.name.strip():
             raise ConfigurationError("scenario name must be a non-empty string")
         object.__setattr__(self, "vehicle_path", Path(self.vehicle_path))
@@ -291,7 +298,10 @@ class Scenario:
             )
         if max(abs(bound) for bound in self.start.trailer_yaw) > pi:
             raise ConfigurationError("start trailer_yaw range must be within +-pi")
-        built = BuiltScenario(vehicle=vehicle, dock=dock, task=task)
+        built = BuiltScenario(
+            vehicle=vehicle, dock=dock, task=task, obstacles=self.obstacles
+        )
+        _check_target_clear(built)
         _check_trailer_fits(vehicle, dock)
         lengths = self.randomization.trailer_hitch_to_axle
         if lengths is not None:
@@ -324,6 +334,7 @@ class Scenario:
             "start": {key: list(value) for key, value in asdict(self.start).items()},
             "randomization": self.randomization.to_dict(),
             "planner": self.planner,
+            "obstacles": [item.to_dict() for item in self.obstacles],
         }
 
     @classmethod
@@ -339,6 +350,7 @@ class Scenario:
             "start",
             "randomization",
             "planner",
+            "obstacles",
         }
         unknown = sorted(set(data) - allowed)
         if unknown:
@@ -353,6 +365,9 @@ class Scenario:
                 start=StartDistribution(**(data.get("start") or {})),
                 randomization=DomainRandomization(**(data.get("randomization") or {})),
                 planner=data.get("planner", DEFAULT_PLANNER),
+                obstacles=tuple(
+                    Obstacle.from_dict(item) for item in data.get("obstacles") or ()
+                ),
             )
         except ConfigurationError:
             raise
@@ -560,6 +575,24 @@ def _check_trailer_fits(vehicle: VehicleConfiguration, dock: DockConfiguration) 
     )
 
 
+def _check_target_clear(built: BuiltScenario) -> None:
+    """Reject an obstacle that the docked vehicle would be standing in."""
+
+    from trailer_docking.safety.collision import vehicle_obstacle_contacts
+
+    if not built.obstacles:
+        return
+    bay = built.dock.geometry
+    geometry = built.vehicle.geometry
+    state = _aligned_state(geometry, bay.target_position, bay.target_trailer_yaw)
+    contacts = vehicle_obstacle_contacts(state, geometry, built.obstacles)
+    if contacts:
+        raise ConfigurationError(
+            "the docked vehicle would overlap an obstacle"
+            f" ({', '.join(contacts)}); move or remove it"
+        )
+
+
 def _check_starts(scenario: Scenario, built: BuiltScenario) -> None:
     """Reject start ranges whose extremes begin an episode already failed."""
 
@@ -584,7 +617,7 @@ def _check_starts(scenario: Scenario, built: BuiltScenario) -> None:
                         state.tractor_pose, bay, built.task, built.vehicle
                     )
                     status = evaluate_task(
-                        state, built.vehicle, bay, x_bounds, y_bounds
+                        state, built.vehicle, bay, x_bounds, y_bounds, built.obstacles
                     )
                     if status.terminated and not status.success:
                         raise ConfigurationError(
