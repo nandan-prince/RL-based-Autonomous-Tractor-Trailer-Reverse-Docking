@@ -24,8 +24,8 @@ src/trailer_docking/
 ├── observations/                Controller-facing observation construction
 ├── safety/                      Collision, jackknife, limits, and command supervision
 ├── simulators/
-│   ├── base.py                  Planned common simulator protocol
-│   ├── kinematic/               Planned deterministic 2D state propagation
+│   ├── base.py                  Common simulator protocol
+│   ├── kinematic/               Implemented deterministic 2D state propagation
 │   └── mujoco/                  Implemented adapter, generator, MJCF, and assets
 ├── environments/                Gymnasium API wrapper around the 2D stack
 ├── controllers/                 Geometric, NMPC, and PPO controller adapters
@@ -40,8 +40,8 @@ tests/
 
 - `core` has no dependency on Gymnasium, Stable-Baselines3, CasADi, or MuJoCo.
 - `paths`, `observations`, and `safety` operate on shared core types.
-- simulator implementations will conform to the protocol in
-  `simulators/base.py`; that protocol is still a placeholder.
+- simulator implementations conform to the runtime-checkable protocol in
+  `simulators/base.py`.
 - controllers conform to the protocol in `controllers/base.py`.
 - the Gymnasium environment composes the 2D simulator and shared modules; it
   does not own a separate vehicle model.
@@ -63,8 +63,9 @@ logic.
 6. Implement the MuJoCo model and validate its side of the simulator contract.
 7. Run shared held-out scenarios through the evaluation runner.
 
-Steps 1 and the MuJoCo portion of step 6 are implemented. The next critical
-step is the verified 2D kinematic simulator, after which direct cross-backend
-state, command, geometry, safety-event, and goal-event parity can be tested.
+Steps 1 and 2 and the MuJoCo portion of step 6 are implemented. Direct
+low-speed trajectory parity is tested for forward and reverse maneuvers. The
+next critical step is step 3; safety-event and goal-event parity require those
+shared task modules before the Gymnasium composition in step 4.
 See the [MuJoCo alignment audit](mujoco-alignment-audit.md) for the current
 contract-by-contract status.

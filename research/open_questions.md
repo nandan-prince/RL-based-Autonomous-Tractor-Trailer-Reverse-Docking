@@ -20,10 +20,12 @@ factor before drawing broad conclusions.
 
 ## Q-003 — Simulation-to-simulation transfer
 
-Which differences between the verified 2D kinematic model and MuJoCo—actuator
-response, wheel contact, slip, hitch behavior, or numerical timing—most affect
-zero-shot controller transfer? Investigate only after coordinate, geometry,
-command, and event parity checks pass.
+Direct low-speed forward and reverse trajectory checks now align the verified
+2D kinematic plant with MuJoCo within explicit test tolerances. Which remaining
+differences—actuator response, wheel contact, slip, hitch behavior, or
+numerical timing—most affect zero-shot controller transfer? Investigate only
+after shared collision, safety, docking-event, observation, and controller
+interfaces also pass parity checks.
 
 ## Q-004 — Limit checks against a physical plant
 

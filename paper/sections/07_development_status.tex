@@ -16,19 +16,19 @@ marked implemented only when corresponding repository code and tests exist.
     Shared state, command, and geometry & \implemented & Unit tests and randomized transform checks \\
     Provenance and conformance tooling & \implemented & Fingerprints and executable conformance report \\
     Command supervision & \implemented & Auditable clipping and violation tests \\
-    2D kinematic propagation & \planned & Equation, integration, and convergence tests \\
+    2D kinematic propagation & \implemented & RK4, equation, limit, rigid-geometry, determinism, and convergence tests \\
     Paths, previews, collision, and goal logic & \planned & Geometry and deterministic scenario tests \\
     Gymnasium environment & \planned & API checker and seeded rollout tests \\
     Simple closed-loop tracker & \planned & Straight and curved reference tracking \\
     NMPC & \planned & Solver, feasibility, and timing validation \\
     PPO & \planned & Training, evaluation, and curriculum evidence \\
     MuJoCo vehicle, dock, and adapter & \implemented & Generated MJCF; neutral-pose, sign, timing, contact, and kinematic-agreement tests \\
-    2D/MuJoCo simulator parity & \planned & Requires the 2D simulator; shared scenarios and event equality \\
+    2D/MuJoCo simulator parity & \implemented & Direct forward/reverse plant trajectories; task-event equality remains planned \\
     Comparative experiments & \planned & Frozen held-out scenarios and saved results \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
-The immediate development gate is a verified 2D state-transition model. The
-next report revision must replace the planned kinematics description with the
-implemented equations, integrator, validation protocol, and measured errors.
+The immediate development gate is shared reference-path, footprint, collision,
+jackknife, and goal logic. These modules must be verified independently before
+they are composed into the Gymnasium environment and used for task-event parity.

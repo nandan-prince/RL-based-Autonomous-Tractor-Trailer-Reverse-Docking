@@ -111,10 +111,14 @@ These systems reinforce the project’s modular design: perception and localizat
   command supervision, and conformance validation implemented
 - First MuJoCo vehicle, nominal dock scene, and shared-contract adapter
   implemented and generated from the YAML specifications; validated against the
-  specification's kinematic equations, not yet against the 2D simulator
+  specification and direct low-speed 2D simulator trajectories
+- Canonical 2D kinematic backend implemented with generalized signed hitch
+  offsets, acceleration-limited speed, steering-rate control, fixed-step RK4,
+  rigid geometry reconstruction, and a common simulator protocol
 - Local 3D and top-down viewers available (see below)
 - Living IEEE-format LaTeX report updated through the MuJoCo implementation
-- Kinematic state propagation and simulator implementation not yet started
+- Reference paths, collision/goal geometry, Gymnasium, NMPC, and PPO remain
+  planned
 
 ## Vehicle-core verification
 
@@ -264,10 +268,11 @@ and interpreting the reported metrics._
 
 ### What the demo currently does not show
 
-The 2D kinematic simulator, the Gymnasium environment, NMPC, and PPO are not
-implemented yet, so steps 1–4 use the MuJoCo backend for motion and there is no
-trained agent. The top-down view depends only on the shared state and will
-display the 2D simulator unchanged once it exists.
+The 2D kinematic simulator is implemented as a tested backend, but the existing
+interactive viewer still uses MuJoCo. The Gymnasium environment, NMPC, and PPO
+are not implemented, so steps 1–4 do not show a trained agent. The top-down
+view depends only on shared state and can later be connected to the 2D backend
+without changing its rendering contract.
 
 ## Team workflow
 

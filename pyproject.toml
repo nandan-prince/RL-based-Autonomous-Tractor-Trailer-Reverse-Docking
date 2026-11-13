@@ -45,6 +45,7 @@ branch = true
 source = [
   "trailer_docking.core",
   "trailer_docking.safety",
+  "trailer_docking.simulators.kinematic",
   "trailer_docking.simulators.mujoco",
   "trailer_docking.validation",
 ]
@@ -67,7 +68,7 @@ strict = true
 files = [
   "src/trailer_docking/core",
   "src/trailer_docking/safety",
-  "src/trailer_docking/simulators/mujoco",
+  "src/trailer_docking/simulators",
   "src/trailer_docking/validation",
 ]
 

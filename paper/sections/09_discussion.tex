@@ -10,9 +10,10 @@ Several important limitations remain. The compact vehicle is not a validated
 full-size highway model. MuJoCo masses, contact parameters, actuator limits,
 and tuned gains are engineering values rather than identified real-vehicle
 parameters. The selected $0.30\,\mathrm{rad/s}$ steering-rate limit is not
-inherited from the two core papers. The implemented tests compare MuJoCo with
-a test-local integration of the specified equations; they do not replace
-direct parity against the project's future 2D simulator or its task events.
+inherited from the two core papers. The implemented tests now compare MuJoCo
+directly with the project 2D backend for low-speed plant trajectories, but they
+do not establish parity for future collision, safety, docking, observation, or
+termination events.
 MuJoCo-only tuning is versioned in code but not yet included in the vehicle
 configuration fingerprint.
 

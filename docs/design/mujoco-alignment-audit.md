@@ -13,8 +13,8 @@ in this working tree
 
 This audit checks the implemented MuJoCo vehicle, dock, generator, and adapter
 against the frozen vehicle-core contract. It records what is verified now and
-what must wait for the 2D simulator and Gymnasium task. It is not a controller
-experiment or evidence of real-vehicle fidelity.
+what must wait for shared task logic and the Gymnasium environment. It is not
+a controller experiment or evidence of real-vehicle fidelity.
 
 Authoritative inputs:
 
@@ -47,8 +47,8 @@ Implemented artifacts:
 | Primitive collision geometry | Chassis boxes and wheel cylinders are generated without decorative collision meshes | Verified |
 | Straight reversing and deterministic stepping | Forward/reverse signs, speed tracking, rest stability, reset, and repeated-rollout equality are tested | Verified |
 | Low-speed kinematic behavior | Scripted forward and reverse maneuvers agree with a test-local RK4 integration within documented tolerances | Provisionally verified |
-| Soft/hard articulation and success events | Shared thresholds exist, but identical episode termination and goal evaluation require the future 2D/Gymnasium task | Pending task integration |
-| Direct 2D/MuJoCo parity | The project 2D backend is still a placeholder | Pending 2D simulator |
+| Soft/hard articulation and success events | Shared thresholds exist, but identical episode termination and goal evaluation require shared task logic and Gymnasium integration | Pending task integration |
+| Direct 2D/MuJoCo parity | Shared forward and reverse command sequences compare final planar pose and yaw within explicit tolerances | Verified at plant-trajectory level |
 | NMPC/PPO transfer | No controller is implemented or transferred | Pending controllers |
 
 ## Deliberate MuJoCo-only modeling choices
@@ -89,16 +89,16 @@ From the repository root:
 .venv/bin/python -m trailer_docking.simulators.mujoco.builder
 ```
 
-In the audited working tree and dependency set, all 192 tests passed. The
+In the audited working tree and dependency set, all 225 tests passed. The
 conformance report passed, and both committed MJCF files matched regenerated
 output. Coverage is branch-aware and now includes the non-interactive MuJoCo
 adapter, Ackermann mapping, and builder; interactive viewer loops remain
 outside the coverage gate.
 
-## Gate before kinematics work
+## Gate after kinematics work
 
-The implemented 3D model is sufficiently aligned with the frozen vehicle core
-to proceed with the canonical 2D kinematic model. The 2D implementation must
-reuse the same state, command, geometry, timing, safety thresholds, and
-configuration loaders. Once it exists, replace the test-local RK4 reference
-with shared cross-backend scenarios and complete event-level parity checks.
+The canonical 2D model now reuses the shared state, command, geometry, timing,
+limits, supervisor, and configuration loaders. Shared forward and reverse
+command sequences establish direct plant-trajectory parity. The next gate is
+shared path, collision, jackknife, and goal logic; those modules are necessary
+to complete event-level parity and cannot be inferred from plant motion alone.

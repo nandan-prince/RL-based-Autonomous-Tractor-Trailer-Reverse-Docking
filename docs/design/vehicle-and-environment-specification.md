@@ -1,8 +1,8 @@
 # Vehicle and environment specification
 
 **Specification ID:** `compact-semitrailer-v1`  
-**Status:** frozen; vehicle core and first MuJoCo implementation verified,
-2D implementation pending
+**Status:** frozen; vehicle core, canonical 2D kinematic backend, and first
+MuJoCo implementation verified; task-level geometry and Gymnasium pending
 
 **Machine-readable sources:**
 [`configs/vehicles/compact_semitrailer_v1.yaml`](../../configs/vehicles/compact_semitrailer_v1.yaml)
@@ -271,15 +271,17 @@ The 2D integrator may use a smaller internal state and derive redundant values.
 The MuJoCo adapter must measure or calculate each field from named sites, body
 velocities, and joints. Both backends must expose the same units and signs.
 
-For the nominal on-axle model, the 2D integrator's minimal state is
+The 2D integrator's minimal state is
 
 ```text
-[tractor_x, tractor_y, tractor_yaw, trailer_yaw, steering_angle]
+[tractor_x, tractor_y, tractor_yaw, trailer_yaw, steering_angle,
+ longitudinal_speed]
 ```
 
-The hitch and trailer-axle positions are reconstructed from the geometry. The
-implementation must not independently integrate redundant positions in a way
-that allows the rigid hitch constraint to drift.
+Longitudinal speed is a state because the configured acceleration limit is
+applied explicitly. The hitch and trailer-axle positions are reconstructed
+from geometry. Redundant positions are not independently integrated, so the
+rigid hitch constraint cannot drift.
 
 ## 8. Shared controller command
 
@@ -296,8 +298,9 @@ outputs only normalized steering rate. Keeping target speed in the common
 command allows NMPC, scripted tests, and future experiments to command it
 without changing the simulator interface.
 
-The 2D backend integrates and clips steering angle, then uses target speed in
-the kinematic equations. The MuJoCo backend integrates the virtual steering
+The 2D backend accelerates toward target speed, integrates and clips steering
+angle, then uses instantaneous speed in the kinematic equations. The MuJoCo
+backend integrates the virtual steering
 target, maps it to left/right wheel angles, and converts target speed to rear
 wheel angular-velocity targets using `omega = speed / wheel_radius`.
 
@@ -329,8 +332,9 @@ for transfer-robustness experiments and default to disabled.
 
 ## 10. Planar kinematic model
 
-The implementation must support a general signed hitch offset. The nominal
-validation case is the on-axle specialization. With tractor rear-axle pose
+The implementation supports general signed longitudinal and lateral hitch
+offsets. The nominal validation case is the on-axle specialization. With
+tractor rear-axle pose
 `(x_t, y_t, psi_t)`, trailer yaw `psi_r`, virtual steering `delta`, tractor
 wheelbase `L_t`, trailer hitch-to-axle distance `L_r`, and longitudinal speed
 `v`, the nominal on-axle equations are
@@ -341,6 +345,15 @@ y_t_dot   = v sin(psi_t)
 psi_t_dot = v tan(delta) / L_t
 psi_r_dot = v sin(psi_t - psi_r) / L_r
 delta_dot = steering_rate
+v_dot     = longitudinal_acceleration
+```
+
+For signed longitudinal hitch offset `a`, lateral offset `b`, tractor yaw rate
+`omega = v tan(delta) / L_t`, and articulation `alpha = psi_t - psi_r`, the
+implemented general trailer equation is
+
+```text
+psi_r_dot = ((v - b omega) sin(alpha) + a omega cos(alpha)) / L_r
 ```
 
 The trailer axle is
@@ -350,9 +363,11 @@ x_r = x_t - L_r cos(psi_r)
 y_r = y_t - L_r sin(psi_r)
 ```
 
-The numerical implementation must apply a documented integrator and pass
-timestep-convergence tests. It must not silently use the NMPC paper's displayed
-Euler equation without an explicit timestep.
+The backend uses classical fixed-step fourth-order Runge--Kutta (RK4) with the
+configured `0.02 s` substep, five substeps per controller command. Automated
+tests cover timestep convergence, forward and reverse motion, constant
+steering, articulation, angle wrapping, rigid reconstruction, limit handling,
+invalid inputs, and deterministic replay.
 
 ## 11. Nominal loading dock
 
@@ -528,10 +543,12 @@ Exact trajectory equality is not required because MuJoCo includes contact and
 actuator dynamics. Coordinate, geometry, command, and event equality is
 required.
 
-Items 1--7 and the MuJoCo side of items 8--10 are covered by automated tests.
-Full event equality and direct trajectory comparison remain pending until the
-2D simulator and Gymnasium task exist. The evidence and remaining gates are
-tracked in the [MuJoCo alignment audit](mujoco-alignment-audit.md).
+Items 1--7 are covered by automated tests. Direct project-backend trajectory
+comparison for item 10 now covers low-speed forward and reverse command
+sequences within documented tolerances. Full equality for safety, collision,
+and docking events remains pending until the shared task modules and Gymnasium
+environment exist. The evidence and remaining gates are tracked in the
+[MuJoCo alignment audit](mujoco-alignment-audit.md).
 
 ## 14. Change control
 

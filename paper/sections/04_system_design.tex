@@ -43,7 +43,7 @@ The nominal steering-angle limit is $0.50\,\mathrm{rad}$ and the selected
 steering-rate limit is $0.30\,\mathrm{rad/s}$. The latter is a project design
 choice and will require sensitivity analysis; it is not reported by either core
 paper. The soft and hard articulation thresholds are $35^\circ$ and $45^\circ$.
-The controller period is $0.10\,\mathrm{s}$, the planned 2D integration step is
+The controller period is $0.10\,\mathrm{s}$, the implemented 2D integration step is
 $0.02\,\mathrm{s}$, and the MuJoCo physics step is $0.002\,\mathrm{s}$.
 
 \subsection{Implemented software contracts}
@@ -76,8 +76,9 @@ cylinders scrubbed at both rims and saturated the steering actuators. On a
 scripted $3\,\mathrm{m}$ low-speed maneuver the model ended within
 $0.009\,\mathrm{m}$ and $0.001\,\mathrm{rad}$ of a numerical integration of
 the on-axle kinematic equations. This is a model-validation check on one
-scenario; comparison with the project's 2D simulator and any controller
-transfer remain planned.
+scenario. Direct tests now compare the project's 2D and MuJoCo backends under
+shared forward and reverse command sequences; task-event and controller
+transfer checks remain planned.
 
 \subsection{Reproducibility}
 

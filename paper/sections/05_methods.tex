@@ -5,13 +5,26 @@ methods.
 
 \subsection{Two-dimensional vehicle model}
 
-\planned{} The first simulator will use a low-speed kinematic bicycle model for
-the tractor and a kinematic single-axle trailer. The implementation will support
-the signed hitch offset in the shared specification. Before controller
-integration, validation will cover straight reverse motion, constant steering,
-angle wrapping, rigid geometry, articulation growth, deterministic replay, and
-timestep convergence. The final equations and integration method will be added
-here only after implementation and tests agree.
+\implemented{} The planar plant uses a low-speed kinematic bicycle for the
+tractor and a no-lateral-slip single-axle trailer. Its independent state is
+$[x_t,y_t,\psi_t,\psi_r,\delta,v]$. With wheelbase $L_t$, trailer length $L_r$,
+signed longitudinal and lateral hitch offsets $a$ and $b$, tractor yaw rate
+$\omega=v\tan(\delta)/L_t$, and articulation
+$\alpha=\psi_t-\psi_r$, the trailer equation is
+\begin{equation}
+ \dot{\psi}_r = \frac{(v-b\omega)\sin\alpha+a\omega\cos\alpha}{L_r}.
+\end{equation}
+Together with $\dot{x}_t=v\cos\psi_t$, $\dot{y}_t=v\sin\psi_t$,
+$\dot{\psi}_t=\omega$, $\dot{\delta}=u_\delta$, and bounded acceleration
+$\dot v=u_v$, this reduces to the frozen on-axle model when $a=b=0$.
+
+The simulator applies command supervision at $10\,\mathrm{Hz}$ and advances
+five fixed $0.02\,\mathrm{s}$ classical fourth-order Runge--Kutta substeps.
+Hitch and trailer-axle positions are reconstructed from rigid geometry rather
+than independently integrated. Tests cover analytic derivatives, straight and
+turning motion in both speed directions, articulation, angle wrapping, limits,
+rigid reconstruction, deterministic replay, timestep convergence, and direct
+low-speed trajectory comparison with MuJoCo.
 
 \subsection{Reference trajectories and observations}
 
