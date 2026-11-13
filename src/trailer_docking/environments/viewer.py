@@ -132,6 +132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action_mode="teleop",
         render_mode="human",
     )
+    env.set_controller_label("MANUAL KEYBOARD")
     env.reset(seed=args.seed, options={"randomize": args.random_start})
     control = KeyboardControl(env.vehicle.limits, env.simulator.controller_period)
     figure = env.figure

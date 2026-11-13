@@ -19,8 +19,8 @@ marked implemented only when corresponding repository code and tests exist.
     2D kinematic propagation & \implemented & RK4, equation, limit, rigid-geometry, determinism, and convergence tests \\
     Paths, previews, collision, and goal logic & \implemented & Projection, geometry, event, and deterministic scenario tests \\
     Gymnasium environment & \implemented & API checker, seeded rollouts, event tests, rigid service-yard rendering, and complete scripted docking \\
-    Simple closed-loop tracker & \planned & Straight and curved reference tracking \\
-    NMPC & \planned & Solver, feasibility, and timing validation \\
+    Deterministic LQR tracker & \implemented & Straight-path perturbed-start closed-loop docking; curved/randomized validation remains \\
+    Basic NMPC & \implemented & 40-step fixed-speed straight-path docking; collision constraints and broader validation remain \\
     PPO & \planned & Training, evaluation, and curriculum evidence \\
     MuJoCo vehicle, dock, and adapter & \implemented & Generated MJCF; neutral-pose, sign, timing, contact, and kinematic-agreement tests \\
     2D/MuJoCo simulator parity & \implemented & Direct forward/reverse plant trajectories; task-event equality remains planned \\
@@ -29,7 +29,7 @@ marked implemented only when corresponding repository code and tests exist.
   \end{tabular}
 \end{table*}
 
-The immediate development gate is a simple deterministic closed-loop tracker
-for straight and curved references. It will validate the observation/action
-loop before NMPC and PPO are introduced. Applying the same task wrapper to
+The immediate controller gate is PPO training and inference through the frozen
+one-dimensional action and observation contract, followed by paired curved and
+randomized-start validation of all methods. Applying the same task wrapper to
 MuJoCo remains the event-level transfer gate.

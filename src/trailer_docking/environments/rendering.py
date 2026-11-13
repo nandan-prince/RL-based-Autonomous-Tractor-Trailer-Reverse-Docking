@@ -27,14 +27,16 @@ class DockingRenderer:
         mode: Literal["human", "rgb_array"],
         x_bounds: Bounds1D,
         y_bounds: Bounds1D,
+        controller_label: str | None = None,
     ) -> None:
         self.mode = mode
-        title = (
+        self._base_title = (
             "Full-size service-center yard — Gymnasium 2D"
             if dock.geometry.specification_id == "service-center-dock-v1"
             else "Gymnasium 2D docking environment"
         )
-        self.view = TopDownView(vehicle, dock, title=title)
+        self._controller_label: str | None = None
+        self.view = TopDownView(vehicle, dock, title=self._base_title)
         (self._path_line,) = self.view.axes.plot(
             [], [], "--", color="#69359c", linewidth=1.5, label="reference path"
         )
@@ -43,12 +45,26 @@ class DockingRenderer:
         )
         self.view.axes.legend(loc="lower right", fontsize=7, ncol=2)
         self.view.set_view_bounds(x_bounds, y_bounds)
+        self.set_controller_label(controller_label)
         self.reset_path(path)
         if mode == "human":
             import matplotlib.pyplot as plt
 
             if "agg" not in plt.get_backend().lower():
                 plt.show(block=False)
+
+    def set_controller_label(self, label: str | None) -> None:
+        """Show the active control method prominently on every rendered frame."""
+
+        cleaned = None if label is None else label.strip()
+        self._controller_label = cleaned or None
+        title = self._base_title
+        if self._controller_label is not None:
+            title += (
+                "\nAUTONOMOUS CONTROLLER: "
+                f"{self._controller_label}  |  fixed reverse / steering rate"
+            )
+        self.view.axes.set_title(title, fontweight="bold")
 
     def reset_path(self, path: ReferencePath) -> None:
         points = [self.view.display_xy(point) for point in path.points]

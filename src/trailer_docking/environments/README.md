@@ -30,6 +30,12 @@ adding the visual service-center scenario does not silently change controller
 experiments. Pass the three service-center configuration paths explicitly when
 an algorithm experiment is intended to use the full-size scenario.
 
+An explicit reference can be supplied independently of the reset state with
+`TrailerDockingEnv(reference_path=path)` or
+`reset(options={"reference_path": path})`. This is the required mode for paired
+LQR, NMPC, and PPO evaluation: randomizing the vehicle must not move the path
+to meet the randomized start.
+
 ## Gymnasium API
 
 ```python
@@ -46,6 +52,8 @@ The default `fixed_reverse` mode has one normalized steering-rate action and
 uses the frozen `-0.2 m/s` target. This is the PPO/NMPC comparison contract.
 The viewer uses `action_mode="teleop"`, whose second normalized action controls
 speed for manual debugging. Both modes use the same plant and event logic.
+The shared controller conventions and PPO handoff are specified in
+[`controller-interface.md`](../../../docs/design/controller-interface.md).
 
 The 21-element float32 observation is bounded to `[-1, 1]` and contains path
 lateral error, sine/cosine heading errors, articulation and rate, steering

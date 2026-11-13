@@ -122,8 +122,13 @@ These systems reinforce the project’s modular design: perception and localizat
   20 loading doors along the bottom x-axis, a 14 m semitrailer, and an open
   color-highlighted active loading zone without collidable side walls; its
   soft/terminal articulation thresholds are 35/60 degrees
-- Living IEEE-format LaTeX report updated through the Gymnasium implementation
-- Simple closed-loop tracker, NMPC, and PPO remain planned
+- Shared controller interface and explicit fixed-reference reset support added
+- Straight-path trajectory-error LQR and basic fixed-speed NMPC controllers
+  implemented with a common headless/interactive rollout runner
+- Living IEEE-format LaTeX report updated through the first LQR/NMPC
+  closed-loop controller milestone
+- PPO, curved/randomized controller validation, and formal comparisons remain
+  planned
 
 ## Vehicle-core verification
 
@@ -206,6 +211,46 @@ straight docking and a randomized start are available:
 
 See the [2D environment guide](src/trailer_docking/environments/README.md) for
 the Gymnasium API, action modes, observation, events, and focused tests.
+
+### Run the implemented controllers
+
+The first controllers use the compact research baseline and the same explicit
+straight reference path from a perturbed start. They do not record media.
+
+```bash
+# Deterministic trajectory-error LQR
+.venv/bin/python -m trailer_docking.evaluation.runner --controller lqr
+
+# Basic fixed-speed nonlinear MPC (requires the control extra)
+.venv/bin/pip install -e '.[control]'
+.venv/bin/python -m trailer_docking.evaluation.runner --controller nmpc
+
+# Run either controller in the full-size service-center yard
+.venv/bin/python -m trailer_docking.evaluation.runner --controller lqr --scenario service-center
+.venv/bin/python -m trailer_docking.evaluation.runner --controller nmpc --scenario service-center
+
+# Headless acceptance run
+.venv/bin/python -m trailer_docking.evaluation.runner --controller lqr --no-render
+```
+
+Both methods return the shared one-dimensional normalized steering-rate action.
+The alignment contract for parallel PPO development is documented in the
+[controller interface](docs/design/controller-interface.md).
+
+The controller name is displayed prominently above every interactive run.
+Generate an H.264 MP4 without opening a GUI using:
+
+```bash
+.venv/bin/pip install -e '.[video]'
+.venv/bin/python -m trailer_docking.evaluation.runner \
+  --controller lqr \
+  --scenario service-center \
+  --record artifacts/controller_videos/lqr_service_center.mp4 \
+  --speed 4 \
+  --frame-stride 2
+```
+
+Video output is a regenerable artifact and remains ignored by Git.
 
 ### 2. See the generated MuJoCo dock and vehicle — Available
 

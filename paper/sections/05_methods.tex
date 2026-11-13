@@ -61,22 +61,43 @@ building façade outside the active door remain collidable. Its hard jackknife
 event occurs at $60^\circ$, while the compact baseline terminates at
 $45^\circ$.
 
+\subsection{Deterministic LQR tracker}
+
+\implemented{} The first closed-loop baseline numerically linearizes the same
+RK4 kinematic plant used by the environment about straight motion at the
+configured reverse speed. Its error state contains trailer docking-point
+lateral error, tractor heading error, trailer heading error, and steering
+angle. A discrete Riccati iteration computes a feedback gain whose physical
+steering-rate output is normalized through the common Gymnasium action. This
+controller is an integration baseline for signs, path errors, actuation, and
+termination rather than a claimed solution for general curved docking.
+
 \subsection{NMPC baseline}
 
-\planned{} NMPC will predict the shared articulated-vehicle model and minimize
-tracking, articulation, steering effort, and steering-rate variation while
-enforcing dynamics, steering, steering-rate, and articulation constraints. The
-primary comparison will retain fixed reverse speed and steering-rate authority.
-Horizon, discretization, weights, warm start, solver tolerances, and numerical
-failure handling will be recorded in versioned experiment configurations.
+\implemented{} A first NMPC vertical slice predicts the nonlinear shared
+articulated-vehicle equations over 40 controller periods. It minimizes trailer
+docking-point position and heading errors plus tractor-heading, articulation,
+steering-angle, and steering-rate penalties. Steering rate is the only decision
+input and speed remains at the configured fixed reverse target. The CasADi/IPOPT
+problem enforces steering-angle, steering-rate, articulation, initial-state,
+and discrete-dynamics constraints, applies the first input, warm-starts the next
+solve, and reports solve failures. Collision is evaluated by the environment
+but is not yet a prediction constraint. Curved-path, randomized-start,
+obstacle, solver-failure, and timing validation remain planned before NMPC is
+used in the formal comparison. Controller settings will be promoted into
+versioned experiment configurations for reported studies.
 
 \subsection{PPO controller}
 
-\planned{} PPO will use the same steering-rate authority and fixed reverse
+\planned{} PPO will use the same normalized steering-rate authority and fixed reverse
 speed. Training is expected to proceed from straight reverse stabilization to
 curved tracking and randomized docking. Reward components, termination logic,
 network architecture, training budget, and curriculum transitions will be
-documented after implementation. A global-coordinate policy and removal of
+documented after implementation. The Stable-Baselines3 training environment
+may be used directly, but evaluation will use a thin adapter implementing the
+same controller protocol as LQR and NMPC. The primary policy will not receive
+the privileged physical-state fields available to model-based controllers. A
+global-coordinate policy and removal of
 preview information are candidate observation ablations, not established
 experiments.
 

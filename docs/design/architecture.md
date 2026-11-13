@@ -52,6 +52,10 @@ This boundary is what allows a PPO policy or NMPC controller developed in 2D
 to be evaluated against MuJoCo without rewriting its observation or evaluation
 logic.
 
+The exact controller handoff—observation access, normalized steering-rate
+action, fixed reverse speed, path ordering, reset pairing, and PPO restrictions—is
+defined in the [shared controller interface](controller-interface.md).
+
 ## Implementation order
 
 1. Freeze state, action, coordinate, geometry, timing, and tolerance definitions
@@ -63,10 +67,11 @@ logic.
 6. Implement the MuJoCo model and validate its side of the simulator contract.
 7. Run shared held-out scenarios through the evaluation runner.
 
-Steps 1--4 and the MuJoCo portion of step 6 are implemented. Direct low-speed
+Steps 1--4, the straight-path LQR and basic NMPC portion of step 5, and the
+MuJoCo portion of step 6 are implemented. Direct low-speed
 trajectory parity is tested for forward and reverse maneuvers, and the 2D task
 has verified collision, jackknife, docking, boundary, and timeout events. The
-next critical step is a simple closed-loop tracker in step 5, followed by NMPC
-and PPO. MuJoCo task-event parity remains a transfer gate.
+next critical controller step is PPO integration and broader curved/randomized
+tracking validation. MuJoCo task-event parity remains a transfer gate.
 See the [MuJoCo alignment audit](mujoco-alignment-audit.md) for the current
 contract-by-contract status.

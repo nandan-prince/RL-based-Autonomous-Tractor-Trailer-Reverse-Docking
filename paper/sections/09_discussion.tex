@@ -23,6 +23,14 @@ MuJoCo transfer. Its $60^\circ$ terminal articulation threshold is a scenario
 choice and must not be silently mixed with the compact baseline's $45^\circ$
 threshold in future controller comparisons.
 
+The implemented LQR and NMPC results are intentionally narrow. The LQR gain is
+a local straight-motion design. NMPC currently omits collision constraints and
+has only been accepted on one straight path. Their successful rollouts should
+not be interpreted as evidence that either controller solves arbitrary service
+yard starts or as a comparison with PPO. Controller configuration promotion,
+paired scenario sets, timing methodology, and failure categorization remain
+required before quantitative claims.
+
 Potentially publishable observations may emerge from geometry generalization,
 controller sensitivity, or 2D-to-3D transfer, but these remain open research
 questions. Novelty will require repeatable evidence and an updated literature

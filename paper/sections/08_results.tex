@@ -3,9 +3,9 @@
 No controller-training or comparative experimental results exist yet.
 
 The current evidence is limited to engineering validation of the shared core
-and simulator plants. The repository test suite contains 266 passing tests,
+and simulator plants. The repository test suite contains 274 passing tests,
 including the 2D kinematic and MuJoCo checks, with branch-aware coverage of
-$91.52\%$ across the measured packages. Lint and strict
+$89.37\%$ across the measured packages. Lint and strict
 static type checks pass. The executable conformance report verifies
 the neutral rigid-hitch constraint, tractor and trailer footprint areas,
 integer 2D/MuJoCo timing ratios, nominal speed bounds, nominal trailer fit in
@@ -33,6 +33,17 @@ tractor hitch, trailer hitch, and hitch marker remain coincident to numerical
 precision after the dock-to-yard transform. Its constant straight reverse
 reaches docking success after 325 control steps without collision. This remains
 a visual and engineering demonstration, not an algorithm experiment.
+
+The initial controller vertical-slice scenario uses the compact vehicle, an
+explicit straight reference independent of the reset state, a $0.35\,\mathrm{m}$
+lateral offset, a $3^\circ$ aligned tractor/trailer heading offset, fixed
+$-0.20\,\mathrm{m/s}$ reverse speed, and the common steering-rate action. Both
+the trajectory-error LQR and basic NMPC reach the configured docking success
+event without collision or jackknife in deterministic acceptance runs. NMPC
+reports no solver failure in this case. These checks establish end-to-end
+controller integration only; they are one tuned scenario, are not a fair
+performance comparison, and provide no evidence yet for curved paths,
+randomized starts, or obstacle-constrained prediction.
 
 These engineering checks establish internal consistency and low-speed model
 behavior; they do not establish real-vehicle physical fidelity or controller

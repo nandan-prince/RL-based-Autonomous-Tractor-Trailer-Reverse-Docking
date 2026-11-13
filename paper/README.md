@@ -10,9 +10,11 @@ The current manuscript records the proposal, literature basis, frozen vehicle
 and environment contract, controller comparison, experimental protocol, and
 implemented vehicle core, 2D kinematic plant and Gymnasium task, MuJoCo plant,
 direct low-speed plant-trajectory parity, and the separately configured
-full-size interactive service-center demonstration. NMPC, PPO, MuJoCo
-task-event parity, and controller results remain explicitly labeled as planned
-until their code and evidence exist.
+full-size interactive service-center demonstration. A trajectory-error LQR and
+basic straight-path NMPC now provide closed-loop vertical slices through the
+same controller interface. PPO, broader NMPC validation, MuJoCo task-event
+parity, and comparative controller results remain explicitly labeled as
+planned until their code and evidence exist.
 
 ## Overleaf
 

@@ -21,7 +21,20 @@ mujoco = [
 viz = [
   "matplotlib>=3.8",
 ]
+control = [
+  "casadi>=3.6.7,<4",
+]
+video = [
+  "imageio>=2.34,<3",
+  "imageio-ffmpeg>=0.5,<1",
+]
+rl = [
+  "stable-baselines3>=2.4,<3",
+]
 dev = [
+  "casadi>=3.6.7,<4",
+  "imageio>=2.34,<3",
+  "imageio-ffmpeg>=0.5,<1",
   "mypy>=1.10",
   "pytest>=8.0",
   "pytest-cov>=5.0",
@@ -45,8 +58,10 @@ testpaths = ["tests"]
 [tool.coverage.run]
 branch = true
 source = [
+  "trailer_docking.controllers",
   "trailer_docking.core",
   "trailer_docking.environments",
+  "trailer_docking.evaluation",
   "trailer_docking.observations",
   "trailer_docking.paths",
   "trailer_docking.safety",
@@ -71,8 +86,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 python_version = "3.11"
 strict = true
 files = [
+  "src/trailer_docking/controllers",
   "src/trailer_docking/core",
   "src/trailer_docking/environments",
+  "src/trailer_docking/evaluation",
   "src/trailer_docking/observations",
   "src/trailer_docking/paths",
   "src/trailer_docking/safety",
@@ -81,5 +98,13 @@ files = [
 ]
 
 [[tool.mypy.overrides]]
-module = ["yaml", "mujoco", "mujoco.*"]
+module = [
+  "yaml",
+  "mujoco",
+  "mujoco.*",
+  "casadi",
+  "casadi.*",
+  "imageio",
+  "imageio.*",
+]
 ignore_missing_imports = true

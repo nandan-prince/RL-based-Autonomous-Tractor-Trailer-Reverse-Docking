@@ -73,6 +73,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         action_mode: ActionMode = "fixed_reverse",
         render_mode: Literal["human", "rgb_array"] | None = None,
         task_settings: DockingTaskConfiguration | None = None,
+        reference_path: ReferencePath | None = None,
     ) -> None:
         super().__init__()
         if action_mode not in ("fixed_reverse", "teleop"):
@@ -86,6 +87,9 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         self.action_mode = action_mode
         self.render_mode = render_mode
         self.settings = task_settings or load_docking_task_configuration(task_path)
+        if reference_path is not None and not isinstance(reference_path, ReferencePath):
+            raise TypeError("reference_path must be ReferencePath or None")
+        self.reference_path = reference_path
         action_size = 1 if action_mode == "fixed_reverse" else 2
         self.action_space = spaces.Box(
             low=-1.0, high=1.0, shape=(action_size,), dtype=np.float32
@@ -110,6 +114,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         self._last_reward = 0.0
         self._reward_terms: dict[str, float] = {}
         self._renderer: DockingRenderer | None = None
+        self._controller_label: str | None = None
         self.reset()
 
     @property
@@ -119,6 +124,22 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
     @property
     def episode_steps(self) -> int:
         return self._steps
+
+    @property
+    def controller_label(self) -> str | None:
+        """Human-readable control method shown by the renderer."""
+
+        return self._controller_label
+
+    def set_controller_label(self, label: str | None) -> None:
+        """Set display-only controller metadata without changing task state."""
+
+        if label is not None and not isinstance(label, str):
+            raise TypeError("controller label must be a string or None")
+        cleaned = None if label is None else label.strip()
+        self._controller_label = cleaned or None
+        if self._renderer is not None:
+            self._renderer.set_controller_label(self._controller_label)
 
     def _start_from_options(
         self, options: Mapping[str, Any]
@@ -191,6 +212,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             "docking_error_yaw": self.status.errors.trailer_yaw,
             "path_progress": self.tracking.progress,
             "distance_to_goal": self.tracking.distance_to_goal,
+            "reference_path_length": self.path.length,
             "reward_terms": dict(self._reward_terms),
             "applied_command": self.simulator.applied_command.to_dict(),
             "episode_steps": self._steps,
@@ -205,9 +227,13 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         """Reset deterministically; optional randomized starts use Gym's RNG."""
 
         super().reset(seed=seed)
-        pose, trailer_yaw, steering = self._start_from_options(options or {})
+        reset_options = options or {}
+        pose, trailer_yaw, steering = self._start_from_options(reset_options)
         state = self.simulator.reset(pose, trailer_yaw, steering_angle=steering)
-        self.path = self._build_path(state)
+        selected_path = reset_options.get("reference_path", self.reference_path)
+        if selected_path is not None and not isinstance(selected_path, ReferencePath):
+            raise ValueError("options['reference_path'] must be ReferencePath")
+        self.path = selected_path or self._build_path(state)
         self.observation_builder = ObservationBuilder(
             self.vehicle,
             self.dock.geometry,
@@ -332,6 +358,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
                 cast(Literal["human", "rgb_array"], self.render_mode),
                 self._x_bounds,
                 self._y_bounds,
+                self._controller_label,
             )
         return self._renderer.render(
             self.state,

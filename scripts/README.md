@@ -1,7 +1,7 @@
 # Scripts
 
-No training or evaluation scripts are implemented yet. This directory is
-reserved for thin command-line entry points such as:
+Reusable closed-loop evaluation is now implemented as a package entry point.
+This directory remains reserved for future thin wrappers such as:
 
 - training PPO
 - evaluating one or more controllers
@@ -21,6 +21,12 @@ directly:
 .venv/bin/python -m trailer_docking.validation.vehicle_spec
 .venv/bin/python -m trailer_docking.simulators.mujoco.builder
 .venv/bin/python -m trailer_docking.visualization.viewer --mode 2d
+.venv/bin/python -m trailer_docking.evaluation.runner --controller lqr
+.venv/bin/python -m trailer_docking.evaluation.runner --controller nmpc
 ```
+
+The evaluation runner also supports explicit MP4 generation with `--record`.
+Recording is kept outside controller implementations and writes regenerable
+media under the ignored `artifacts/` tree by convention.
 
 See the root README for platform-specific MuJoCo 3D viewer commands.

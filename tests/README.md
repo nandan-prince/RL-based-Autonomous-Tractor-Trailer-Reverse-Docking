@@ -9,6 +9,16 @@ jackknife thresholds, goal evaluation, scenario construction, and normalized
 observations. Integration tests verify direct low-speed 2D/MuJoCo trajectory
 parity and the complete Gymnasium API and 2D task behavior.
 
+Controller tests verify the shared one-element normalized steering-rate
+contract, explicit reference-path reset behavior, LQR closed-loop stability,
+valid NMPC optimization output, and end-to-end docking from the same perturbed
+straight-path start. These are vertical-slice acceptance checks rather than a
+comparative experiment.
+
+Rendering tests verify that the active controller is named in every live/RGB
+view. Evaluation tests also encode a small H.264 MP4, validate frame shape and
+terminal-frame hold behavior, and reject invalid video settings.
+
 The current vehicle-core suite verifies strict schema handling, invalid-input
 rejection, golden neutral geometry, coordinate-transform round trips, footprint
 invariants, trailer variants, off-axle geometry, serialization, configuration

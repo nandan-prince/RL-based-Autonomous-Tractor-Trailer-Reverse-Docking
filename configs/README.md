@@ -37,7 +37,9 @@ Additional files will cover:
 
 - MuJoCo-only gains, damping, contact, and solver tuning, or an equivalent
   resolved-tuning block in every experiment manifest
-- NMPC horizon, costs, constraints, and solver settings
+- promoted experiment-specific LQR/NMPC settings; the implemented vertical
+  slices currently use typed, version-controlled defaults in their controller
+  modules
 - PPO training and curriculum settings
 - held-out experiment matrices and random seeds
 

@@ -9,7 +9,10 @@ engineering checks. The two-dimensional kinematic state-transition model is now
 implemented and quantitatively validated, including direct low-speed
 cross-backend trajectory checks. Shared path and task geometry and the
 Gymnasium environment are now implemented and tested, including a separately
-versioned full-size service-yard interaction scenario. The next milestone is a
-simple deterministic closed-loop tracker, followed by NMPC and PPO.
+versioned full-size service-yard interaction scenario. A shared controller
+contract, straight-path LQR, and basic NMPC now demonstrate end-to-end
+closed-loop control in the compact 2D environment. The next milestone is PPO
+integration, followed by curved/randomized validation and formal paired
+experiments.
 Conclusions about controller performance, robustness, or transfer are deferred
 until reproducible experiments exist.

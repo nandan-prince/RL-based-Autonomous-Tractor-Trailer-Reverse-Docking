@@ -11,6 +11,7 @@ from trailer_docking.environments import (  # registers TrailerDocking-v0
     TrailerDockingEnv,
 )
 from trailer_docking.environments.task import aligned_pose_for_docking_point
+from trailer_docking.paths import straight_reference
 
 
 def test_gymnasium_checker_and_registration() -> None:
@@ -66,6 +67,29 @@ def test_seeded_randomized_reset_is_reproducible() -> None:
     assert first.path == second.path
     first.close()
     second.close()
+
+
+def test_explicit_reference_path_is_independent_of_initial_state() -> None:
+    env = TrailerDockingEnv()
+    goal = env.dock.geometry.target_position
+    start_x = env.dock.geometry.interior_depth + env.settings.start_standoff
+    fixed = straight_reference(goal, Point2D(start_x, 0.0))
+    pose = aligned_pose_for_docking_point(
+        env.vehicle, Point2D(start_x, 0.4), 0.0
+    )
+    _, info = env.reset(
+        options={
+            "tractor_pose": pose,
+            "trailer_yaw": 0.0,
+            "reference_path": fixed,
+        }
+    )
+    assert env.path is fixed
+    assert env.tracking.lateral_error == pytest.approx(0.4)
+    assert info["reference_path_length"] == pytest.approx(fixed.length)
+    with pytest.raises(ValueError, match="reference_path"):
+        env.reset(options={"reference_path": "not-a-path"})
+    env.close()
 
 
 def test_success_collision_jackknife_and_timeout_events(
@@ -183,9 +207,13 @@ def test_rgb_array_render_returns_image() -> None:
 
     matplotlib.use("Agg", force=True)
     env = TrailerDockingEnv(render_mode="rgb_array")
+    env.set_controller_label("LQR TRAJECTORY TRACKER")
     env.reset()
     image = env.render()
     assert image is not None
     assert image.dtype == np.uint8
     assert image.ndim == 3 and image.shape[2] == 3
+    assert "AUTONOMOUS CONTROLLER: LQR TRAJECTORY TRACKER" in (
+        env.figure.axes[0].get_title()
+    )
     env.close()

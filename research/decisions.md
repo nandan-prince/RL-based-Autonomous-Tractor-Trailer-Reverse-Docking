@@ -252,3 +252,31 @@ $(x_s,y_s,\psi_s)=(100-y_d,x_d,\psi_d+\pi/2)$. A regression test with unequal,
 nonzero tractor and trailer headings requires the transformed body hitch points
 and transformed hitch marker to coincide. This guards visualization integrity;
 it does not alter the kinematic state or task calculations.
+
+## D-012 — Shared controller contract and straight-path vertical slices
+
+**Date:** 2026-11-13
+**Status:** implemented for the 2D compact baseline
+
+LQR, NMPC, and PPO use one fixed-reverse Gymnasium action contract: a `(1,)`
+`float32` value in `[-1, 1]` representing normalized steering rate. The compact
+baseline retains its configured `-0.20 m/s` target and `0.10 s` controller
+period. Reference paths are ordered target-to-start, reverse progress decreases
+toward zero, and tracking is evaluated at the trailer rear-face docking point.
+An explicit path can now be supplied independently of reset randomization.
+
+`ControllerContext` is the shared evaluation adapter. LQR and NMPC may use its
+physical state/model fields. The primary PPO policy is restricted to the
+existing normalized observation; privileged-state PPO would be a separately
+named experiment. All methods must be paired on the same path, reset state,
+vehicle/dock/task fingerprints, and seed.
+
+The first deterministic controller numerically linearizes the verified RK4
+plant about fixed-speed straight reverse motion and solves a discrete Riccati
+equation over docking-point lateral error, tractor/trailer heading errors, and
+steering angle. The first NMPC uses a 40-step nonlinear horizon, fixed reverse
+speed, steering-rate decisions, and steering/articulation constraints. It does
+not yet predict collision constraints. Both complete the same straight-path
+acceptance scenario from a `0.35 m` lateral and `3 degree` heading offset without
+collision or jackknife. This is an engineering integration check, not a
+controller comparison or performance result.

@@ -27,4 +27,6 @@ The tuning values are not currently included in the vehicle YAML fingerprint.
 Never overwrite a completed result directory. Preserve meaningful failed or
 negative runs and label invalid implementation runs clearly. Every manuscript
 number, table, and experimental figure must identify the experiment IDs from
-which it was produced. No controller experiments have been recorded yet.
+which it was produced. No formal controller experiments have been recorded
+yet; generated LQR/NMPC demonstration videos under `artifacts/` are engineering
+visualizations, not reportable comparative evidence.
