@@ -43,11 +43,6 @@ GROUPS = (
     "Randomization",
     "Obstacles",
 )
-OBSTACLE_NOTE = (
-    "One box per entry, separated by ';':\n"
-    "x, y, length, width[, yaw rad[, height]]\n"
-    "x is metres out from the bay's rear wall, y to the left."
-)
 BACKENDS = ("2d", "3d")
 PHYSICS_GROUP = "Physics (3D only)"
 PHYSICS_GROUP_NOTE = "Used by the 3D simulator only"
@@ -188,6 +183,109 @@ PARAMETERS: tuple[ParameterSpec, ...] = (
     ),
 )
 
+PARAMETER_HELP: dict[str, str] = {
+    "dock_interior_width": "Clear width between the bay's side walls. The trailer"
+    " must fit completely inside to dock. Blank = 1.5 m.",
+    "dock_interior_depth": "Distance from the bay opening to its rear wall."
+    " Blank = 6.0 m; the long trailer needs more.",
+    "planner": "How each episode's route to the dock is planned.\n"
+    "entry: straight in through a point just outside the opening (ignores"
+    " obstacles).\nastar: grid search around walls and obstacles.",
+    "path_lateral_weight": "Reward penalty for the trailer's sideways distance"
+    " from the route. Larger = sticks to the route more. Blank = 0.5.",
+    "path_heading_weight": "Reward penalty for the trailer pointing away from"
+    " the route's direction. Blank = 0.2.",
+    "trailer_variant": "A named trailer length from the vehicle file: short"
+    " 2 m, nominal 4 m, long 5 m (hitch to axle).",
+    "tractor_wheelbase": "Distance between the tractor's front and rear axles."
+    " Longer turns more slowly. Blank = 1.9 m.",
+    "tractor_body_width": "Width of the tractor body; the wheels stay the same"
+    " distance inside it. Blank = 1.0 m.",
+    "trailer_hitch_to_axle": "Trailer length from the hitch to its axle. Short"
+    " trailers react faster and jackknife sooner. Blank = 4.0 m.",
+    "trailer_rear_overhang": "How far the trailer body extends behind its axle;"
+    " its rear face is the point that docks. Blank = 1.0 m.",
+    "trailer_body_width": "Width of the trailer body. It must be narrower than"
+    " the bay. Blank = 1.0 m.",
+    "steering_angle_max": "Largest steering angle of the front wheels."
+    " Blank = 0.5 rad (about 29 degrees).",
+    "steering_rate_max": "Fastest the steering angle may change. This is the"
+    " controller's only command. Blank = 0.3 rad/s.",
+    "reverse_speed": "The fixed speed the truck reverses at, entered as a"
+    " positive number. Blank = 0.2 m/s.",
+    "tractor_chassis_mass": "Tractor mass in the 3D simulator. No effect in"
+    " 2D, which has no forces.",
+    "trailer_body_mass": "Trailer mass in the 3D simulator. No effect in 2D.",
+    "ground_friction": "Tyre-to-ground sliding friction in the 3D simulator."
+    " Low values let the truck slip. No effect in 2D.",
+    "standoff": "How far outside the bay opening the trailer's rear face"
+    " starts, as 'minimum, maximum' in metres. Each episode draws from it.",
+    "lateral": "Sideways start offset from the bay centreline, as 'minimum,"
+    " maximum'. Positive is to the left looking out of the bay.",
+    "trailer_yaw": "How far the trailer starts rotated from pointing straight"
+    " out of the bay, as 'minimum, maximum' in radians.",
+    "articulation": "Starting angle between tractor and trailer, as 'minimum,"
+    " maximum' in radians. Zero is straight.",
+    "random_trailer_hitch_to_axle": "Draw a new trailer length for every"
+    " episode from 'minimum, maximum'. Blank = off. Cannot be combined with a"
+    " fixed trailer hitch-to-axle length.",
+    "observation_noise_std": "Random noise added to what the policy observes"
+    " (standard deviation, in normalized units). Blank = none.",
+    "obstacles": "Static boxes in the yard. Hitting one ends the episode. Use"
+    " the astar planner to route around them; the policy cannot sense them.",
+}
+"""Tooltip text for every scenario parameter, keyed like ``PARAMETERS``."""
+
+CONTROL_HELP: dict[str, str] = {
+    "method": "ppo trains a policy. nmpc has nothing to train: it only runs"
+    " the tests (available once the NMPC controller exists).",
+    "training_backend": "Simulator to train in. 2d is the fast kinematic"
+    " model; 3d is MuJoCo physics and much slower.",
+    "runs": "How many times to repeat training, each with the next seed. The"
+    " best run is exported.",
+    "timesteps": "Training budget of each run, in control steps (10 per"
+    " simulated second).",
+    "training_seed": "Random seed of the first run; later runs use the next numbers.",
+    "evaluation_episodes": "After each run its policy is tested for this many"
+    " episodes on the ticked simulators. 0 skips the tests.",
+    "evaluate_2d": "Test each run's policy in the 2D simulator.",
+    "evaluate_3d": "Test each run's policy in the 3D simulator.",
+    "start": "Start the runs. The display shows the episodes as they happen.",
+    "stop": "Stop cleanly after the current step; what was learned is kept.",
+    "export": "Save the finished result (best policy plus its scenario) as"
+    " one file you can share or reload.",
+    "test_backend": "Simulator to run the test in. A policy trained in 2D can"
+    " be tested in 3D and the reverse.",
+    "episodes": "How many episodes to run. Each starts from a different pose.",
+    "test_seed": "Episode i starts from seed + i, so the same seed repeats the"
+    " same start poses.",
+    "policy_latest": "The newest checkpoint of the last training in this"
+    " window (or the untrained baseline if there is none).",
+    "policy_bundle": "The result loaded with 'Load result'.",
+    "policy_baseline": "Never steers. Docks only from a perfectly aligned"
+    " start; useful as a reference.",
+    "policy_nmpc": "The model-based controller, once it is implemented.",
+    "policy_file": "A raw PPO checkpoint (.zip) from an artifacts folder.",
+    "run_test": "Build a fresh simulator and run the chosen policy in it.",
+    "load_result": "Open an exported result. Its scenario replaces the current one.",
+    "show_route": "Draw or hide the planned route in both displays.",
+    "render_3d": "Draw 3D runs in the 3D view tab. Untick to train in 3D at"
+    " full speed.",
+    "apply": "Rebuild the scene with these values. Invalid or impossible"
+    " scenarios are refused with the reason.",
+    "save_scenario": "Write the current scenario to a YAML file.",
+    "load_scenario": "Open a scenario YAML file.",
+    "obstacle_size": "Size of the next box: length, width, and height in"
+    " metres, and its rotation in degrees.",
+    "obstacle_place": "Then click on the top-down view where the box should"
+    " go. Stays on until you untick it.",
+    "obstacle_add": "Add a box at the typed position (x out from the rear"
+    " wall, y to the left).",
+    "obstacle_remove": "Remove the box selected in the list.",
+    "obstacle_clear": "Remove every box.",
+}
+"""Tooltip text for the controls that are not scenario parameters."""
+
 _OVERRIDE_KEYS = frozenset(item.name for item in fields(ScenarioOverrides))
 _START_KEYS = frozenset(item.name for item in fields(StartDistribution))
 _OBSTACLES_KEY = "obstacles"
@@ -208,7 +306,7 @@ def format_obstacles(obstacles: Any) -> str:
             numbers.append(item.yaw)
         if item.height != default.height:
             numbers.append(item.height)
-        entries.append(", ".join(f"{number:g}" for number in numbers))
+        entries.append(", ".join(f"{number:.10g}" for number in numbers))
     return "; ".join(entries)
 
 
@@ -455,6 +553,24 @@ class AppController:
                     planner=planner,
                     obstacles=obstacles,
                 )
+                built = candidate.build()
+            except ValueError as error:
+                raise ParameterError(str(error)) from error
+            self._scenario, self._built = candidate, built
+            self._forget_spectator()
+            self._forget_test()
+
+    def set_obstacles(self, obstacles: Any) -> None:
+        """Replace the scenario's obstacles after validating the result.
+
+        Raises :class:`ParameterError`, leaving the scenario unchanged, when a
+        box overlaps a start pose or the docked vehicle.
+        """
+
+        with self._lock:
+            self._require_idle("change obstacles", ParameterError)
+            try:
+                candidate = replace(self._scenario, obstacles=tuple(obstacles))
                 built = candidate.build()
             except ValueError as error:
                 raise ParameterError(str(error)) from error

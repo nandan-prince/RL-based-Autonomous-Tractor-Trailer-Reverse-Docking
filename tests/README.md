@@ -58,8 +58,8 @@ rules (`tests/unit/evaluation/`), the task on both simulators with domain
 randomization (`tests/integration/test_backends_and_randomization.py`),
 campaigns, the PPO/NMPC method switch, policy bundles, and safe policy loading
 (`tests/unit/training/`), and the control-UI logic (`tests/unit/ui/`). The
-Tkinter window itself is exercised only by its `--smoke-test` option and by
-hand.
+Tkinter window is built for real in `tests/unit/ui/test_ui_window.py` (tooltips
+and the obstacle editor); those tests skip where no display exists, as on CI.
 
 `tests/unit/paths/test_planners.py` covers the swappable route planners and the
 route-following reward weights, and `tests/integration/test_obstacles.py`

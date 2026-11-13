@@ -19,23 +19,28 @@ from __future__ import annotations
 import argparse
 import tkinter as tk
 from collections.abc import Callable, Sequence
+from math import degrees, radians
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from trailer_docking.core.config import ConfigurationError
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import VehicleState
 from trailer_docking.evaluation.scenarios import Scenario
 from trailer_docking.ui.controller import (
     BACKENDS,
+    CONTROL_HELP,
     GROUPS,
-    OBSTACLE_NOTE,
+    PARAMETER_HELP,
     PARAMETERS,
     PHYSICS_GROUP,
     PHYSICS_GROUP_NOTE,
     AppController,
     ControllerError,
     ParameterSpec,
+    format_obstacles,
+    parse_obstacles,
 )
 
 REFRESH_MILLISECONDS = 66  # about 15 Hz
@@ -48,6 +53,138 @@ BUNDLE_FILETYPES = (
 )
 SCENARIO_FILETYPES = (("Scenario YAML", "*.yaml *.yml"), ("All files", "*.*"))
 POLICY_FILETYPES = (("Saved policy", "*.zip"), ("All files", "*.*"))
+
+
+TOOLTIP_DELAY_MILLISECONDS = 450
+# Help for controls that are not scenario parameters, found by their caption.
+CAPTION_HELP = {
+    "Method": "method",
+    "Number of runs": "runs",
+    "Timesteps per run": "timesteps",
+    "Seed of first run": "training_seed",
+    "Test episodes per run": "evaluation_episodes",
+    "Test each run in:": "evaluation_episodes",
+    "2D": "evaluate_2d",
+    "3D": "evaluate_3d",
+    "Start": "start",
+    "Stop": "stop",
+    "Export result\N{HORIZONTAL ELLIPSIS}": "export",
+    "Episodes": "episodes",
+    "Seed": "test_seed",
+    "Latest training checkpoint": "policy_latest",
+    "Loaded result bundle": "policy_bundle",
+    "Untrained straight-reverse baseline": "policy_baseline",
+    "NMPC controller": "policy_nmpc",
+    "Saved policy file (.zip):": "policy_file",
+    "Browse\N{HORIZONTAL ELLIPSIS}": "policy_file",
+    "Run test": "run_test",
+    "Load result\N{HORIZONTAL ELLIPSIS}": "load_result",
+    "Show planned route": "show_route",
+    "Render 3D runs (slower training)": "render_3d",
+    "Apply": "apply",
+    "Save scenario\N{HORIZONTAL ELLIPSIS}": "save_scenario",
+    "Load scenario\N{HORIZONTAL ELLIPSIS}": "load_scenario",
+    "Click the map to place": "obstacle_place",
+    "Add at x, y": "obstacle_add",
+    "Remove selected": "obstacle_remove",
+    "Clear all": "obstacle_clear",
+    "Length": "obstacle_size",
+    "Width": "obstacle_size",
+    "Height": "obstacle_size",
+    "Turn (deg)": "obstacle_size",
+    "x": "obstacle_add",
+    "y": "obstacle_add",
+}
+
+
+class Tooltip:
+    """A small help window shown while the pointer rests on a widget."""
+
+    def __init__(self, widget: tk.Misc, text: str) -> None:
+        self.widget = widget
+        self.text = text
+        self._after: str | None = None
+        self._window: tk.Toplevel | None = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, _event: object = None) -> None:
+        self._cancel()
+        self._after = self.widget.after(TOOLTIP_DELAY_MILLISECONDS, self._show)
+
+    def _cancel(self) -> None:
+        if self._after is not None:
+            self.widget.after_cancel(self._after)
+            self._after = None
+
+    def _show(self) -> None:
+        self._after = None
+        if self._window is not None:
+            return
+        window = tk.Toplevel(self.widget)
+        window.wm_overrideredirect(True)
+        window.wm_geometry(
+            f"+{self.widget.winfo_rootx() + 16}"
+            f"+{self.widget.winfo_rooty() + self.widget.winfo_height() + 4}"
+        )
+        tk.Label(
+            window,
+            text=self.text,
+            justify=tk.LEFT,
+            wraplength=320,
+            background="#ffffe0",
+            relief=tk.SOLID,
+            borderwidth=1,
+            padx=6,
+            pady=4,
+        ).pack()
+        self._window = window
+
+    def _hide(self, _event: object = None) -> None:
+        self._cancel()
+        if self._window is not None:
+            self._window.destroy()
+            self._window = None
+
+
+def help_for_caption(caption: str) -> str | None:
+    """Help text for a control with this caption, if it has any."""
+
+    for spec in PARAMETERS:
+        if spec.label == caption:
+            return PARAMETER_HELP.get(spec.key)
+    key = CAPTION_HELP.get(caption)
+    return None if key is None else CONTROL_HELP.get(key)
+
+
+def attach_tooltips(widget: tk.Misc) -> int:
+    """Give every captioned control under *widget* its help text.
+
+    A caption's help also covers the entry or list on the same grid row, so
+    the pointer can rest on either.  Returns how many tooltips were made.
+    """
+
+    made = 0
+    for child in widget.winfo_children():
+        made += attach_tooltips(child)
+        try:
+            caption = str(child.cget("text"))
+        except tk.TclError:
+            continue
+        text = help_for_caption(caption)
+        if text is None:
+            continue
+        Tooltip(child, text)
+        made += 1
+        info = child.grid_info()
+        if not info:
+            continue
+        for sibling in widget.grid_slaves(row=int(info["row"])):
+            if sibling is not child and not isinstance(sibling, ttk.Label):
+                Tooltip(sibling, text)
+                made += 1
+    return made
 
 
 def _whole_number(text: str, label: str, *, minimum: int) -> int:
@@ -128,6 +265,7 @@ class DockingApp:
         self._displays.bind("<<NotebookTabChanged>>", self._on_display_changed)
 
         self._rebuild_view()
+        self.tooltips = attach_tooltips(root)
         self._tick()
 
     # ---------------------------------------------------------------- tabs
@@ -161,16 +299,16 @@ class DockingApp:
                     row=row, column=0, columnspan=3, sticky=tk.W, pady=(0, 4)
                 )
                 row += 1
-            if group == "Obstacles":
-                ttk.Label(frame, text=OBSTACLE_NOTE, foreground="#555555").grid(
-                    row=row, column=0, columnspan=3, sticky=tk.W, pady=(0, 4)
-                )
-                row += 1
             for spec in PARAMETERS:
                 if spec.group != group:
                     continue
                 variable = tk.StringVar(value=values[spec.key])
                 self._parameter_vars[spec.key] = variable
+                if spec.key == "obstacles":
+                    # Boxes get their own editor; the text stays the value
+                    # that Apply, Save, and Load work with.
+                    self._build_obstacle_editor(frame, variable)
+                    continue
                 ttk.Label(frame, text=spec.label).grid(
                     row=row, column=0, sticky=tk.W, padx=(0, 6), pady=1
                 )
@@ -199,6 +337,158 @@ class DockingApp:
             buttons, text="Load scenario\N{HORIZONTAL ELLIPSIS}", command=self._on_load
         )
         self._load_button.pack(side=tk.LEFT)
+
+    def _build_obstacle_editor(
+        self, frame: ttk.LabelFrame, variable: tk.StringVar
+    ) -> None:
+        """List of boxes with click-to-place, typed placement, and removal."""
+
+        self._obstacle_text = variable
+        ttk.Label(
+            frame,
+            text="Tick the box below, then click the top-down view.",
+            foreground="#555555",
+        ).grid(row=0, column=0, columnspan=4, sticky=tk.W)
+        self._placing = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            frame, text="Click the map to place", variable=self._placing
+        ).grid(row=1, column=0, columnspan=4, sticky=tk.W, pady=(2, 4))
+        self._obstacle_fields: dict[str, tk.StringVar] = {}
+        for index, (name, default) in enumerate(
+            (("Length", "1"), ("Width", "1"), ("Height", "1.5"), ("Turn (deg)", "0"))
+        ):
+            field = tk.StringVar(value=default)
+            self._obstacle_fields[name] = field
+            ttk.Label(frame, text=name).grid(
+                row=2 + index // 2, column=2 * (index % 2), sticky=tk.W, padx=(0, 4)
+            )
+            ttk.Entry(frame, textvariable=field, width=6).grid(
+                row=2 + index // 2, column=2 * (index % 2) + 1, sticky=tk.W, pady=1
+            )
+        typed = ttk.Frame(frame)
+        typed.grid(row=4, column=0, columnspan=4, sticky=tk.W, pady=(4, 0))
+        for name in ("x", "y"):
+            field = tk.StringVar()
+            self._obstacle_fields[name] = field
+            ttk.Label(typed, text=name).pack(side=tk.LEFT)
+            ttk.Entry(typed, textvariable=field, width=6).pack(
+                side=tk.LEFT, padx=(2, 6)
+            )
+        ttk.Button(typed, text="Add at x, y", command=self._on_add_obstacle).pack(
+            side=tk.LEFT
+        )
+        self._obstacle_list = tk.Listbox(frame, height=4, exportselection=False)
+        self._obstacle_list.grid(row=5, column=0, columnspan=4, sticky=tk.EW, pady=4)
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=6, column=0, columnspan=4, sticky=tk.W)
+        ttk.Button(
+            buttons, text="Remove selected", command=self._on_remove_obstacle
+        ).pack(side=tk.LEFT)
+        ttk.Button(buttons, text="Clear all", command=self._on_clear_obstacles).pack(
+            side=tk.LEFT, padx=4
+        )
+        variable.trace_add("write", lambda *_: self._refresh_obstacle_list())
+        self._refresh_obstacle_list()
+
+    def _refresh_obstacle_list(self) -> None:
+        """Show one readable line per box in the obstacle text."""
+
+        try:
+            boxes = parse_obstacles(self._obstacle_text.get())
+        except ControllerError:
+            return
+        self._obstacle_list.delete(0, tk.END)
+        for index, box in enumerate(boxes, start=1):
+            self._obstacle_list.insert(
+                tk.END,
+                f"{index}: at ({box.x:g}, {box.y:g}) m, "
+                f"{box.length:g} x {box.width:g} m, {degrees(box.yaw):g} deg",
+            )
+
+    def _new_obstacle(self, x: float, y: float) -> Obstacle:
+        """A box at *x*, *y* with the size typed in the editor."""
+
+        def number(name: str) -> float:
+            text = self._obstacle_fields[name].get().strip()
+            try:
+                return float(text)
+            except ValueError:
+                raise ControllerError(f"{name}: '{text}' is not a number") from None
+
+        try:
+            return Obstacle(
+                x,
+                y,
+                number("Length"),
+                number("Width"),
+                yaw=radians(number("Turn (deg)")),
+                height=number("Height"),
+            )
+        except ValueError as error:
+            raise ControllerError(str(error)) from None
+
+    def _set_obstacles(self, boxes: tuple[Obstacle, ...]) -> None:
+        """Apply a new list of boxes; a refused list changes nothing."""
+
+        def apply() -> None:
+            self.controller.set_obstacles(boxes)
+            self._obstacle_text.set(format_obstacles(boxes))
+            self._rebuild_view()
+
+        self._guard(apply)()
+
+    def _current_obstacles(self) -> tuple[Obstacle, ...]:
+        return tuple(self.controller.scenario.obstacles)
+
+    def _on_add_obstacle(self) -> None:
+        def add() -> None:
+            position = []
+            for name in ("x", "y"):
+                text = self._obstacle_fields[name].get().strip()
+                try:
+                    position.append(float(text))
+                except ValueError:
+                    raise ControllerError(
+                        f"{name}: enter a position in metres"
+                    ) from None
+            box = self._new_obstacle(position[0], position[1])
+            self._set_obstacles((*self._current_obstacles(), box))
+
+        self._guard(add)()
+
+    def _on_remove_obstacle(self) -> None:
+        chosen = self._obstacle_list.curselection()
+        if not chosen:
+            self._status_bar.set("Select a box in the list first")
+            return
+        boxes = list(self._current_obstacles())
+        if chosen[0] < len(boxes):
+            del boxes[chosen[0]]
+            self._set_obstacles(tuple(boxes))
+
+    def _on_clear_obstacles(self) -> None:
+        self._set_obstacles(())
+
+    def _on_view_click(self, event: Any) -> None:
+        """Place a box where the top-down view was clicked."""
+
+        if (
+            not self._placing.get()
+            or event.xdata is None
+            or event.ydata is None
+            or event.inaxes is not self._view.axes
+        ):
+            return
+        if self.controller.busy:
+            self._status_bar.set("Boxes cannot be placed while a run is active")
+            return
+
+        def place() -> None:
+            point = self._view.dock_point(float(event.xdata), float(event.ydata))
+            box = self._new_obstacle(round(point.x, 2), round(point.y, 2))
+            self._set_obstacles((*self._current_obstacles(), box))
+
+        self._guard(place)()
 
     @staticmethod
     def _parameter_widget(
@@ -410,6 +700,7 @@ class DockingApp:
         self._view.figure.set_layout_engine("tight")
         self._canvas = FigureCanvasTkAgg(self._view.figure, master=self._view_frame)
         self._canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self._canvas.mpl_connect("button_press_event", self._on_view_click)
         self._shown_state = None
         self._shown_route = ()
         self._view.update(self.controller.preview_state(), note="start-pose preview")

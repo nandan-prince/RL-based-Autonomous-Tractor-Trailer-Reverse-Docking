@@ -338,11 +338,12 @@ penalizes leaving the route (squared lateral and heading deviation from it),
 and the two **Reward** fields set how strongly; blank keeps the task file's
 weights (0.5 and 0.2).
 
-**Obstacles** are static boxes, typed one per entry and separated by `;`:
-`x, y, length, width`, optionally followed by a yaw in radians and a height.
-`x` is metres out from the bay's rear wall and `y` is to the left, the same
-frame the top-down view uses, so `9, 3, 1, 1; 12, -3, 2, 0.5, 0.4` places a
-1 m cube and an angled barrier. Touching one ends the episode as a collision
+**Obstacles** are static boxes. Tick **Click the map to place** and click the
+top-down view where each box should go; its length, width, height, and turn
+come from the fields beside it. A box can also be added by typing its `x` and
+`y` (metres out from the bay's rear wall, and to the left), and the list
+below removes one box or all of them. Each change is applied at once.
+Touching one ends the episode as a collision
 in both simulators, and they appear in both displays. The policy does not
 sense obstacles; it avoids them only by following a route planned around
 them, so choose the `astar` planner when obstacles lie near the route (the
@@ -351,6 +352,9 @@ docked vehicle is refused.
 
 **Show planned route** above the display draws or hides the route in both the
 top-down and the 3D view, before a run and while one is in progress.
+
+Rest the pointer on any field, button, or option for a short explanation of
+what it does and its default.
 
 A blank field keeps the base value; a blank randomization field leaves that
 randomization off. **Apply** refuses a scenario that could never succeed or

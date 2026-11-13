@@ -308,6 +308,13 @@ class TopDownView:
             return Point2D(SERVICE_DOCK_X - point.y, point.x)
         return point
 
+    def dock_point(self, x: float, y: float) -> Point2D:
+        """Convert a position on the plot back to the dock frame."""
+
+        if self._service_center:
+            return Point2D(y, SERVICE_DOCK_X - x)
+        return Point2D(x, y)
+
     def _display_pose(self, pose: Pose2D) -> Pose2D:
         if self._service_center:
             return Pose2D(
