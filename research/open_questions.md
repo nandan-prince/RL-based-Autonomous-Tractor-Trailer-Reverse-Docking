@@ -67,6 +67,11 @@ success rule cannot be met. The conformance check only evaluates the nominal
 variant. Decide on a deeper bay, a variant-specific rule, or dropping the rule
 for length-generalization experiments.
 
+Since 2026-11-13 the scenario layer used for training and docking tests
+rejects a trailer that cannot meet the rule in its bay, so the `long` variant
+requires a scenario with a deeper bay there. The underlying decision for the
+frozen task and the conformance check is still open.
+
 ## Q-008 — MuJoCo tuning provenance
 
 The vehicle YAML fingerprints geometry, limits, timing, masses, friction, and

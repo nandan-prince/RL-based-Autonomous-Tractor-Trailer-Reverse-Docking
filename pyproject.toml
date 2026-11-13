@@ -18,8 +18,12 @@ dependencies = [
 mujoco = [
   "mujoco>=3.14,<4",
 ]
+train = [
+  "stable-baselines3>=2.3",
+]
 viz = [
   "matplotlib>=3.8",
+  "pillow>=10.0",
 ]
 dev = [
   "mypy>=1.10",
@@ -47,11 +51,14 @@ branch = true
 source = [
   "trailer_docking.core",
   "trailer_docking.environments",
+  "trailer_docking.evaluation",
   "trailer_docking.observations",
   "trailer_docking.paths",
   "trailer_docking.safety",
   "trailer_docking.simulators.kinematic",
   "trailer_docking.simulators.mujoco",
+  "trailer_docking.training",
+  "trailer_docking.ui.controller",
   "trailer_docking.validation",
 ]
 
@@ -73,13 +80,16 @@ strict = true
 files = [
   "src/trailer_docking/core",
   "src/trailer_docking/environments",
+  "src/trailer_docking/evaluation",
   "src/trailer_docking/observations",
   "src/trailer_docking/paths",
   "src/trailer_docking/safety",
   "src/trailer_docking/simulators",
+  "src/trailer_docking/training",
+  "src/trailer_docking/ui/controller.py",
   "src/trailer_docking/validation",
 ]
 
 [[tool.mypy.overrides]]
-module = ["yaml", "mujoco", "mujoco.*"]
+module = ["yaml", "mujoco", "mujoco.*", "stable_baselines3.*", "torch"]
 ignore_missing_imports = true

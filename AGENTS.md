@@ -49,6 +49,11 @@ The current cross-team contract is:
 - `configs/vehicles/compact_semitrailer_v1.yaml`
 - `configs/environments/nominal_dock_v1.yaml`
 
+Controller work is split between the team members. Before implementing or
+changing the NMPC baseline, read `docs/design/nmpc-integration-handoff.md`: it
+defines the single hook through which NMPC plugs into the shared runner,
+command line, and control UI, and the plant contract it must respect.
+
 The specification fixes coordinate/sign conventions, semantic reference frames, nominal geometry, state and command contracts, limits, timing, docking success, required MuJoCo names, and parity checks. Initial MuJoCo mass, inertia, contact, damping, and control gains are modeling choices that must be recorded and validated; a visually realistic model is not evidence of physical accuracy.
 
 ## 3. Standing rule: implementation and manuscript evolve together

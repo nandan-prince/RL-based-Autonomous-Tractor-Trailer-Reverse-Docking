@@ -34,3 +34,46 @@ def dock_config() -> DockConfiguration:
 @pytest.fixture(scope="session")
 def task_config() -> DockingTaskConfiguration:
     return load_docking_task_configuration(TASK_CONFIG_PATH)
+
+
+@pytest.fixture(scope="session")
+def policy_checkpoint() -> bytes:
+    """Bytes of a valid, untrained PPO checkpoint for the 21-value observation.
+
+    It holds real network weights in the layout the framework saves, so
+    bundle and loading code can be exercised without training.
+    """
+
+    pytest.importorskip("stable_baselines3")
+    import io
+    import zipfile
+
+    import numpy as np
+    import torch
+    from gymnasium import spaces
+    from stable_baselines3.common.policies import ActorCriticPolicy
+
+    torch.manual_seed(0)
+    policy = ActorCriticPolicy(
+        spaces.Box(-1.0, 1.0, (21,), dtype=np.float32),
+        spaces.Box(-1.0, 1.0, (1,), dtype=np.float32),
+        lambda _: 0.0,
+    )
+    weights = io.BytesIO()
+    torch.save(policy.state_dict(), weights)
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("policy.pth", weights.getvalue())
+    return archive.getvalue()
+
+
+@pytest.fixture(scope="session")
+def offscreen_rendering() -> None:
+    """Skip a test when this machine cannot create an OpenGL context."""
+
+    mujoco = pytest.importorskip("mujoco")
+    try:
+        model = mujoco.MjModel.from_xml_string("<mujoco><worldbody/></mujoco>")
+        mujoco.Renderer(model, height=8, width=8).close()
+    except Exception as error:
+        pytest.skip(f"offscreen rendering unavailable: {error}")

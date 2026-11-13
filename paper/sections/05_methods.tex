@@ -63,22 +63,88 @@ $45^\circ$.
 
 \subsection{NMPC baseline}
 
-\planned{} NMPC will predict the shared articulated-vehicle model and minimize
+\planned{} The runner already accepts a model-based controller through a
+single per-episode hook and evaluates it on the same scenarios, seeds, plants,
+and metrics as PPO without a training phase; the controller itself is not
+implemented. NMPC will predict the shared articulated-vehicle model and minimize
 tracking, articulation, steering effort, and steering-rate variation while
 enforcing dynamics, steering, steering-rate, and articulation constraints. The
 primary comparison will retain fixed reverse speed and steering-rate authority.
 Horizon, discretization, weights, warm start, solver tolerances, and numerical
 failure handling will be recorded in versioned experiment configurations.
 
-\subsection{PPO controller}
+\subsection{Route planners}
 
-\planned{} PPO will use the same steering-rate authority and fixed reverse
-speed. Training is expected to proceed from straight reverse stabilization to
-curved tracking and randomized docking. Reward components, termination logic,
-network architecture, training budget, and curriculum transitions will be
-documented after implementation. A global-coordinate policy and removal of
-preview information are candidate observation ablations, not established
-experiments.
+\implemented{} Each episode's reference path is produced by a named planner
+selected in the scenario. The default joins the bay centreline through an
+entry point outside the opening. A second planner applies A* search on a
+$0.25\,\mathrm{m}$ occupancy grid to the trailer's docking point, with dock
+walls grown by the trailer half-width plus a clearance, shortens the result to
+its line-of-sight corners, and finishes along the bay centreline. Both are
+geometric: neither verifies that the articulated vehicle can follow the route
+in reverse, which the proposal requires before a planned path is used in an
+experiment. The task reward's lateral and heading terms penalize deviation
+from whichever route is planned, and their weights can be overridden per
+scenario.
+
+\subsection{Static obstacles}
+
+\implemented{} A scenario may contain static rectangular obstacles given in the
+dock frame. In the planar task a chassis footprint overlapping an obstacle is
+a collision, evaluated with the same separating-axis test as the dock walls;
+the MuJoCo scene contains each obstacle as a body whose collision volume is
+extruded above both chassis, so the two plants apply the same planar rule.
+The A* planner routes around obstacles; the default planner does not. The
+policy observation contains no obstacle information, so avoidance depends
+entirely on tracking a route planned around them. A scenario is rejected when
+an obstacle overlaps the docked vehicle or an extreme start pose. No
+experiment with obstacles has been run.
+
+\subsection{PPO training framework}
+
+\implemented{} PPO is trained with Stable-Baselines3 \cite{raffin2021sb3} on
+the Gymnasium docking task, using the same steering-rate authority and fixed
+reverse speed as the planned baseline. A scenario names the frozen vehicle,
+dock, and task specifications and records explicit overrides: dock size,
+tractor and trailer dimensions, steering and speed limits, MuJoCo masses and
+friction, and the ranges from which each episode's start pose is drawn. A
+scenario is rejected when its trailer cannot satisfy the complete-containment
+success rule in its bay or when an extreme of its start ranges would begin an
+episode already in a terminal state. Two
+optional domain randomizations follow the proposal: the trailer
+hitch-to-axle length can be drawn per episode, and zero-mean Gaussian noise
+can be added to the normalized observation. Both are disabled by default, and
+the noise is expressed in normalized observation units rather than as a
+sensor model.
+
+A training campaign repeats a run with consecutive seeds on either plant,
+tests each final policy on a fixed set of start poses on the selected plants,
+and exports the run with the highest test success rate as a single bundle
+containing the policy and its scenario. Because the exported run is selected
+on those test episodes, they are a validation set; reported comparisons will
+use separate seeds. Every test episode is saved, an incomplete test is never
+ranked against a complete one, and a failed run is recorded without
+discarding the others. A bundle can be reloaded and executed
+in a newly constructed simulator of either type. Each run and each campaign
+records its scenario fingerprint, configuration, package versions, Git
+revision, and, for MuJoCo, the resolved tuning values. Test metrics follow the
+proposal: success, collision, and jackknife rates, final position and heading
+errors, maximum articulation, maneuver time, path length, steering-rate
+root-mean-square, and controller computation time per step.
+
+The task environment can drive the MuJoCo plant through the same command and
+state contract; observation, reward, and terminal events are computed from the
+shared planar state in both cases. Agreement of episode events between the two
+plants has not been validated, so three-dimensional runs are engineering
+checks.
+
+\planned{} No hyperparameter, reward weight, or start range has been tuned;
+the source work does not report its PPO hyperparameters or preview spacing, so
+library defaults are used except for a rollout length of 1024 steps and a
+minibatch of 256. A straight-to-curved curriculum, parallel
+environments, and the observation ablations (global coordinates, removal of
+preview information) remain planned, and no trained policy has been evaluated
+as an experiment.
 
 \subsection{Safety supervision}
 

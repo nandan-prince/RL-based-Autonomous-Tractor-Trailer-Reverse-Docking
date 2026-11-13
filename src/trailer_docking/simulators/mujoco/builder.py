@@ -32,6 +32,7 @@ from trailer_docking.core.config import (
     load_dock_configuration,
     load_vehicle_configuration,
 )
+from trailer_docking.core.obstacles import Obstacle, obstacle_name
 from trailer_docking.core.state import Pose2D
 from trailer_docking.simulators.mujoco.ackermann import ackermann_wheel_angles
 
@@ -453,14 +454,53 @@ def _dock_geometry(vehicle: VehicleConfiguration, dock: DockConfiguration) -> li
     return lines
 
 
+def obstacle_geom_name(index: int) -> str:
+    """Name of the collision geom of the obstacle at zero-based *index*."""
+
+    return obstacle_name(index)
+
+
+def _obstacle_geometry(
+    vehicle: VehicleConfiguration, obstacles: Sequence[Obstacle]
+) -> list[str]:
+    lines = []
+    tractor_top = vehicle.tractor.body_bottom_height + vehicle.tractor.body_height
+    trailer_top = vehicle.trailer.body_bottom_height + vehicle.trailer.body_height
+    for index, obstacle in enumerate(obstacles):
+        name = obstacle_geom_name(index)
+        # Extruded above both chassis so a low box cannot be driven over,
+        # matching the planar collision rule of the 2D task.
+        collision_half = max(obstacle.height, tractor_top, trailer_top) / 2.0
+        visual_half = obstacle.height / 2.0
+        size = (obstacle.length / 2.0, obstacle.width / 2.0)
+        euler = _v(0.0, 0.0, obstacle.yaw)
+        lines.append(
+            f'    <geom name="{name}" type="box" contype="0" conaffinity="2"'
+            f' group="3" pos="{_v(obstacle.x, obstacle.y, collision_half)}"'
+            f' euler="{euler}" size="{_v(*size, collision_half)}"/>'
+        )
+        lines.append(
+            f'    <geom name="{name}{DOCK_WALL_VISUAL_SUFFIX}" type="box"'
+            f' contype="0" conaffinity="0" rgba="0.85 0.45 0.1 1"'
+            f' pos="{_v(obstacle.x, obstacle.y, visual_half)}"'
+            f' euler="{euler}" size="{_v(*size, visual_half)}"/>'
+        )
+    return lines
+
+
 def build_scene_xml(
     vehicle: VehicleConfiguration,
     dock: DockConfiguration | None = None,
     tuning: MujocoTuning | None = None,
     *,
     tractor_pose: Pose2D | None = None,
+    obstacles: Sequence[Obstacle] = (),
 ) -> str:
     """Return a complete self-contained world: ground, vehicle, optional dock.
+
+    *obstacles* are static boxes in the world frame.  Like the dock walls
+    they collide with the chassis volumes through an invisible extruded box
+    and are shown at their own height.
 
     With a dock, the world frame is the dock frame (origin at the rear-wall
     center, +x outward).  Without one, the result is an empty flat yard used
@@ -500,6 +540,7 @@ def build_scene_xml(
     ]
     if dock is not None:
         lines += _dock_geometry(vehicle, dock)
+    lines += _obstacle_geometry(vehicle, obstacles)
     lines += [
         *_vehicle_body(vehicle, tuning, pose),
         "  </worldbody>",

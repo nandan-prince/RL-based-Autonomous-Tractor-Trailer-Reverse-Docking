@@ -1,6 +1,7 @@
 # Scripts
 
-No training or evaluation scripts are implemented yet. This directory is
+No scripts live here yet; training and evaluation are run through package
+entry points listed below. This directory is
 reserved for thin command-line entry points such as:
 
 - training PPO
@@ -21,6 +22,13 @@ directly:
 .venv/bin/python -m trailer_docking.validation.vehicle_spec
 .venv/bin/python -m trailer_docking.simulators.mujoco.builder
 .venv/bin/python -m trailer_docking.visualization.viewer --mode 2d
+.venv/bin/python -m trailer_docking.environments.viewer
+.venv/bin/python -m trailer_docking.ui.app
+.venv/bin/python -m trailer_docking.training.cli --help
 ```
+
+The last two need the `train` extra. `training.cli` trains PPO campaigns, runs
+docking tests, and exports policy bundles; it writes each run under a unique
+experiment ID.
 
 See the root README for platform-specific MuJoCo 3D viewer commands.

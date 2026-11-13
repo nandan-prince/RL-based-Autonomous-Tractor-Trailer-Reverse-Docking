@@ -78,9 +78,7 @@ def test_success_collision_jackknife_and_timeout_events(
     success_pose = aligned_pose_for_docking_point(
         vehicle_config, dock_config.geometry.target_position
     )
-    env.reset(
-        options={"tractor_pose": success_pose, "trailer_yaw": 0.0}
-    )
+    env.reset(options={"tractor_pose": success_pose, "trailer_yaw": 0.0})
     _, reward, terminated, truncated, info = env.step(stop)
     assert terminated and not truncated and info["termination_reason"] == "success"
     assert reward > 90.0
@@ -145,9 +143,7 @@ def test_all_trailer_variants_support_rollouts(variant: str) -> None:
 
 
 def test_long_random_rollouts_remain_finite_and_space_compliant() -> None:
-    env = TrailerDockingEnv(
-        task_settings=DockingTaskSettings(max_episode_steps=200)
-    )
+    env = TrailerDockingEnv(task_settings=DockingTaskSettings(max_episode_steps=200))
     observation, _ = env.reset(seed=123, options={"randomize": True})
     random = np.random.default_rng(123)
     steps = 0

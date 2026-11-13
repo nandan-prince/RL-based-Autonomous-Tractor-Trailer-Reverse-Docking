@@ -9,6 +9,7 @@ contract therefore needs no MuJoCo-specific observation or action code.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from math import atan2, cos, isclose, isfinite, sin
 from numbers import Real
 from typing import Any
@@ -17,6 +18,7 @@ import mujoco
 import numpy as np
 
 from trailer_docking.core.config import DockConfiguration, VehicleConfiguration
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import (
     Point2D,
     Pose2D,
@@ -34,6 +36,7 @@ from trailer_docking.simulators.mujoco.builder import (
     DOCK_WALL_GEOMS,
     MujocoTuning,
     build_scene_xml,
+    obstacle_geom_name,
 )
 
 # Excess of measured state over the plant limits that this backend produces
@@ -80,6 +83,8 @@ class MujocoSimulator:
         vehicle: VehicleConfiguration,
         dock: DockConfiguration | None = None,
         tuning: MujocoTuning | None = None,
+        *,
+        obstacles: Sequence[Obstacle] = (),
     ) -> None:
         if not isclose(vehicle.timing.nominal_command_delay, 0.0, abs_tol=1e-12):
             raise NotImplementedError(
@@ -88,7 +93,8 @@ class MujocoSimulator:
         self.vehicle = vehicle
         self.dock = dock
         self.tuning = tuning or MujocoTuning()
-        self.xml = build_scene_xml(vehicle, dock, self.tuning)
+        self.obstacles = tuple(obstacles)
+        self.xml = build_scene_xml(vehicle, dock, self.tuning, obstacles=self.obstacles)
         self.model = mujoco.MjModel.from_xml_string(self.xml)
         self.data = mujoco.MjData(self.model)
         self._substeps = vehicle.timing.mujoco_substeps_per_control
@@ -119,11 +125,10 @@ class MujocoSimulator:
             for name in vehicle.mujoco.required_names.actuators
         }
         geom = mujoco.mjtObj.mjOBJ_GEOM
-        self._wall_geoms = (
-            frozenset(self._id(geom, name) for name in DOCK_WALL_GEOMS)
-            if dock is not None
-            else frozenset()
-        )
+        # Obstacles are reported by ``wall_contacts`` like dock walls.
+        fixed = [*(DOCK_WALL_GEOMS if dock is not None else ())]
+        fixed += [obstacle_geom_name(index) for index in range(len(self.obstacles))]
+        self._wall_geoms = frozenset(self._id(geom, name) for name in fixed)
         self._steering_target = 0.0
         self._speed_target = 0.0
         self._applied = VehicleCommand(0.0, 0.0)
@@ -414,7 +419,7 @@ class MujocoSimulator:
         return float(position[0]), float(position[1]), float(position[2])
 
     def wall_contacts(self) -> tuple[str, ...]:
-        """Return sorted names of vehicle bodies touching a dock wall."""
+        """Return sorted names of vehicle bodies touching a wall or obstacle."""
 
         touching: set[str] = set()
         for index in range(int(self.data.ncon)):

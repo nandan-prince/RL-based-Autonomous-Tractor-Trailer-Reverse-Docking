@@ -17,9 +17,7 @@ def test_observation_is_named_bounded_float32(vehicle_config, dock_config) -> No
     previews = (0.5, 1.0, 2.0)
     tracking = tracking_state(state, path, docking, previews)
     errors = docking_errors(state, vehicle_config, dock_config.geometry)
-    builder = ObservationBuilder(
-        vehicle_config, dock_config.geometry, path, previews
-    )
+    builder = ObservationBuilder(vehicle_config, dock_config.geometry, path, previews)
     observation = builder.build(
         state,
         tracking,

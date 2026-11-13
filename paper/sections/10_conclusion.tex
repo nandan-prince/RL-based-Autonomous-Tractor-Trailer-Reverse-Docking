@@ -9,7 +9,9 @@ engineering checks. The two-dimensional kinematic state-transition model is now
 implemented and quantitatively validated, including direct low-speed
 cross-backend trajectory checks. Shared path and task geometry and the
 Gymnasium environment are now implemented and tested, including a separately
-versioned full-size service-yard interaction scenario. The next milestone is a
-simple deterministic closed-loop tracker, followed by NMPC and PPO.
+versioned full-size service-yard interaction scenario. A PPO training
+framework over that task, on either plant, is implemented and software-tested
+but has produced no tuned or evaluated policy. The next milestones are the
+NMPC baseline and PPO tuning on the two-dimensional task.
 Conclusions about controller performance, robustness, or transfer are deferred
 until reproducible experiments exist.

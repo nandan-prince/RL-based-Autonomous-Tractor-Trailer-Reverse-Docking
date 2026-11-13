@@ -40,9 +40,7 @@ def test_reset_reconstructs_pose_and_clears_previous_command(
     _run(simulator, VehicleCommand(0.3, -0.2), 10)
     pose = Pose2D(3.0, -2.0, 0.7)
     state = simulator.reset(pose, -0.2, steering_angle=-0.25)
-    expected = vehicle_config.geometry.assembled_state(
-        pose, -0.2, steering_angle=-0.25
-    )
+    expected = vehicle_config.geometry.assembled_state(pose, -0.2, steering_angle=-0.25)
     assert state.to_dict() == expected.to_dict()
     assert simulator.applied_command == STOP
     assert state.simulation_time == 0.0
@@ -189,8 +187,7 @@ def test_nonzero_command_delay_is_rejected(
 
 def test_rollout_is_bitwise_repeatable(vehicle_config: VehicleConfiguration) -> None:
     commands = [
-        VehicleCommand(0.2 if index < 20 else -0.1, -0.2)
-        for index in range(60)
+        VehicleCommand(0.2 if index < 20 else -0.1, -0.2) for index in range(60)
     ]
 
     def rollout() -> dict[str, object]:
@@ -204,9 +201,7 @@ def test_rollout_is_bitwise_repeatable(vehicle_config: VehicleConfiguration) -> 
 
 
 def test_smaller_timestep_converges(vehicle_config: VehicleConfiguration) -> None:
-    commands = [VehicleCommand(0.3, -0.2)] * 10 + [
-        VehicleCommand(0.0, -0.2)
-    ] * 80
+    commands = [VehicleCommand(0.3, -0.2)] * 10 + [VehicleCommand(0.0, -0.2)] * 80
 
     def rollout(step: float) -> VehicleState:
         timing = replace(vehicle_config.timing, kinematic_integration_step=step)

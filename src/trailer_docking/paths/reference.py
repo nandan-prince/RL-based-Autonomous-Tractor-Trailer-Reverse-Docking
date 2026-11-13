@@ -116,9 +116,7 @@ class ReferencePath:
         ):
             dx, dy = second.x - first.x, second.y - first.y
             squared = dx * dx + dy * dy
-            projection = (
-                (point.x - first.x) * dx + (point.y - first.y) * dy
-            ) / squared
+            projection = ((point.x - first.x) * dx + (point.y - first.y) * dy) / squared
             ratio = min(max(projection, 0.0), 1.0)
             projected = Point2D(first.x + ratio * dx, first.y + ratio * dy)
             error_x, error_y = point.x - projected.x, point.y - projected.y
