@@ -20,9 +20,10 @@ top-down window must run through ordinary Python. The two GUI event loops cannot
 share the current process, so use ``--mode 3d`` and ``--mode 2d`` in separate
 terminals instead of ``--mode both``.
 
-The MuJoCo backend is the state source in every mode, because the project's 2D
-kinematic simulator is not implemented yet; the top-down plot only consumes the
-shared ``VehicleState`` and will work unchanged with that backend.
+This viewer uses MuJoCo as its state source in every mode. The implemented
+Gymnasium 2D environment has its own keyboard viewer at
+``python -m trailer_docking.environments.viewer``; both render the shared
+``VehicleState`` contract.
 """
 
 from __future__ import annotations

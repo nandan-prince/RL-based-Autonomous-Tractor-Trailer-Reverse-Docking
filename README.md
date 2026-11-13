@@ -115,10 +115,15 @@ These systems reinforce the project’s modular design: perception and localizat
 - Canonical 2D kinematic backend implemented with generalized signed hitch
   offsets, acceleration-limited speed, steering-rate control, fixed-step RK4,
   rigid geometry reconstruction, and a common simulator protocol
-- Local 3D and top-down viewers available (see below)
-- Living IEEE-format LaTeX report updated through the MuJoCo implementation
-- Reference paths, collision/goal geometry, Gymnasium, NMPC, and PPO remain
-  planned
+- Reference paths, preview observations, collision, jackknife, docking success,
+  deterministic scenarios, decomposed rewards, and Gymnasium API implemented
+- Keyboard-controlled 2D Gymnasium and MuJoCo 3D/top-down viewers available
+- Full-size 2D service-center yard available with a 200 m by 100 m paved area,
+  20 loading doors along the bottom x-axis, a 14 m semitrailer, and an open
+  color-highlighted active loading zone without collidable side walls; its
+  soft/terminal articulation thresholds are 35/60 degrees
+- Living IEEE-format LaTeX report updated through the Gymnasium implementation
+- Simple closed-loop tracker, NMPC, and PPO remain planned
 
 ## Vehicle-core verification
 
@@ -177,7 +182,32 @@ instances; use one at a time when exact synchronized playback matters. On
 platforms without that event-loop restriction, the commands below can use
 `.venv/bin/python` directly.
 
-### 1. See the generated dock and vehicle — Available
+### 1. Drive the Gymnasium 2D environment — Available
+
+```bash
+.venv/bin/python -m trailer_docking.environments.viewer
+```
+
+The window shows the kinematic tractor--trailer, loading-zone/building geometry,
+reference path, preview points, driven trajectory, reward, tracking errors, and
+episode status. The service-center renderer uses a tested rigid transform from
+the dock frame, so tractor, hitch, and trailer geometry remain connected while
+turning.
+Use Up/Down to drive, Left/Right to steer, Space to stop, and R or Backspace to
+reset. It defaults to the full-size service-center yard; use
+`--scenario compact` for the compact research baseline. A complete tested
+straight docking and a randomized start are available:
+
+```bash
+.venv/bin/python -m trailer_docking.environments.viewer --demo --speed 4
+.venv/bin/python -m trailer_docking.environments.viewer --random-start --seed 7
+.venv/bin/python -m trailer_docking.environments.viewer --scenario compact
+```
+
+See the [2D environment guide](src/trailer_docking/environments/README.md) for
+the Gymnasium API, action modes, observation, events, and focused tests.
+
+### 2. See the generated MuJoCo dock and vehicle — Available
 
 ```bash
 # Linux/Windows: both windows from one process
@@ -199,7 +229,7 @@ In combined mode, two windows open and are driven by one simulation:
 
 Use `--mode 3d` or `--mode 2d` for one window only.
 
-### 2. Drive it yourself — Available
+### 3. Drive MuJoCo yourself — Available
 
 Click either window to give it keyboard focus.
 
@@ -214,7 +244,7 @@ Reversing the trailer into the bay by hand is a good way to feel why the task
 is hard: the trailer swings opposite to the steering input and jackknifes if
 left uncorrected.
 
-### 3. Watch a scripted reverse — Available
+### 4. Watch a scripted MuJoCo reverse — Available
 
 ```bash
 # Linux/Windows
@@ -227,7 +257,7 @@ left uncorrected.
 The vehicle reverses straight into the bay and stops when the trailer touches
 the back wall. This is a fixed command, not a controller.
 
-### 4. Change the scenario from the command line — Available
+### 5. Change the MuJoCo scenario from the command line — Available
 
 | Option | Effect |
 |---|---|
@@ -241,7 +271,7 @@ supports (for example, zero command delay) can be viewed this way; copy
 one of the files under `configs/`, change a value such as the bay width, and
 pass the new path.
 
-### 5. Adjust parameters in a UI — Planned
+### 6. Adjust parameters in a UI — Planned
 
 A control panel for dock dimensions, vehicle size and mass, and ground and
 contact physics, saving each edited scenario as a new named configuration.
@@ -250,7 +280,7 @@ _To be documented: how to open the panel, which parameters affect both
 simulators and which affect only the 3D physics, and where saved
 configurations are written._
 
-### 6. Train a docking policy and watch it learn — Planned
+### 7. Train a docking policy and watch it learn — Planned
 
 Start PPO training from the UI and watch episodes play back in the viewers as
 the policy improves.
@@ -258,7 +288,7 @@ the policy improves.
 _To be documented: the training command and UI control, where checkpoints and
 metrics are stored, and how to resume or stop a run._
 
-### 7. Run a docking test with a trained policy — Planned
+### 8. Run a docking test with a trained policy — Planned
 
 Choose a scenario and a trained policy, run a simulated docking attempt in 2D
 or 3D, and read the outcome (success, final error, collisions, jackknife).
@@ -268,11 +298,10 @@ and interpreting the reported metrics._
 
 ### What the demo currently does not show
 
-The 2D kinematic simulator is implemented as a tested backend, but the existing
-interactive viewer still uses MuJoCo. The Gymnasium environment, NMPC, and PPO
-are not implemented, so steps 1–4 do not show a trained agent. The top-down
-view depends only on shared state and can later be connected to the 2D backend
-without changing its rendering contract.
+The Gymnasium environment is functional and interactive, but NMPC and PPO are
+not implemented, so no learned or optimizing controller is shown yet. The 2D
+`--demo` is a constant reverse command used to validate the complete success
+path; it is not a controller-performance result.
 
 ## Team workflow
 

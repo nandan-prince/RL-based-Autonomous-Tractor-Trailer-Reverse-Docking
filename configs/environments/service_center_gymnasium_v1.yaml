@@ -1,0 +1,28 @@
+specification_id: service-center-gymnasium-v1
+schema_version: 1
+
+scenario:
+  start_standoff: 15.0
+  # Dock-local bounds map to a 200 m (global x) by 100 m (global y) yard.
+  workspace_lateral_half_width: 100.0
+  workspace_rear_padding: 0.0
+  workspace_front_padding: 10.0
+  workspace_outward_limit: 100.0
+
+episode:
+  max_steps: 1200
+
+observation:
+  preview_distances: [2.0, 5.0, 10.0]
+
+reward:
+  progress: 2.0
+  time: 0.01
+  lateral_error: 0.5
+  heading_error: 0.2
+  articulation: 0.15
+  steering_rate: 0.02
+  success: 100.0
+  collision: 100.0
+  jackknife: 100.0
+  out_of_bounds: 50.0

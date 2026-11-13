@@ -9,6 +9,8 @@ description = "Research environment for autonomous tractor-semitrailer reverse d
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "gymnasium>=1.0,<2",
+  "numpy>=1.26,<3",
   "PyYAML>=6.0",
 ]
 
@@ -44,6 +46,9 @@ testpaths = ["tests"]
 branch = true
 source = [
   "trailer_docking.core",
+  "trailer_docking.environments",
+  "trailer_docking.observations",
+  "trailer_docking.paths",
   "trailer_docking.safety",
   "trailer_docking.simulators.kinematic",
   "trailer_docking.simulators.mujoco",
@@ -67,6 +72,9 @@ python_version = "3.11"
 strict = true
 files = [
   "src/trailer_docking/core",
+  "src/trailer_docking/environments",
+  "src/trailer_docking/observations",
+  "src/trailer_docking/paths",
   "src/trailer_docking/safety",
   "src/trailer_docking/simulators",
   "src/trailer_docking/validation",

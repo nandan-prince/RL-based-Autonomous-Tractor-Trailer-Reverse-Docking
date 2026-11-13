@@ -8,8 +8,10 @@ import yaml
 from trailer_docking.core.config import (
     ConfigurationError,
     DockConfiguration,
+    DockingTaskConfiguration,
     VehicleConfiguration,
     load_dock_configuration,
+    load_docking_task_configuration,
     load_vehicle_configuration,
 )
 
@@ -51,6 +53,27 @@ def test_nominal_dock_configuration_values(dock_config: DockConfiguration) -> No
     assert dock.target_position.y == pytest.approx(0.0)
     assert dock.x_bounds.minimum == 0.0
     assert dock.y_bounds.maximum == pytest.approx(0.75)
+
+
+def test_gymnasium_task_configuration_values(
+    task_config: DockingTaskConfiguration,
+) -> None:
+    assert task_config.specification_id == "gymnasium-docking-v1"
+    assert task_config.max_episode_steps == 600
+    assert task_config.preview_distances == (0.5, 1.0, 2.0)
+    assert task_config.reward_success == pytest.approx(100.0)
+    assert task_config.source_path is not None
+    assert len(task_config.source_fingerprint) == 64
+
+
+def test_task_configuration_strictly_rejects_unknown_fields(
+    tmp_path: Path, task_config: DockingTaskConfiguration
+) -> None:
+    assert task_config.source_path is not None
+    data = _load_yaml(task_config.source_path)
+    data["unknown"] = True
+    with pytest.raises(ConfigurationError, match="unknown"):
+        load_docking_task_configuration(_write_yaml(tmp_path, data))
 
 
 def test_manifest_summaries_include_provenance(

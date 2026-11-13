@@ -3,9 +3,9 @@
 No controller-training or comparative experimental results exist yet.
 
 The current evidence is limited to engineering validation of the shared core
-and simulator plants. The repository test suite contains 225 passing tests,
+and simulator plants. The repository test suite contains 266 passing tests,
 including the 2D kinematic and MuJoCo checks, with branch-aware coverage of
-$92.70\%$ across the measured packages. Lint and strict
+$91.52\%$ across the measured packages. Lint and strict
 static type checks pass. The executable conformance report verifies
 the neutral rigid-hitch constraint, tractor and trailer footprint areas,
 integer 2D/MuJoCo timing ratios, nominal speed bounds, nominal trailer fit in
@@ -14,6 +14,25 @@ forward and reverse propagation, constant steering, articulation response,
 acceleration and steering limits, rigid reconstruction, deterministic replay,
 and timestep convergence. Shared command sequences also compare the final 2D
 and MuJoCo planar states within explicit test tolerances.
+
+Gymnasium validation covers API conformance, seeded resets, fixed-reverse and
+teleoperation actions, every terminal outcome, all three trailer lengths, a
+1,000-step randomized stress rollout, and rendering. A constant straight
+reverse from the default start reaches the configured success region after 486
+control steps without collision. This is an environment acceptance test, not a
+controller result.
+
+The separately configured full-size service-center acceptance case verifies a
+$14.0\,\mathrm{m}$ trailer, a $200\times100\,\mathrm{m}$ maneuvering workspace,
+20 loading doors, absence of active-zone side-wall collision polygons, and
+interactive motion up to $2\,\mathrm{m/s}$ forward and $1\,\mathrm{m/s}$
+reverse. Boundary checks verify that articulation immediately below $60^\circ$
+is nonterminal and articulation at $60^\circ$ is classified as jackknife. A
+nonzero, unequal tractor/trailer-heading case also verifies that the rendered
+tractor hitch, trailer hitch, and hitch marker remain coincident to numerical
+precision after the dock-to-yard transform. Its constant straight reverse
+reaches docking success after 325 control steps without collision. This remains
+a visual and engineering demonstration, not an algorithm experiment.
 
 These engineering checks establish internal consistency and low-speed model
 behavior; they do not establish real-vehicle physical fidelity or controller

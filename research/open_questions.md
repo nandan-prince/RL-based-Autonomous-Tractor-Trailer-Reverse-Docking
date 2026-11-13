@@ -21,11 +21,12 @@ factor before drawing broad conclusions.
 ## Q-003 — Simulation-to-simulation transfer
 
 Direct low-speed forward and reverse trajectory checks now align the verified
-2D kinematic plant with MuJoCo within explicit test tolerances. Which remaining
+2D kinematic plant with MuJoCo within explicit test tolerances, and the 2D task
+events are implemented. Which remaining
 differences—actuator response, wheel contact, slip, hitch behavior, or
 numerical timing—most affect zero-shot controller transfer? Investigate only
-after shared collision, safety, docking-event, observation, and controller
-interfaces also pass parity checks.
+after the same collision, safety, docking-event, observation, and controller
+interfaces are applied to MuJoCo and pass parity checks.
 
 ## Q-004 — Limit checks against a physical plant
 

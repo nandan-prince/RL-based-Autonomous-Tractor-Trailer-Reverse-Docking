@@ -28,8 +28,17 @@ the frozen nominal planar geometry.
 
 The hitch offset is signed and configurable even though the nominal vehicle is
 on-axle. Trailer variants use hitch-to-axle distances of $2$, $4$, and
-$5\,\mathrm{m}$. A full-size vehicle can later use the same schema under a new
-specification identifier.
+$5\,\mathrm{m}$. An optional full-size interactive configuration now
+demonstrates the same schema without replacing the compact experimental
+baseline. It uses a $5.8\,\mathrm{m}$ tractor and a
+$14.0\times2.55\,\mathrm{m}$ semitrailer in a $200\times100\,\mathrm{m}$ 2D
+service-center yard with 20 doors along the bottom building edge and one active
+$18\,\mathrm{m}$ loading zone. The target zone is highlighted by floor color
+and deliberately has no physical or collidable longitudinal side walls; its
+width remains part of the success containment test. The rear boundary and
+building façade outside the active door are collision geometry. Faster
+teleoperation limits make manual maneuvering observable at this scale; these
+are demonstration choices rather than identified physical parameters.
 
 The nominal dock interior is $6.00\times1.50\,\mathrm{m}$. Its target is the
 ground-plane projection of the trailer rear-face center at
@@ -43,8 +52,26 @@ The nominal steering-angle limit is $0.50\,\mathrm{rad}$ and the selected
 steering-rate limit is $0.30\,\mathrm{rad/s}$. The latter is a project design
 choice and will require sensitivity analysis; it is not reported by either core
 paper. The soft and hard articulation thresholds are $35^\circ$ and $45^\circ$.
+These values describe the compact experimental baseline. The separate
+full-size interactive service-center scenario retains the $35^\circ$ warning
+but terminates at $60^\circ$ articulation.
 The controller period is $0.10\,\mathrm{s}$, the implemented 2D integration step is
 $0.02\,\mathrm{s}$, and the MuJoCo physics step is $0.002\,\mathrm{s}$.
+
+\subsection{Service-center presentation frame}
+
+The service-center task retains the dock-local kinematic state while presenting
+the building along the bottom edge of a conventional yard plot. If
+$(x_d,y_d,\psi_d)$ is a pose in the dock frame, the renderer applies
+\begin{equation}
+  x_s=100-y_d,\qquad y_s=x_d,\qquad
+  \psi_s=\psi_d+\frac{\pi}{2}.
+\end{equation}
+This transformation is a rigid $90^\circ$ rotation followed by translation,
+so it preserves distances and hitch coincidence. An articulated-state
+regression test separately transforms the tractor pose, trailer pose, and hitch
+point and requires both transformed body hitch locations to agree with the
+transformed hitch marker to numerical precision.
 
 \subsection{Implemented software contracts}
 

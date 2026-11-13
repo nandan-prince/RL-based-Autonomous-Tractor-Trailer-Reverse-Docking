@@ -1,23 +1,25 @@
 # Vehicle and environment specification
 
 **Specification ID:** `compact-semitrailer-v1`  
-**Status:** frozen; vehicle core, canonical 2D kinematic backend, and first
-MuJoCo implementation verified; task-level geometry and Gymnasium pending
+**Status:** frozen; vehicle core, canonical 2D kinematic backend, 2D Gymnasium
+task, and first MuJoCo implementation verified
 
 **Machine-readable sources:**
 [`configs/vehicles/compact_semitrailer_v1.yaml`](../../configs/vehicles/compact_semitrailer_v1.yaml)
 and
-[`configs/environments/nominal_dock_v1.yaml`](../../configs/environments/nominal_dock_v1.yaml)
+[`configs/environments/nominal_dock_v1.yaml`](../../configs/environments/nominal_dock_v1.yaml),
+with task settings in
+[`configs/environments/gymnasium_docking_v1.yaml`](../../configs/environments/gymnasium_docking_v1.yaml)
 
 Both configuration files use `schema_version: 1`. The schema version identifies
 the software contract; the specification ID identifies a particular vehicle or
 dock. A new set of dimensions may use a new specification ID without changing
 the schema or controller interfaces.
 
-**Implementation status:** the typed state, command, geometry, configuration,
-fingerprinting, command-supervision, and specification-conformance layers are
-implemented and tested. Kinematic state propagation is intentionally deferred
-to the next milestone.
+**Implementation status:** the typed vehicle core, kinematic propagation,
+reference paths, collision/jackknife/goal rules, normalized observation,
+Gymnasium API, reward decomposition, deterministic resets, and interactive 2D
+rendering are implemented and tested. Controllers remain the next milestone.
 
 Run the executable contract check from the repository root with:
 
@@ -40,6 +42,24 @@ wheelbase, 4.0 m hitch-to-trailer-axle distance, 1.0 m vehicle width, 0.2 m/s
 maximum reverse speed, and 0.5 rad steering limit. This keeps the first
 experiments close to the literature while retaining all geometry needed for a
 consistent 3D model.
+
+An optional `full-size-semitrailer-v1` and `service-center-dock-v1` pair is
+provided for interactive 2D yard demonstrations. It uses a 14.0 m semitrailer
+and a 200 m by 100 m service-center layout with 20 doors along the bottom
+x-axis. Its active loading zone is color-highlighted and has no collidable side
+walls; bay-width containment remains a docking-success condition. It is a
+separately identified scenario and does not replace this compact
+cross-simulator experimental baseline unless an experiment explicitly selects
+and records it. Its soft/hard articulation thresholds are 35/60 degrees; the
+compact cross-simulator baseline retains the 35/45-degree thresholds specified
+below.
+
+The service-center presentation frame places the active door at global
+`(100, 0)` m and maps a dock-local point `(x_d, y_d)` to
+`(x_s, y_s) = (100 - y_d, x_d)`. A pose heading maps as
+`psi_s = psi_d + pi/2`. This is a rigid rotation and translation, not a change
+to the kinematic state. Consequently, transformed tractor and trailer hitch
+points must remain coincident for arbitrary articulation.
 
 Version 1 contains one front-steered tractor and one non-steered, single-axle
 semitrailer. It excludes suspension, tire deformation, powertrain dynamics,
@@ -545,9 +565,10 @@ required.
 
 Items 1--7 are covered by automated tests. Direct project-backend trajectory
 comparison for item 10 now covers low-speed forward and reverse command
-sequences within documented tolerances. Full equality for safety, collision,
-and docking events remains pending until the shared task modules and Gymnasium
-environment exist. The evidence and remaining gates are tracked in the
+sequences within documented tolerances. The 2D backend now implements safety,
+collision, and docking events. Applying the identical task wrapper to MuJoCo
+and verifying event equality remains pending. The remaining gates are tracked
+in the
 [MuJoCo alignment audit](mujoco-alignment-audit.md).
 
 ## 14. Change control

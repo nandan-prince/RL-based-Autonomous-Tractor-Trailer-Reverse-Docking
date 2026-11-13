@@ -3,9 +3,11 @@
 Unit tests verify the 2D dynamics equations, timestep convergence, rigid
 geometry reconstruction, deterministic integration, forward/reverse motion,
 steering and acceleration limits, angle wrapping, articulation behavior, and
-invalid-input rejection. Future tests will add collision and reference
-tracking. Integration tests currently verify direct low-speed 2D/MuJoCo
-trajectory parity; Gymnasium compliance and event parity remain planned.
+invalid-input rejection. Unit suites now also verify reference interpolation,
+signed tracking errors, previews, polygon collision, dock containment,
+jackknife thresholds, goal evaluation, scenario construction, and normalized
+observations. Integration tests verify direct low-speed 2D/MuJoCo trajectory
+parity and the complete Gymnasium API and 2D task behavior.
 
 The current vehicle-core suite verifies strict schema handling, invalid-input
 rejection, golden neutral geometry, coordinate-transform round trips, footprint
@@ -29,6 +31,17 @@ The canonical 2D tests live under `tests/unit/simulators/kinematic/`. The
 cross-backend command-sequence check is
 `tests/integration/test_kinematic_mujoco_parity.py` and skips cleanly if MuJoCo
 is unavailable.
+
+The environment suite under `tests/integration/gymnasium/` runs Gymnasium's
+checker, reproducible seeded resets, both action modes, success/collision/
+jackknife/timeout events, invalid-action atomicity, all trailer variants, long
+random rollouts, RGB rendering, and a full collision-free straight docking.
+The service-center acceptance tests additionally validate the full-size
+dimensions, exact 200 m by 100 m rendered workspace, 20-door layout, absence of
+loading-zone side collision walls, collidable building façade, maneuvering
+motion, yard rendering, the 60-degree terminal jackknife boundary, rigid
+dock-to-yard rendering of an articulated hitch, and full-size collision-free
+docking.
 
 MuJoCo tests live under `tests/integration/mujoco/` and skip cleanly when the
 optional dependency is absent. The full verification command should install

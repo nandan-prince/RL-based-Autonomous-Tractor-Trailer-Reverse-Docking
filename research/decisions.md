@@ -24,7 +24,7 @@ specification ID.
 ## D-002 — Initial control authority
 
 **Date:** 2026-11-11  
-**Status:** accepted; enforced by MuJoCo plant, 2D propagation planned
+**Status:** accepted; enforced by both plants and the primary Gymnasium action
 
 The primary PPO-versus-NMPC comparison uses bounded steering rate as the only
 controller-selected action and a fixed reverse-speed target of `-0.2 m/s`.
@@ -88,14 +88,13 @@ element order or to undocumented names selected independently by the 3D team.
 
 Collision geometry uses primitives that match the planar footprints and
 decorative meshes remain visual-only. D-007 records the subsequent vehicle,
-dock, and adapter implementation; direct comparison with the project 2D
-simulator remains planned.
+dock, and adapter implementation; D-009 records the later direct comparison
+with the project 2D simulator.
 
 ## D-007 — First MuJoCo vehicle, dock, and adapter
 
 **Date:** 2026-11-11
-**Status:** implemented; validated against the specification's kinematic
-equations, not yet against the project's 2D simulator
+**Status:** implemented; the later direct 2D comparison is recorded in D-009
 
 The MJCF is generated from the vehicle and dock YAML by
 `simulators/mujoco/builder.py`; the committed XML files are generator output
@@ -191,3 +190,65 @@ determinism, variants, and invalid input. Shared forward and reverse command
 sequences also compare the 2D plant directly with MuJoCo. This is
 plant-model validation, not evidence of controller transfer, docking success,
 or physical fidelity.
+
+## D-010 — Versioned Gymnasium docking task and teleoperation mode
+
+**Date:** 2026-11-12
+**Status:** implemented and engineering-validated
+
+The primary `TrailerDocking-v0` action remains one normalized steering-rate
+command at the configured fixed reverse target. A separately named `teleop`
+mode adds normalized speed authority only for manual debugging and scripted
+plant demonstrations; it does not change the planned PPO/NMPC comparison.
+
+The task composes the canonical kinematic backend with goal-to-start reference
+polylines, decreasing-progress preview sampling, chassis-footprint collision,
+soft/hard articulation classification, docking-point success, workspace and
+timeout events, a bounded 21-element path-relative observation, and a fully
+decomposed reward. Episode events are evaluated independently from reward.
+Scenario, preview, timeout, and reward values are fingerprinted from
+`configs/environments/gymnasium_docking_v1.yaml`.
+
+Validation includes Gymnasium's checker, deterministic and randomized seeded
+resets, both action modes, each terminal/truncation path, invalid-action
+atomicity, all trailer variants, a 1,000-step randomized stress rollout, RGB
+rendering, and a complete default straight reverse. The latter reaches docking
+success after 486 controller steps without collision. This establishes task
+functionality, not controller performance or a comparative experiment.
+
+## D-011 — Separate full-size service-center demonstration scenario
+
+**Date:** 2026-11-12
+**Status:** implemented for the interactive 2D environment
+
+The compact paper-aligned vehicle remains the default `TrailerDocking-v0`
+research baseline. A separately versioned service-center scenario is added for
+human-scale inspection and teleoperation: a 5.8 m tractor, 14.0 m by 2.55 m
+semitrailer, 18.0 m active loading zone, 20-door building façade, and a
+200 m by 100 m maneuvering workspace. The building runs along the bottom
+x-axis, with the active door centered at $x=100$ m. The interactive viewer
+selects this scenario by default and can return to the compact baseline with
+`--scenario compact`.
+
+The active loading zone is a colored floor target rather than a parking slot
+bounded by physical side walls. Its two longitudinal edges are absent from
+both rendering and collision geometry; bay width still participates in the
+complete-trailer containment success check. The service-center façade outside
+the active door and rear boundary remain collidable. Manual limits are 2 m/s
+forward and 1 m/s reverse so movement is observable across the larger yard. A
+straight reverse acceptance rollout reaches docking success after 325 control
+steps without collision. These values are demonstration configuration choices,
+not identified real-vehicle parameters or controller results. Any future
+algorithm experiment using this scenario must identify its three configuration
+fingerprints separately from the compact baseline.
+
+The full-size interactive scenario uses a $60^\circ$ terminal jackknife
+threshold, while retaining its $35^\circ$ soft warning. This is deliberately
+separate from the compact cross-simulator baseline, whose frozen hard threshold
+remains $45^\circ$.
+
+The service view is a rigid presentation transform of the dock-local state:
+$(x_s,y_s,\psi_s)=(100-y_d,x_d,\psi_d+\pi/2)$. A regression test with unequal,
+nonzero tractor and trailer headings requires the transformed body hitch points
+and transformed hitch marker to coincide. This guards visualization integrity;
+it does not alter the kinematic state or task calculations.

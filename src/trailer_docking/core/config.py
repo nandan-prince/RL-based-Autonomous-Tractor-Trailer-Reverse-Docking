@@ -88,6 +88,12 @@ def _number_sequence(value: Any, length: int, path: str) -> tuple[float, ...]:
     return tuple(_number(item, f"{path}[{index}]") for index, item in enumerate(value))
 
 
+def _numbers(value: Any, path: str) -> tuple[float, ...]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ConfigurationError(f"{path} must be a sequence")
+    return tuple(_number(item, f"{path}[{index}]") for index, item in enumerate(value))
+
+
 def _string_sequence(value: Any, path: str) -> tuple[str, ...]:
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
         raise ConfigurationError(f"{path} must be a sequence")
@@ -659,6 +665,84 @@ class DockConfiguration:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class DockingTaskConfiguration:
+    """Versioned Gymnasium scenario, observation, episode, and reward settings."""
+
+    specification_id: str = "gymnasium-docking-v1"
+    schema_version: int = CURRENT_SCHEMA_VERSION
+    start_standoff: float = 4.0
+    workspace_lateral_half_width: float = 5.0
+    workspace_rear_padding: float = 2.0
+    workspace_front_padding: float = 3.0
+    workspace_outward_limit: float | None = None
+    max_episode_steps: int = 600
+    preview_distances: tuple[float, ...] = (0.5, 1.0, 2.0)
+    reward_progress: float = 10.0
+    reward_time: float = 0.01
+    reward_lateral_error: float = 0.5
+    reward_heading_error: float = 0.2
+    reward_articulation: float = 0.15
+    reward_steering_rate: float = 0.02
+    reward_success: float = 100.0
+    reward_collision: float = 100.0
+    reward_jackknife: float = 100.0
+    reward_out_of_bounds: float = 50.0
+    source_path: Path | None = None
+    source_fingerprint: str = "unversioned"
+
+    def __post_init__(self) -> None:
+        if self.schema_version != CURRENT_SCHEMA_VERSION:
+            raise ConfigurationError("unsupported docking-task schema version")
+        if not self.specification_id.strip():
+            raise ConfigurationError("task specification_id cannot be empty")
+        positive = (
+            "start_standoff",
+            "workspace_lateral_half_width",
+            "workspace_front_padding",
+        )
+        rewards = (
+            "reward_progress",
+            "reward_time",
+            "reward_lateral_error",
+            "reward_heading_error",
+            "reward_articulation",
+            "reward_steering_rate",
+            "reward_success",
+            "reward_collision",
+            "reward_jackknife",
+            "reward_out_of_bounds",
+        )
+        for name in positive + rewards:
+            value = getattr(self, name)
+            invalid = not isfinite(value) or value < 0.0
+            if invalid or (name in positive and value == 0.0):
+                raise ConfigurationError(f"{name} has an invalid value")
+        if not isfinite(self.workspace_rear_padding) or self.workspace_rear_padding < 0:
+            raise ConfigurationError("workspace_rear_padding has an invalid value")
+        if self.workspace_outward_limit is not None and (
+            not isfinite(self.workspace_outward_limit)
+            or self.workspace_outward_limit <= 0.0
+        ):
+            raise ConfigurationError("workspace_outward_limit has an invalid value")
+        if self.max_episode_steps <= 0:
+            raise ConfigurationError("max_episode_steps must be positive")
+        if not self.preview_distances or any(
+            not isfinite(value) or value < 0.0 for value in self.preview_distances
+        ):
+            raise ConfigurationError(
+                "preview_distances must be non-empty, finite, and non-negative"
+            )
+
+    def manifest_summary(self) -> dict[str, Any]:
+        return {
+            "specification_id": self.specification_id,
+            "schema_version": self.schema_version,
+            "source_path": None if self.source_path is None else str(self.source_path),
+            "source_fingerprint": self.source_fingerprint,
+        }
+
+
 def _load_units(data: Mapping[str, Any], *, vehicle: bool) -> UnitSystem:
     expected = {"length", "angle", "time", "mass"} if vehicle else {"length", "angle"}
     _exact_keys(data, expected, "units")
@@ -1077,3 +1161,99 @@ def load_dock_configuration(path: str | Path) -> DockConfiguration:
         if isinstance(error, ConfigurationError):
             raise
         raise ConfigurationError(f"invalid dock configuration: {error}") from error
+
+
+def load_docking_task_configuration(path: str | Path) -> DockingTaskConfiguration:
+    """Load strict scenario, observation, episode, and reward task settings."""
+
+    data, resolved = _read_yaml(path)
+    _exact_keys(
+        data,
+        {
+            "specification_id",
+            "schema_version",
+            "scenario",
+            "episode",
+            "observation",
+            "reward",
+        },
+        "docking_task",
+    )
+    scenario = _mapping(data["scenario"], "scenario")
+    scenario_fields = {
+        "start_standoff",
+        "workspace_lateral_half_width",
+        "workspace_rear_padding",
+        "workspace_front_padding",
+    }
+    if "workspace_outward_limit" in scenario:
+        scenario_fields.add("workspace_outward_limit")
+    _exact_keys(scenario, scenario_fields, "scenario")
+    episode = _mapping(data["episode"], "episode")
+    _exact_keys(episode, {"max_steps"}, "episode")
+    observation = _mapping(data["observation"], "observation")
+    _exact_keys(observation, {"preview_distances"}, "observation")
+    reward = _mapping(data["reward"], "reward")
+    reward_fields = {
+        "progress",
+        "time",
+        "lateral_error",
+        "heading_error",
+        "articulation",
+        "steering_rate",
+        "success",
+        "collision",
+        "jackknife",
+        "out_of_bounds",
+    }
+    _exact_keys(reward, reward_fields, "reward")
+    previews = _numbers(
+        observation["preview_distances"], "observation.preview_distances"
+    )
+    return DockingTaskConfiguration(
+        specification_id=_text(data["specification_id"], "specification_id"),
+        schema_version=_integer(data["schema_version"], "schema_version"),
+        start_standoff=_number(scenario["start_standoff"], "scenario.start_standoff"),
+        workspace_lateral_half_width=_number(
+            scenario["workspace_lateral_half_width"],
+            "scenario.workspace_lateral_half_width",
+        ),
+        workspace_rear_padding=_number(
+            scenario["workspace_rear_padding"], "scenario.workspace_rear_padding"
+        ),
+        workspace_front_padding=_number(
+            scenario["workspace_front_padding"], "scenario.workspace_front_padding"
+        ),
+        workspace_outward_limit=(
+            _number(
+                scenario["workspace_outward_limit"],
+                "scenario.workspace_outward_limit",
+            )
+            if "workspace_outward_limit" in scenario
+            else None
+        ),
+        max_episode_steps=_integer(episode["max_steps"], "episode.max_steps"),
+        preview_distances=previews,
+        reward_progress=_number(reward["progress"], "reward.progress"),
+        reward_time=_number(reward["time"], "reward.time"),
+        reward_lateral_error=_number(
+            reward["lateral_error"], "reward.lateral_error"
+        ),
+        reward_heading_error=_number(
+            reward["heading_error"], "reward.heading_error"
+        ),
+        reward_articulation=_number(
+            reward["articulation"], "reward.articulation"
+        ),
+        reward_steering_rate=_number(
+            reward["steering_rate"], "reward.steering_rate"
+        ),
+        reward_success=_number(reward["success"], "reward.success"),
+        reward_collision=_number(reward["collision"], "reward.collision"),
+        reward_jackknife=_number(reward["jackknife"], "reward.jackknife"),
+        reward_out_of_bounds=_number(
+            reward["out_of_bounds"], "reward.out_of_bounds"
+        ),
+        source_path=resolved,
+        source_fingerprint=_normalized_fingerprint(data),
+    )

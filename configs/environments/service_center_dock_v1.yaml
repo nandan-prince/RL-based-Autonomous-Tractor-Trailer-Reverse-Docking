@@ -1,0 +1,31 @@
+specification_id: service-center-dock-v1
+schema_version: 1
+units:
+  length: m
+  angle: rad
+
+dock_frame:
+  origin: rear_wall_center
+  outward_axis: +x
+  left_axis: +y
+  up_axis: +z
+
+bay:
+  interior_width: 3.70
+  interior_depth: 18.00
+  wall_thickness: 0.30
+  wall_height: 4.50
+  collision_margin: 0.15
+
+target:
+  reference: docking_point
+  position: [0.75, 0.00]
+  trailer_yaw: 0.00
+
+success_tolerances:
+  longitudinal: 0.25
+  lateral: 0.20
+  trailer_yaw: 0.052360
+  require_no_collision: true
+  require_articulation_below_hard_limit: true
+  require_complete_trailer_inside_bay: true
