@@ -1,0 +1,67 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.0",
+  "packages": {
+    "gymnasium": "1.4.0",
+    "mujoco": "3.17.0",
+    "numpy": "2.5.4",
+    "matplotlib": "3.11.2",
+    "PyYAML": "6.0.3"
+  },
+  "gymnasium_2d": {
+    "api_checker": "passed",
+    "observation_shape": [
+      21
+    ],
+    "action_shape": [
+      1
+    ],
+    "compact_straight_reverse": {
+      "steps": 486,
+      "termination_reason": "success",
+      "is_success": true,
+      "collision": false,
+      "jackknifed": false,
+      "docking_error_longitudinal_m": 0.08000000000105878,
+      "docking_error_lateral_m": 0.0,
+      "docking_error_yaw_rad": 0.0,
+      "return": 191.83999999998974
+    },
+    "service_center_straight_reverse": {
+      "steps": 325,
+      "termination_reason": "success",
+      "is_success": true,
+      "collision": false,
+      "jackknifed": false,
+      "docking_error_longitudinal_m": 0.24999999999837286,
+      "docking_error_lateral_m": 0.0,
+      "docking_error_yaw_rad": 0.0,
+      "return": 160.75000000000324
+    },
+    "random_steering_20_seeded_episodes": {
+      "jackknife": 6,
+      "collision": 14
+    }
+  },
+  "parity_2d_vs_mujoco": {
+    "commands": 150,
+    "duration_s": 14.999999999999769,
+    "final_tractor_position_gap_m": 0.00790101638905846,
+    "max_tractor_position_gap_m": 0.00790101638905846,
+    "final_tractor_yaw_gap_rad": 0.0007181774707805703,
+    "final_trailer_yaw_gap_rad": 9.31333264524159e-06,
+    "max_articulation_gap_rad": 0.0009068007779892973
+  },
+  "mujoco_3d": {
+    "control_steps_until_wall_contact": 503,
+    "wall_contacts": [
+      "trailer_body"
+    ],
+    "final_articulation_rad": 7.442886303930862e-17,
+    "final_trailer_lateral_m": -1.0792479750005275e-16,
+    "bodies": 11,
+    "joints": 10,
+    "actuators": 4,
+    "physics_timestep_s": 0.002
+  }
+}
