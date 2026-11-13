@@ -164,7 +164,9 @@ def test_reward_penalizes_leaving_the_planned_route() -> None:
             Scenario(overrides=ScenarioOverrides(path_lateral_weight=bad)).build()
 
 
-def test_route_is_drawn_in_3d_frames_only_while_switched_on() -> None:
+def test_route_is_drawn_in_3d_frames_only_while_switched_on(
+    offscreen_rendering: None,
+) -> None:
     pytest.importorskip("mujoco")
     from trailer_docking.training.evaluate import (
         run_docking_test,

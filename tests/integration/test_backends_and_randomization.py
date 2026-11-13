@@ -147,7 +147,9 @@ def test_observation_noise_is_seeded_bounded_and_off_by_default() -> None:
     env.close()
 
 
-def test_3d_frames_are_delivered_only_for_the_3d_backend() -> None:
+def test_3d_frames_are_delivered_only_for_the_3d_backend(
+    offscreen_rendering: None,
+) -> None:
     frames: list[np.ndarray] = []
     results = run_docking_test(
         Scenario(start=ALIGNED),

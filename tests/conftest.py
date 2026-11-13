@@ -65,3 +65,15 @@ def policy_checkpoint() -> bytes:
     with zipfile.ZipFile(archive, "w") as bundle:
         bundle.writestr("policy.pth", weights.getvalue())
     return archive.getvalue()
+
+
+@pytest.fixture(scope="session")
+def offscreen_rendering() -> None:
+    """Skip a test when this machine cannot create an OpenGL context."""
+
+    mujoco = pytest.importorskip("mujoco")
+    try:
+        model = mujoco.MjModel.from_xml_string("<mujoco><worldbody/></mujoco>")
+        mujoco.Renderer(model, height=8, width=8).close()
+    except Exception as error:
+        pytest.skip(f"offscreen rendering unavailable: {error}")
