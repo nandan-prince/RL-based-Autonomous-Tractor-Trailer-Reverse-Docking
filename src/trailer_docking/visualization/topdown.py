@@ -3,13 +3,14 @@
 The drawing uses only the shared planar contract: a :class:`VehicleState`, the
 vehicle geometry, and the dock geometry.  It therefore shows exactly what a
 controller sees and works for any simulator backend that produces the shared
-state, including the future 2D kinematic simulator.
+state, including the implemented 2D kinematic simulator and Gymnasium task.
 
 Matplotlib is an optional dependency (``pip install -e '.[viz]'``).
 """
 
 from __future__ import annotations
 
+from math import pi
 from typing import Any
 
 from trailer_docking.core.config import DockConfiguration, VehicleConfiguration
@@ -20,6 +21,16 @@ from trailer_docking.simulators.mujoco.ackermann import ackermann_wheel_angles
 TRACTOR_COLOR = "#2a5cb8"
 TRAILER_COLOR = "#c9c9cf"
 WALL_COLOR = "#8c8c80"
+SERVICE_YARD_LENGTH = 200.0
+SERVICE_YARD_WIDTH = 100.0
+SERVICE_DOCK_X = SERVICE_YARD_LENGTH / 2.0
+SERVICE_DOOR_CENTERS = tuple(
+    sorted(
+        [5.0 + 10.0 * index for index in range(10)]
+        + [SERVICE_DOCK_X]
+        + [110.0 + 10.0 * index for index in range(9)]
+    )
+)
 WHEEL_COLOR = "#1f1f1f"
 
 
@@ -42,10 +53,18 @@ class TopDownView:
 
         self.vehicle = vehicle
         self.dock = dock
+        self._service_center = (
+            dock is not None
+            and dock.geometry.specification_id == "service-center-dock-v1"
+        )
         self._polygon = Polygon
         self.figure, self.axes = plt.subplots(figsize=(11, 5.5))
         self.axes.set_aspect("equal", adjustable="box")
-        self.axes.set_xlabel("x [m]  (dock frame: +x outward from the rear wall)")
+        self.axes.set_xlabel(
+            "x [m]  (along service-center building)"
+            if self._service_center
+            else "x [m]  (dock frame: +x outward from the rear wall)"
+        )
         self.axes.set_ylabel("y [m]")
         self.axes.grid(True, linewidth=0.4, alpha=0.5)
         self.axes.set_title(
@@ -58,27 +77,120 @@ class TopDownView:
             bay = dock.geometry
             half_width = bay.interior_width / 2.0
             thickness = bay.wall_thickness
-            self.axes.add_patch(
-                Rectangle(
-                    (0.0, -half_width),
-                    bay.interior_depth,
-                    bay.interior_width,
-                    facecolor="#f2d94a",
-                    alpha=0.25,
-                    edgecolor="none",
-                    label="bay interior",
+            if self._service_center:
+                self.axes.set_facecolor("#d8dde1")
+                self.axes.add_patch(
+                    Rectangle(
+                        (0.0, 0.0),
+                        SERVICE_YARD_LENGTH,
+                        4.0,
+                        facecolor="#666a70",
+                        edgecolor="#242629",
+                        linewidth=1.2,
+                        label="service center",
+                    )
                 )
-            )
-            walls = (
-                (
-                    -thickness,
-                    -half_width - thickness,
-                    thickness,
-                    2 * half_width + 2 * thickness,
-                ),
-                (0.0, half_width, bay.interior_depth, thickness),
-                (0.0, -half_width - thickness, bay.interior_depth, thickness),
-            )
+                # Twenty loading doors run along the building's x-axis. The
+                # center door is the active task; the others provide yard scale.
+                for center in SERVICE_DOOR_CENTERS:
+                    active = center == SERVICE_DOCK_X
+                    self.axes.add_patch(
+                        Rectangle(
+                            (center - half_width, 0.0),
+                            bay.interior_width,
+                            1.2,
+                            facecolor="#65a765" if active else "#202328",
+                            edgecolor="white" if active else "#b8bbc0",
+                            linewidth=1.0,
+                            zorder=2,
+                        )
+                    )
+                    if not active:
+                        self.axes.plot(
+                            [center - half_width, center - half_width],
+                            [4.0, bay.interior_depth],
+                            linestyle="--",
+                            color="#f3f0a2",
+                            linewidth=0.8,
+                            alpha=0.8,
+                        )
+                        self.axes.plot(
+                            [center + half_width, center + half_width],
+                            [4.0, bay.interior_depth],
+                            linestyle="--",
+                            color="#f3f0a2",
+                            linewidth=0.8,
+                            alpha=0.8,
+                        )
+                self.axes.text(
+                    3.0,
+                    2.0,
+                    "SERVICE CENTER",
+                    color="white",
+                    fontsize=9,
+                    fontweight="bold",
+                    ha="left",
+                    va="center",
+                )
+                self.axes.text(
+                    SERVICE_DOCK_X + half_width + 0.6,
+                    5.0,
+                    "ACTIVE DOOR",
+                    color="#1d6f28",
+                    fontsize=7,
+                    fontweight="bold",
+                    rotation=90,
+                )
+                for center in (25.0, 175.0):
+                    self.axes.plot(
+                        [center, center],
+                        [35.0, 90.0],
+                        color="white",
+                        linestyle=(0, (8, 8)),
+                        linewidth=1.0,
+                        alpha=0.7,
+                    )
+                self.axes.add_patch(
+                    Rectangle(
+                        (SERVICE_DOCK_X - half_width, 0.0),
+                        bay.interior_width,
+                        bay.interior_depth,
+                        facecolor="#f2d94a",
+                        alpha=0.25,
+                        edgecolor="none",
+                        label="bay interior",
+                    )
+                )
+                walls = (
+                    (
+                        SERVICE_DOCK_X - half_width - thickness,
+                        0.0,
+                        2 * half_width + 2 * thickness,
+                        thickness,
+                    ),
+                )
+            else:
+                self.axes.add_patch(
+                    Rectangle(
+                        (0.0, -half_width),
+                        bay.interior_depth,
+                        bay.interior_width,
+                        facecolor="#f2d94a",
+                        alpha=0.25,
+                        edgecolor="none",
+                        label="bay interior",
+                    )
+                )
+                walls = (
+                    (
+                        -thickness,
+                        -half_width - thickness,
+                        thickness,
+                        2 * half_width + 2 * thickness,
+                    ),
+                    (0.0, half_width, bay.interior_depth, thickness),
+                    (0.0, -half_width - thickness, bay.interior_depth, thickness),
+                )
             for index, (x, y, width, height) in enumerate(walls):
                 self.axes.add_patch(
                     Rectangle(
@@ -92,8 +204,8 @@ class TopDownView:
                     )
                 )
             self.axes.plot(
-                [bay.target_position.x],
-                [bay.target_position.y],
+                [self._display_point(bay.target_position).x],
+                [self._display_point(bay.target_position).y],
                 marker="x",
                 color="green",
                 markersize=10,
@@ -158,8 +270,54 @@ class TopDownView:
             fontsize=8,
             bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
         )
+        if (
+            self.dock is not None
+            and self.dock.geometry.specification_id == "service-center-dock-v1"
+        ):
+            self.figure.set_size_inches(12.0, 8.0)
+            self._readout.set_position((0.99, 0.98))
+            self._readout.set_horizontalalignment("right")
         self.axes.legend(loc="lower right", fontsize=7, ncol=2)
         self._limits_set = False
+
+    def set_view_bounds(self, x_bounds: Bounds1D, y_bounds: Bounds1D) -> None:
+        """Use explicit workspace bounds instead of auto-fitting the first state."""
+
+        if self._service_center:
+            self.axes.set_xlim(
+                SERVICE_DOCK_X - y_bounds.maximum,
+                SERVICE_DOCK_X - y_bounds.minimum,
+            )
+            self.axes.set_ylim(x_bounds.minimum, x_bounds.maximum)
+        else:
+            self.axes.set_xlim(x_bounds.minimum, x_bounds.maximum)
+            self.axes.set_ylim(y_bounds.minimum, y_bounds.maximum)
+        self._limits_set = True
+
+    def _display_point(self, point: Point2D) -> Point2D:
+        if self._service_center:
+            return Point2D(SERVICE_DOCK_X - point.y, point.x)
+        return point
+
+    def _display_pose(self, pose: Pose2D) -> Pose2D:
+        if self._service_center:
+            return Pose2D(
+                SERVICE_DOCK_X - pose.y,
+                pose.x,
+                pose.yaw + pi / 2.0,
+            )
+        return pose
+
+    def display_pose(self, pose: Pose2D) -> Pose2D:
+        """Map a dock-local pose to the rigidly rotated display frame."""
+
+        return self._display_pose(pose)
+
+    def display_xy(self, point: Point2D) -> tuple[float, float]:
+        """Map a dock-local point to the coordinates shown by this view."""
+
+        displayed = self._display_point(point)
+        return displayed.x, displayed.y
 
     def _wheel_corners(
         self, frame: Pose2D, x: float, y: float, steer: float
@@ -182,25 +340,29 @@ class TopDownView:
 
         tractor = self.vehicle.tractor
         trailer = self.vehicle.trailer
-        self._tractor.set_xy(_xy(tractor.footprint(state.tractor_pose)))
-        self._trailer.set_xy(_xy(trailer.footprint(state.trailer_pose)))
+        tractor_pose = self._display_pose(state.tractor_pose)
+        trailer_pose = self._display_pose(state.trailer_pose)
+        self._tractor.set_xy(_xy(tractor.footprint(tractor_pose)))
+        self._trailer.set_xy(_xy(trailer.footprint(trailer_pose)))
         left, right = ackermann_wheel_angles(
             state.steering_angle, tractor.wheelbase, tractor.front_track
         )
         wheel_specs = (
-            (state.tractor_pose, tractor.wheelbase, tractor.front_track / 2.0, left),
-            (state.tractor_pose, tractor.wheelbase, -tractor.front_track / 2.0, right),
-            (state.tractor_pose, 0.0, tractor.rear_track / 2.0, 0.0),
-            (state.tractor_pose, 0.0, -tractor.rear_track / 2.0, 0.0),
-            (state.trailer_pose, 0.0, trailer.axle_track / 2.0, 0.0),
-            (state.trailer_pose, 0.0, -trailer.axle_track / 2.0, 0.0),
+            (tractor_pose, tractor.wheelbase, tractor.front_track / 2.0, left),
+            (tractor_pose, tractor.wheelbase, -tractor.front_track / 2.0, right),
+            (tractor_pose, 0.0, tractor.rear_track / 2.0, 0.0),
+            (tractor_pose, 0.0, -tractor.rear_track / 2.0, 0.0),
+            (trailer_pose, 0.0, trailer.axle_track / 2.0, 0.0),
+            (trailer_pose, 0.0, -trailer.axle_track / 2.0, 0.0),
         )
         for patch, (frame, x, y, steer) in zip(self._wheels, wheel_specs, strict=True):
             patch.set_xy(self._wheel_corners(frame, x, y, steer))
-        self._hitch.set_data([state.hitch_position.x], [state.hitch_position.y])
+        hitch = self._display_point(state.hitch_position)
+        self._hitch.set_data([hitch.x], [hitch.y])
         docking = trailer.rear_face(state.trailer_pose)
-        self._docking_point.set_data([docking.x], [docking.y])
-        self._trail_points.append((docking.x, docking.y))
+        displayed_docking = self._display_point(docking)
+        self._docking_point.set_data([displayed_docking.x], [displayed_docking.y])
+        self._trail_points.append((displayed_docking.x, displayed_docking.y))
         self._trail.set_data(*zip(*self._trail_points, strict=True))
 
         lines = [

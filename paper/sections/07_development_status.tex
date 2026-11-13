@@ -17,8 +17,8 @@ marked implemented only when corresponding repository code and tests exist.
     Provenance and conformance tooling & \implemented & Fingerprints and executable conformance report \\
     Command supervision & \implemented & Auditable clipping and violation tests \\
     2D kinematic propagation & \implemented & RK4, equation, limit, rigid-geometry, determinism, and convergence tests \\
-    Paths, previews, collision, and goal logic & \planned & Geometry and deterministic scenario tests \\
-    Gymnasium environment & \planned & API checker and seeded rollout tests \\
+    Paths, previews, collision, and goal logic & \implemented & Projection, geometry, event, and deterministic scenario tests \\
+    Gymnasium environment & \implemented & API checker, seeded rollouts, event tests, rigid service-yard rendering, and complete scripted docking \\
     Simple closed-loop tracker & \planned & Straight and curved reference tracking \\
     NMPC & \planned & Solver, feasibility, and timing validation \\
     PPO & \planned & Training, evaluation, and curriculum evidence \\
@@ -29,6 +29,7 @@ marked implemented only when corresponding repository code and tests exist.
   \end{tabular}
 \end{table*}
 
-The immediate development gate is shared reference-path, footprint, collision,
-jackknife, and goal logic. These modules must be verified independently before
-they are composed into the Gymnasium environment and used for task-event parity.
+The immediate development gate is a simple deterministic closed-loop tracker
+for straight and curved references. It will validate the observation/action
+loop before NMPC and PPO are introduced. Applying the same task wrapper to
+MuJoCo remains the event-level transfer gate.

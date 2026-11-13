@@ -1,0 +1,26 @@
+specification_id: gymnasium-docking-v1
+schema_version: 1
+
+scenario:
+  start_standoff: 4.0
+  workspace_lateral_half_width: 5.0
+  workspace_rear_padding: 2.0
+  workspace_front_padding: 3.0
+
+episode:
+  max_steps: 600
+
+observation:
+  preview_distances: [0.5, 1.0, 2.0]
+
+reward:
+  progress: 10.0
+  time: 0.01
+  lateral_error: 0.5
+  heading_error: 0.2
+  articulation: 0.15
+  steering_rate: 0.02
+  success: 100.0
+  collision: 100.0
+  jackknife: 100.0
+  out_of_bounds: 50.0

@@ -10,6 +10,16 @@ constants embedded in simulator or controller code.
   sites, MuJoCo physical defaults, and required MJCF names.
 - `environments/nominal_dock_v1.yaml` is the machine-readable authority for the
   nominal loading bay, target pose, collision margin, and success tolerances.
+- `environments/gymnasium_docking_v1.yaml` versions the 2D task start,
+  workspace, timeout, preview distances, and decomposed reward weights.
+- `vehicles/full_size_semitrailer_v1.yaml`,
+  `environments/service_center_dock_v1.yaml`, and
+  `environments/service_center_gymnasium_v1.yaml` define the optional
+  full-size interactive 200 m by 100 m service-center yard with 20 doors and
+  an open, color-highlighted target zone without side collision walls. They do
+  not replace the compact controller-comparison baseline. The full-size
+  vehicle uses a 35-degree soft warning and 60-degree terminal jackknife limit;
+  the compact baseline retains its 35/45-degree limits.
 
 Both use `schema_version: 1`. A schema version identifies the loader contract;
 a `specification_id` identifies one parameter set. The strict loaders reject
@@ -27,7 +37,6 @@ Additional files will cover:
 
 - MuJoCo-only gains, damping, contact, and solver tuning, or an equivalent
   resolved-tuning block in every experiment manifest
-- Gymnasium reward and termination settings
 - NMPC horizon, costs, constraints, and solver settings
 - PPO training and curriculum settings
 - held-out experiment matrices and random seeds

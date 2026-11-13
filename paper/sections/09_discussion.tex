@@ -11,11 +11,17 @@ full-size highway model. MuJoCo masses, contact parameters, actuator limits,
 and tuned gains are engineering values rather than identified real-vehicle
 parameters. The selected $0.30\,\mathrm{rad/s}$ steering-rate limit is not
 inherited from the two core papers. The implemented tests now compare MuJoCo
-directly with the project 2D backend for low-speed plant trajectories, but they
-do not establish parity for future collision, safety, docking, observation, or
-termination events.
+directly with the project 2D backend for low-speed plant trajectories. The 2D
+task now implements collision, safety, docking, observation, and termination
+logic, but those events have not yet been driven through MuJoCo for parity.
 MuJoCo-only tuning is versioned in code but not yet included in the vehicle
 configuration fingerprint.
+
+The full-size service-center case is a 2D interaction and visualization
+scenario, not a physically identified highway-vehicle model or a demonstrated
+MuJoCo transfer. Its $60^\circ$ terminal articulation threshold is a scenario
+choice and must not be silently mixed with the compact baseline's $45^\circ$
+threshold in future controller comparisons.
 
 Potentially publishable observations may emerge from geometry generalization,
 controller sensitivity, or 2D-to-3D transfer, but these remain open research

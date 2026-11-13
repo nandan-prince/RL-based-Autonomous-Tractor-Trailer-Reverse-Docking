@@ -63,9 +63,10 @@ logic.
 6. Implement the MuJoCo model and validate its side of the simulator contract.
 7. Run shared held-out scenarios through the evaluation runner.
 
-Steps 1 and 2 and the MuJoCo portion of step 6 are implemented. Direct
-low-speed trajectory parity is tested for forward and reverse maneuvers. The
-next critical step is step 3; safety-event and goal-event parity require those
-shared task modules before the Gymnasium composition in step 4.
+Steps 1--4 and the MuJoCo portion of step 6 are implemented. Direct low-speed
+trajectory parity is tested for forward and reverse maneuvers, and the 2D task
+has verified collision, jackknife, docking, boundary, and timeout events. The
+next critical step is a simple closed-loop tracker in step 5, followed by NMPC
+and PPO. MuJoCo task-event parity remains a transfer gate.
 See the [MuJoCo alignment audit](mujoco-alignment-audit.md) for the current
 contract-by-contract status.

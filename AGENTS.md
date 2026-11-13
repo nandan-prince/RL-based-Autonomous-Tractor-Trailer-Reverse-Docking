@@ -18,6 +18,12 @@ The immediate priority is a **correct, functioning, testable simulation and expe
 
 - **Core task:** reverse one tractor with one conventional semitrailer into a known loading bay in a static logistics-yard map. The trailer must reach a defined docking pose without collision or jackknifing and while respecting steering and articulation limits.
 - **Vehicle:** the initial cross-simulator vehicle is `compact-semitrailer-v1`, an explicit, configurable research-scale geometry with a nominal on-axle hitch. The signed hitch offset and trailer length remain configurable for later experiments.
+- **Interactive scale demonstration:** `full-size-semitrailer-v1` and the
+  service-center yard are a separately versioned 2D teleoperation scenario. The
+  current layout is 200 m by 100 m with 20 doors, an open color-highlighted
+  target zone, and 35/60-degree soft/terminal articulation thresholds. They do
+  not replace the compact controller-comparison baseline unless an experiment
+  explicitly selects and records them.
 - **Phase 1:** implement and validate a fast 2D kinematic simulator, then expose the task through a Gymnasium-compatible environment for debugging, NMPC evaluation, PPO training, and quantitative experiments.
 - **Phase 2:** build the corresponding 3D MuJoCo vehicle and loading-dock scene with the agreed bodies, semantic sites, joints, actuators, collision geometry, and physical parameters. The core study uses simulator ground-truth state. Cameras, LiDAR, mapping, OCR, and learned perception are stretch goals and must not delay controller evaluation.
 - **Control interface:** the initial shared action is bounded steering rate at a fixed low reverse-speed target. The shared command retains a target-speed field for NMPC, scripted tests, and later extensions, but method-specific changes to action authority require an explicit experimental decision.
@@ -207,13 +213,16 @@ MuJoCo vehicle, dock, adapter, and local viewers are also implemented and
 validated against the specification's kinematic equations. The canonical 2D
 kinematic simulator is implemented with RK4 integration, rigid state
 reconstruction, shared command supervision, and direct low-speed trajectory
-parity tests against MuJoCo. The Gymnasium task and controllers remain
-unimplemented; collision, safety-event, and goal-event parity remain pending.
+parity tests against MuJoCo. The 2D Gymnasium task is implemented with paths,
+preview observations, collision/jackknife/docking events, versioned rewards,
+deterministic resets, and interactive rendering. Controllers remain
+unimplemented; applying and verifying the same task events in MuJoCo remains
+pending.
 
 1. Implement typed state, command, geometry, limits, and configuration objects from the frozen version-1 specification.
 2. Maintain the implemented and quantitatively validated 2D kinematic model: straight reverse, constant steering, articulation behavior, angle wrapping, rigid geometry, determinism, and timestep convergence.
-3. Implement reference paths, path-relative errors/previews, vehicle footprints, dock geometry, collision checks, jackknife checks, and goal evaluation.
-4. Compose the verified modules into a Gymnasium environment with deterministic reset/step tests, explicit reward decomposition, and diagnostic `info` fields.
+3. Maintain the implemented reference paths, path-relative errors/previews, vehicle footprints, dock geometry, collision checks, jackknife checks, and goal evaluation.
+4. Maintain the implemented Gymnasium environment with deterministic reset/step tests, explicit reward decomposition, and diagnostic `info` fields.
 5. Implement a simple deterministic tracker to validate the closed loop, then implement NMPC and PPO with instrumentation and saved configurations.
 6. Maintain the implemented version-1 MuJoCo vehicle and dock; preserve its
    verified semantic sites, hitch joint, Ackermann mapping, wheels,

@@ -56,8 +56,9 @@ before translating a paper's notation into code.
 
 The first MuJoCo vehicle, dock, and shared-state adapter are implemented and
 audited against that contract. This is engineering validation, not a controller
-result or claim of real-vehicle fidelity. Direct 2D/MuJoCo parity remains
-pending; see the [alignment audit](../docs/design/mujoco-alignment-audit.md).
+result or claim of real-vehicle fidelity. Direct low-speed plant-trajectory
+parity is implemented; MuJoCo task-event and controller parity remain pending.
+See the [alignment audit](../docs/design/mujoco-alignment-audit.md).
 
 ## PDF policy
 

@@ -28,12 +28,38 @@ low-speed trajectory comparison with MuJoCo.
 
 \subsection{Reference trajectories and observations}
 
-\planned{} Development will begin with predefined straight and curved docking
-paths. The trajectory-relative observation is expected to contain trailer
-lateral error, tractor and trailer heading errors, articulation, steering
-state, distance to goal, and preview-point errors. The exact normalization,
-preview count, and observation bounds remain open until the path and environment
-implementations are tested.
+\implemented{} Reference paths are non-degenerate polylines ordered from the
+dock target toward the start so a reverse maneuver moves toward decreasing arc
+length while the nominal vehicle heading remains outward. Orthogonal projection
+provides signed lateral error and progress; preview points are sampled toward
+the goal at $0.5$, $1.0$, and $2.0\,\mathrm{m}$.
+
+The bounded 21-element observation contains lateral error, sine/cosine tractor
+and trailer heading errors, articulation and articulation rate, steering state,
+speed, remaining path distance, docking-pose error, and the local coordinates
+of the three preview points. Values are normalized and clipped to $[-1,1]$,
+with a stable name assigned to every element.
+
+\subsection{Gymnasium docking task}
+
+\implemented{} The registered environment advances one $0.10\,\mathrm{s}$
+plant command per step. Its primary action is normalized steering rate at the
+fixed reverse-speed target. A separate two-action teleoperation mode adds speed
+authority for manual debugging without changing the research action contract.
+The reward combines progress with penalties for time, lateral and heading
+error, articulation, and steering rate, plus explicit terminal terms. Every
+component is returned in the diagnostic information and versioned in a strict
+task configuration. Success, collision, jackknife, workspace exit, and timeout
+are evaluated independently of reward.
+
+The compact registered task remains the controller-comparison baseline. The
+full-size interactive task is selected explicitly by separate vehicle, dock,
+and task configurations. In that demonstration, the colored active loading
+zone has no longitudinal side-wall collision polygons; complete-trailer
+containment still uses the configured zone width. The rear boundary and
+building façade outside the active door remain collidable. Its hard jackknife
+event occurs at $60^\circ$, while the compact baseline terminates at
+$45^\circ$.
 
 \subsection{NMPC baseline}
 
@@ -58,5 +84,6 @@ experiments.
 
 \implemented{} Raw and supervised commands are represented separately so
 interventions are observable. Steering-rate, steering-angle, speed, and
-acceleration limits are enforced through the shared configuration. Hard
-collision and articulation events will remain independent of learned reward.
+acceleration limits are enforced through the shared configuration. Chassis
+polygons are checked against margin-adjusted dock walls, and hard collision and
+articulation events are independent of learned reward.
