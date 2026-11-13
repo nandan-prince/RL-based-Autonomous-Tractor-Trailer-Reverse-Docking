@@ -6,6 +6,7 @@ import pytest
 
 from trailer_docking.core.config import DockConfiguration, VehicleConfiguration
 from trailer_docking.core.state import Pose2D
+from trailer_docking.visualization import viewer as viewer_module
 from trailer_docking.visualization.viewer import (
     KEY_BACKSPACE,
     KEY_DOWN,
@@ -55,6 +56,14 @@ def test_teleop_maps_keys_to_bounded_commands(
 def test_viewer_rejects_non_positive_speed() -> None:
     with pytest.raises(SystemExit):
         main(["--speed", "0"])
+
+
+def test_viewer_rejects_combined_mode_on_macos(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(viewer_module.platform, "system", lambda: "Darwin")
+    with pytest.raises(SystemExit, match="not supported on macOS"):
+        main(["--mode", "both"])
 
 
 def test_topdown_view_draws_shared_geometry(

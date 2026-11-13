@@ -19,12 +19,14 @@ vehicle/dock conformance report. Run it with:
 ```
 
 The MuJoCo suite under `tests/integration/mujoco/` covers those gates for the
-first model, plus dock geometry, wall contact, and agreement with a test-local
+first model, plus dock geometry, wall contact, plant limits, reset behavior,
+trailer variants, measured-state tolerances, and agreement with a test-local
 integration of the specification's kinematic equations.
 
-MuJoCo tests should live under `tests/integration/mujoco/` and skip cleanly when
-the optional dependency is absent. Once the model exists, tests must compile
+MuJoCo tests live under `tests/integration/mujoco/` and skip cleanly when the
+optional dependency is absent. The full verification command should install
+`.[dev,mujoco,viz]`; otherwise a passing run may omit 3D tests. Tests compile
 the MJCF, resolve every configured name, check neutral semantic-site positions,
 verify sign conventions and command timing, and exercise deterministic
-straight-reverse and steering smoke cases. A viewer screenshot is useful for
+straight-reverse and steering cases. A viewer screenshot is useful for
 debugging but is not a substitute for numeric assertions.

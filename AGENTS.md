@@ -201,14 +201,22 @@ Introduce these only if justified by scientific value, available time, and funct
 
 ## 8. Developing the environments and controllers
 
-Work incrementally and favor independently verifiable milestones. The current project state is that the repository architecture and version-1 vehicle/dock specification exist, but the vehicle dynamics and environments are not yet implemented or validated.
+Work incrementally and favor independently verifiable milestones. The shared
+vehicle core and version-1 vehicle/dock specification are implemented. The
+MuJoCo vehicle, dock, adapter, and local viewers are also implemented and
+validated against the specification's kinematic equations. The canonical 2D
+kinematic simulator, Gymnasium task, and controllers remain unimplemented;
+direct 2D/MuJoCo and event-level parity therefore remain pending.
 
 1. Implement typed state, command, geometry, limits, and configuration objects from the frozen version-1 specification.
 2. Implement and quantitatively validate the 2D kinematic model: straight reverse, constant steering, articulation behavior, angle wrapping, rigid geometry, determinism, and timestep convergence.
 3. Implement reference paths, path-relative errors/previews, vehicle footprints, dock geometry, collision checks, jackknife checks, and goal evaluation.
 4. Compose the verified modules into a Gymnasium environment with deterministic reset/step tests, explicit reward decomposition, and diagnostic `info` fields.
 5. Implement a simple deterministic tracker to validate the closed loop, then implement NMPC and PPO with instrumentation and saved configurations.
-6. In parallel, build the version-1 MuJoCo vehicle and dock; verify semantic sites, hitch joint, Ackermann mapping, wheels, drive/braking, collision/contact behavior, timing, and the specified neutral-pose/parity fixtures.
+6. Maintain the implemented version-1 MuJoCo vehicle and dock; preserve its
+   verified semantic sites, hitch joint, Ackermann mapping, wheels,
+   drive/braking, collision/contact behavior, timing, and neutral-pose
+   fixtures while completing parity against the future 2D backend.
 7. Establish the shared controller/simulator adapter and run clearly identified 2D-to-3D transfer tests without assuming zero-shot equivalence.
 8. Run systematic held-out evaluations and refine experimental questions based on evidence.
 

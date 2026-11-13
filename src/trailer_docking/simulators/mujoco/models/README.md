@@ -1,7 +1,7 @@
 # MuJoCo models
 
-Store reusable vehicle MJCF and included fragments here. The first model should
-be named `compact_semitrailer_v1.xml` and implement the complete API in the
+This directory stores reusable generated vehicle MJCF. The implemented
+`compact_semitrailer_v1.xml` exposes the complete API in the
 [MuJoCo contributor guide](../README.md).
 
 Rules:

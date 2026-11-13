@@ -25,9 +25,8 @@ document. When the YAML and prose disagree, stop and resolve both in one change.
 
 Additional files will cover:
 
-- vehicle geometry and actuator limits
-- 2D integration and controller timing
-- dock dimensions, obstacles, and success tolerances
+- MuJoCo-only gains, damping, contact, and solver tuning, or an equivalent
+  resolved-tuning block in every experiment manifest
 - Gymnasium reward and termination settings
 - NMPC horizon, costs, constraints, and solver settings
 - PPO training and curriculum settings
@@ -35,6 +34,10 @@ Additional files will cover:
 
 `experiments/` is reserved for immutable, named experiment configurations. See
 its README for the evidence contract.
+
+The current `MujocoTuning` values are versioned in Python and documented in
+research decision D-007, but are not included in the vehicle YAML fingerprint.
+Do not treat that fingerprint alone as complete MuJoCo experiment provenance.
 
 ## Change rules
 

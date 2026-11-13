@@ -8,9 +8,9 @@ included only when they are traceable to saved evidence.
 
 The current manuscript records the proposal, literature basis, frozen vehicle
 and environment contract, controller comparison, experimental protocol, and
-implemented vehicle-core status. Kinematic propagation, Gymnasium, NMPC, PPO,
-MuJoCo, and measured results remain explicitly labeled as planned until their
-code and evidence exist.
+implemented vehicle core and MuJoCo plant. Kinematic propagation, Gymnasium,
+NMPC, PPO, direct 2D/MuJoCo parity, and controller results remain explicitly
+labeled as planned until their code and evidence exist.
 
 ## Overleaf
 

@@ -7,11 +7,14 @@ and fingerprints also make later geometry changes traceable. This is an
 engineering foundation rather than a scientific result.
 
 Several important limitations remain. The compact vehicle is not a validated
-full-size highway model. Initial MuJoCo masses, contact parameters, and actuator
-limits are design values awaiting simulation validation. The selected
-$0.30\,\mathrm{rad/s}$ steering-rate limit is not inherited from the two core
-papers. The present state contract does not establish that the future 2D and
-MuJoCo trajectories will match, only that their meanings can be compared.
+full-size highway model. MuJoCo masses, contact parameters, actuator limits,
+and tuned gains are engineering values rather than identified real-vehicle
+parameters. The selected $0.30\,\mathrm{rad/s}$ steering-rate limit is not
+inherited from the two core papers. The implemented tests compare MuJoCo with
+a test-local integration of the specified equations; they do not replace
+direct parity against the project's future 2D simulator or its task events.
+MuJoCo-only tuning is versioned in code but not yet included in the vehicle
+configuration fingerprint.
 
 Potentially publishable observations may emerge from geometry generalization,
 controller sensitivity, or 2D-to-3D transfer, but these remain open research
