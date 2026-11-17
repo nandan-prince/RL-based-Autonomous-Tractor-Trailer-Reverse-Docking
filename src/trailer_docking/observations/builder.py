@@ -77,9 +77,7 @@ class ObservationBuilder:
         limits = self.vehicle.limits
         lateral_scale = max(self.dock.interior_width, 1.0)
         path_scale = max(self.path.length, 1.0)
-        speed_scale = max(
-            limits.forward_speed_max, limits.reverse_speed_abs_max
-        )
+        speed_scale = max(limits.forward_speed_max, limits.reverse_speed_abs_max)
         values = [
             _clip(tracking.lateral_error / lateral_scale),
             sin(tracking.trailer_heading_error),

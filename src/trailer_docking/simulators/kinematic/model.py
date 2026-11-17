@@ -146,9 +146,7 @@ class KinematicModel:
             tractor_y=state.tractor_y + scale * derivative.tractor_y,
             tractor_yaw=state.tractor_yaw + scale * derivative.tractor_yaw,
             trailer_yaw=state.trailer_yaw + scale * derivative.trailer_yaw,
-            steering_angle=(
-                state.steering_angle + scale * derivative.steering_angle
-            ),
+            steering_angle=(state.steering_angle + scale * derivative.steering_angle),
             longitudinal_speed=(
                 state.longitudinal_speed + scale * derivative.longitudinal_speed
             ),
@@ -174,9 +172,7 @@ class KinematicModel:
         def combine(
             value: float, first: float, second: float, third: float, fourth: float
         ) -> float:
-            return value + dt * (
-                first + 2.0 * second + 2.0 * third + fourth
-            ) / 6.0
+            return value + dt * (first + 2.0 * second + 2.0 * third + fourth) / 6.0
 
         return PlanarKinematicState(
             tractor_x=combine(
@@ -231,9 +227,7 @@ class KinematicModel:
 
         rate = _finite(steering_rate, "steering_rate")
         derivative = self.derivative(state, KinematicInput(rate, 0.0))
-        tractor_pose = Pose2D(
-            state.tractor_x, state.tractor_y, state.tractor_yaw
-        )
+        tractor_pose = Pose2D(state.tractor_x, state.tractor_y, state.tractor_yaw)
         return self.geometry.assembled_state(
             tractor_pose,
             state.trailer_yaw,

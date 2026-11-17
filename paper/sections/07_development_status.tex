@@ -21,7 +21,8 @@ marked implemented only when corresponding repository code and tests exist.
     Gymnasium environment & \implemented & API checker, seeded rollouts, event tests, rigid service-yard rendering, and complete scripted docking \\
     Simple closed-loop tracker & \planned & Straight and curved reference tracking \\
     NMPC & \planned & Solver, feasibility, and timing validation \\
-    PPO & \planned & Training, evaluation, and curriculum evidence \\
+    PPO training framework & \implemented & Scenario overrides, repeated runs on either plant, tests, policy bundles, control interface; software tests only \\
+    PPO trained policy & \planned & Tuning, curriculum, and held-out evaluation evidence \\
     MuJoCo vehicle, dock, and adapter & \implemented & Generated MJCF; neutral-pose, sign, timing, contact, and kinematic-agreement tests \\
     2D/MuJoCo simulator parity & \implemented & Direct forward/reverse plant trajectories; task-event equality remains planned \\
     Comparative experiments & \planned & Frozen held-out scenarios and saved results \\
@@ -29,7 +30,10 @@ marked implemented only when corresponding repository code and tests exist.
   \end{tabular}
 \end{table*}
 
-The immediate development gate is a simple deterministic closed-loop tracker
-for straight and curved references. It will validate the observation/action
-loop before NMPC and PPO are introduced. Applying the same task wrapper to
-MuJoCo remains the event-level transfer gate.
+The PPO training framework exercises the observation/action loop end to end
+on both plants, but with untuned settings and without a registered experiment.
+The immediate gates are the NMPC baseline, which enters through the runner's
+controller hook, and tuning PPO on the two-dimensional task. The task
+definition already runs on MuJoCo; comparing its event boundaries with the
+two-dimensional plant under shared scenarios remains the event-level transfer
+gate.

@@ -41,8 +41,11 @@ compared across the two backends. The two-dimensional Gymnasium docking task,
 path-relative observation, safety events, reward decomposition, and interactive
 renderer are also implemented. A separately configured full-size interactive
 case demonstrates the same 2D stack in a $200\times100\,\mathrm{m}$ service
-yard. Controllers, MuJoCo task-event parity, training, and comparative results
-are explicitly identified as planned work.
+yard. A PPO training framework that runs the task on either plant, repeats
+and tests training runs, and exports reloadable policies is implemented and
+software-tested. The NMPC baseline, tuned or evaluated policies, MuJoCo
+task-event parity, and comparative results are explicitly identified as
+planned work.
 \end{abstract}
 
 \begin{IEEEkeywords}

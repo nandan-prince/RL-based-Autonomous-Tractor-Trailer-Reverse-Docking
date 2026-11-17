@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from math import cos, sin
 
@@ -10,12 +11,14 @@ from trailer_docking.core.config import (
     VehicleConfiguration,
 )
 from trailer_docking.core.geometry import Bounds1D, DockGeometry
+from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import Point2D, Pose2D, VehicleState, wrap_angle
 from trailer_docking.safety.collision import (
     CollisionReport,
     trailer_inside_bay,
     vehicle_dock_collision,
     vehicle_inside_workspace,
+    vehicle_obstacle_contacts,
 )
 from trailer_docking.safety.jackknife import ArticulationStatus, articulation_status
 
@@ -93,17 +96,32 @@ def default_start_pose(
     return aligned_pose_for_docking_point(vehicle, rear_point)
 
 
+NOSE_CLEARANCE = 0.5
+"""Room kept ahead of the tractor nose at the start pose.  With the nominal
+tractor (nose 2.5 m ahead of its rear axle) and 3.0 m of front padding this
+gives exactly the bound the task has always used."""
+
+
 def workspace_bounds(
     start_pose: Pose2D,
     dock: DockGeometry,
     settings: DockingTaskConfiguration,
+    vehicle: VehicleConfiguration | None = None,
 ) -> tuple[Bounds1D, Bounds1D]:
-    """Finite operating region used for out-of-bounds termination."""
+    """Finite operating region used for out-of-bounds termination.
 
+    The outward bound is measured from the start pose.  When *vehicle* is
+    given it is never closer than ``NOSE_CLEARANCE`` ahead of the tractor
+    nose, so a longer tractor does not begin an episode out of bounds.
+    """
+
+    padding = settings.workspace_front_padding
+    if vehicle is not None:
+        padding = max(padding, vehicle.tractor.footprint_x.maximum + NOSE_CLEARANCE)
     outward_maximum = (
         settings.workspace_outward_limit
         if settings.workspace_outward_limit is not None
-        else max(start_pose.x, dock.interior_depth) + settings.workspace_front_padding
+        else max(start_pose.x, dock.interior_depth) + padding
     )
     return (
         Bounds1D(
@@ -136,16 +154,24 @@ def evaluate_task(
     dock: DockGeometry,
     x_bounds: Bounds1D,
     y_bounds: Bounds1D,
+    obstacles: Sequence[Obstacle] = (),
 ) -> TaskStatus:
-    """Evaluate collision, jackknife, boundary, and docking success separately."""
+    """Evaluate collision, jackknife, boundary, and docking success separately.
+
+    Touching a static obstacle is a collision exactly like touching a dock
+    wall; the report names the obstacle.
+    """
 
     errors = docking_errors(state, vehicle, dock)
     collision = vehicle_dock_collision(state, vehicle.geometry, dock)
+    if obstacles:
+        collision = CollisionReport(
+            collision.contacts
+            + vehicle_obstacle_contacts(state, vehicle.geometry, obstacles)
+        )
     articulation = articulation_status(state, vehicle.limits)
     inside = trailer_inside_bay(state, vehicle.geometry, dock)
-    out = not vehicle_inside_workspace(
-        state, vehicle.geometry, x_bounds, y_bounds
-    )
+    out = not vehicle_inside_workspace(state, vehicle.geometry, x_bounds, y_bounds)
     within_pose = (
         abs(errors.longitudinal) <= dock.longitudinal_tolerance
         and abs(errors.lateral) <= dock.lateral_tolerance

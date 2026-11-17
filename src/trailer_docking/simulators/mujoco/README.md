@@ -17,11 +17,13 @@ gates below:
   `10 Hz` and returns `VehicleState` measured from the semantic sites.
 - `ackermann.py` holds the virtual-to-physical steering mapping and its inverse.
 
-Still open: parity against the project's own 2D simulator (the tests currently
-compare against a test-local integration of the specification's kinematic
-equations, because the 2D backend does not exist yet), the common simulator
-protocol in `simulators/base.py`, and any controller or policy transfer result.
-Do not describe a transfer result as complete until those exist.
+The backend conforms to the common simulator protocol in
+`simulators/base.py`, and `tests/integration/test_kinematic_mujoco_parity.py`
+compares it directly with the project's 2D simulator on shared command
+sequences. The Gymnasium task can run on it (`TrailerDockingEnv(backend="3d")`).
+Still open: agreement of episode events (collision, jackknife, success) with
+the 2D backend under shared scenarios, and any controller or policy transfer
+result. Do not describe a transfer result as complete until those exist.
 
 The requirement-by-requirement evidence is summarized in the repository's
 [MuJoCo alignment audit](../../../../docs/design/mujoco-alignment-audit.md).
@@ -160,9 +162,10 @@ spin joints are passive in version 1.
 | Steering / steering-rate limits | `0.50 rad / 0.30 rad/s` |
 | Hard articulation / mechanical hinge limits | `45 deg / 85 deg` |
 
-Short (`2.00 m`) and long (`5.00 m`) hitch-to-axle variants are future
-experiment inputs. The first model uses the nominal variant, but geometry must
-be parameterized rather than copied into three unrelated models.
+Short (`2.00 m`) and long (`5.00 m`) hitch-to-axle variants are generated
+from the same parameterized model as the nominal one, as is any custom
+geometry set through a scenario. Geometry must stay parameterized rather than
+copied into unrelated models.
 
 ## Required MJCF API
 

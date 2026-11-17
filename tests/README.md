@@ -44,9 +44,24 @@ dock-to-yard rendering of an articulated hitch, and full-size collision-free
 docking.
 
 MuJoCo tests live under `tests/integration/mujoco/` and skip cleanly when the
-optional dependency is absent. The full verification command should install
-`.[dev,mujoco,viz]`; otherwise a passing run may omit 3D tests. Tests compile
+optional dependency is absent, and the training tests that need
+Stable-Baselines3 skip without the `train` extra. The full verification
+command should install `.[dev,mujoco,viz,train]`; otherwise a passing run may
+omit 3D and training tests. Tests compile
 the MJCF, resolve every configured name, check neutral semantic-site positions,
 verify sign conventions and command timing, and exercise deterministic
 straight-reverse and steering cases. A viewer screenshot is useful for
 debugging but is not a substitute for numeric assertions.
+
+The training-framework suites cover scenario overrides and their rejection
+rules (`tests/unit/evaluation/`), the task on both simulators with domain
+randomization (`tests/integration/test_backends_and_randomization.py`),
+campaigns, the PPO/NMPC method switch, policy bundles, and safe policy loading
+(`tests/unit/training/`), and the control-UI logic (`tests/unit/ui/`). The
+Tkinter window is built for real in `tests/unit/ui/test_ui_window.py` (tooltips
+and the obstacle editor); those tests skip where no display exists, as on CI.
+
+`tests/unit/paths/test_planners.py` covers the swappable route planners and the
+route-following reward weights, and `tests/integration/test_obstacles.py`
+covers static obstacles in the 2D task, the MuJoCo scene, the A* planner, and
+the UI's obstacle field.

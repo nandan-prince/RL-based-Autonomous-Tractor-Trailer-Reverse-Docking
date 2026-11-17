@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -20,7 +20,8 @@ from trailer_docking.core.config import (
     load_vehicle_configuration,
 )
 from trailer_docking.core.geometry import Bounds1D
-from trailer_docking.core.state import Point2D, Pose2D, VehicleCommand, VehicleState
+from trailer_docking.core.obstacles import Obstacle
+from trailer_docking.core.state import Pose2D, VehicleCommand, VehicleState
 from trailer_docking.environments.rendering import DockingRenderer
 from trailer_docking.environments.task import (
     TaskStatus,
@@ -29,12 +30,20 @@ from trailer_docking.environments.task import (
     workspace_bounds,
 )
 from trailer_docking.observations import FloatArray, ObservationBuilder
-from trailer_docking.paths import ReferencePath, manual_reference, tracking_state
+from trailer_docking.paths import ReferencePath, tracking_state
+from trailer_docking.paths.planners import (
+    DEFAULT_PLANNER,
+    plan_reference,
+    validate_planner,
+)
 from trailer_docking.paths.tracking import TrackingState
+from trailer_docking.simulators.base import SimulatorBackend
 from trailer_docking.simulators.kinematic import KinematicSimulator
 
 ActionArray = NDArray[np.float32]
 ActionMode = Literal["fixed_reverse", "teleop"]
+Backend = Literal["2d", "3d"]
+BACKENDS: tuple[Backend, ...] = ("2d", "3d")
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_VEHICLE_PATH = (
@@ -54,6 +63,23 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
     ``fixed_reverse`` is the research contract: one normalized steering-rate
     action and the configured fixed reverse speed. ``teleop`` adds normalized
     speed as a second action for manual debugging and demonstrations.
+
+    ``backend`` selects the plant: ``"2d"`` is the canonical kinematic
+    simulator and the research default; ``"3d"`` drives the generated MuJoCo
+    model through the same command and state contract.  Observation, reward,
+    and every terminal event are computed from the shared planar state in both
+    cases.  Event-level agreement between the two backends has not been
+    validated, so 3D episodes are not interchangeable with 2D results.
+
+    ``planner`` names the registered route planner
+    (:mod:`trailer_docking.paths.planners`) that produces each episode's
+    reference path.  The reward's lateral and heading terms penalize deviation
+    from that path, so the planner defines what "staying on the route" means.
+
+    ``obstacles`` are static boxes in the dock frame.  Touching one ends the
+    episode as a collision in both backends, and the MuJoCo scene contains
+    them as bodies.  The observation does not describe them: a controller
+    avoids them only by following a route planned around them.
     """
 
     metadata: dict[str, Any] = {  # noqa: RUF012
@@ -71,12 +97,17 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         task_path: str | Path = DEFAULT_TASK_PATH,
         trailer_variant: str | None = None,
         action_mode: ActionMode = "fixed_reverse",
+        backend: Backend = "2d",
+        planner: str = DEFAULT_PLANNER,
+        obstacles: Sequence[Obstacle] = (),
         render_mode: Literal["human", "rgb_array"] | None = None,
         task_settings: DockingTaskConfiguration | None = None,
     ) -> None:
         super().__init__()
         if action_mode not in ("fixed_reverse", "teleop"):
             raise ValueError("action_mode must be 'fixed_reverse' or 'teleop'")
+        if backend not in BACKENDS:
+            raise ValueError("backend must be '2d' or '3d'")
         if render_mode not in (None, *self.metadata["render_modes"]):
             raise ValueError(f"unsupported render_mode={render_mode!r}")
         self.vehicle = vehicle or load_vehicle_configuration(vehicle_path)
@@ -84,6 +115,9 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.vehicle = self.vehicle.with_trailer_variant(trailer_variant)
         self.dock = dock or load_dock_configuration(dock_path)
         self.action_mode = action_mode
+        self.backend: Backend = backend
+        self.planner = validate_planner(planner)
+        self.obstacles: tuple[Obstacle, ...] = tuple(obstacles)
         self.render_mode = render_mode
         self.settings = task_settings or load_docking_task_configuration(task_path)
         action_size = 1 if action_mode == "fixed_reverse" else 2
@@ -97,7 +131,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             shape=(observation_size,),
             dtype=np.float32,
         )
-        self.simulator = KinematicSimulator(self.vehicle)
+        self.simulator: SimulatorBackend = self._make_simulator()
         self.path: ReferencePath
         self.observation_builder: ObservationBuilder
         self.tracking: TrackingState
@@ -111,6 +145,14 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         self._reward_terms: dict[str, float] = {}
         self._renderer: DockingRenderer | None = None
         self.reset()
+
+    def _make_simulator(self) -> SimulatorBackend:
+        if self.backend == "2d":
+            return KinematicSimulator(self.vehicle)
+        # Imported here so the 2D task needs no MuJoCo installation.
+        from trailer_docking.simulators.mujoco.adapter import MujocoSimulator
+
+        return MujocoSimulator(self.vehicle, self.dock, obstacles=self.obstacles)
 
     @property
     def state(self) -> VehicleState:
@@ -143,14 +185,13 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         return pose, float(yaw), float(steering_angle)
 
     def _build_path(self, state: VehicleState) -> ReferencePath:
-        goal = self.dock.geometry.target_position
-        current = self.vehicle.trailer.rear_face(state.trailer_pose)
-        entry = Point2D(self.dock.geometry.interior_depth + 0.75, 0.0)
-        if abs(current.x - goal.x) < 1e-12 and abs(current.y - goal.y) < 1e-12:
-            return manual_reference((goal, entry))
-        if abs(current.y) < 1e-12:
-            return manual_reference((goal, current))
-        return manual_reference((goal, entry, current))
+        return plan_reference(
+            self.planner,
+            self.vehicle.geometry,
+            self.dock.geometry,
+            state,
+            self.obstacles,
+        )
 
     def _tracking(self, state: VehicleState) -> TrackingState:
         docking = self.vehicle.trailer.rear_face(state.trailer_pose)
@@ -178,6 +219,8 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             "dock_fingerprint": self.dock.source_fingerprint,
             "task_specification": self.settings.specification_id,
             "task_fingerprint": self.settings.source_fingerprint,
+            "simulator_backend": self.backend,
+            "planner": self.planner,
             "is_success": self.status.success,
             "termination_reason": self.status.reason,
             "collision": self.status.collision.collided,
@@ -215,7 +258,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.settings.preview_distances,
         )
         self._x_bounds, self._y_bounds = workspace_bounds(
-            pose, self.dock.geometry, self.settings
+            pose, self.dock.geometry, self.settings, self.vehicle
         )
         self.tracking = self._tracking(state)
         self.status = evaluate_task(
@@ -224,6 +267,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.dock.geometry,
             self._x_bounds,
             self._y_bounds,
+            self.obstacles,
         )
         self._previous_distance = self.tracking.distance_to_goal
         self._steps = 0
@@ -258,9 +302,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         articulation = (
             state.articulation_angle / self.vehicle.limits.articulation_hard_abs_max
         )
-        steering_rate = (
-            state.steering_rate / self.vehicle.limits.steering_rate_abs_max
-        )
+        steering_rate = state.steering_rate / self.vehicle.limits.steering_rate_abs_max
         terms = {
             "progress": self.settings.reward_progress * progress,
             "time": -self.settings.reward_time,
@@ -304,6 +346,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.dock.geometry,
             self._x_bounds,
             self._y_bounds,
+            self.obstacles,
         )
         reward = self._reward(state)
         self._last_reward = reward

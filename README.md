@@ -42,7 +42,7 @@ LiDAR mapping, visual dock-number recognition, advanced global planning, and dyn
 │   └── papers/                 # Local reading copies; see copyright note
 ├── results/                    # Compact, traceable experiment evidence
 ├── paper/                      # Living IEEE-format LaTeX report
-├── scripts/                    # Training, evaluation, and rendering entry points
+├── scripts/                    # Reserved for thin entry points (none yet)
 ├── src/trailer_docking/
 │   ├── core/                   # Shared state, dynamics, geometry, and configuration
 │   ├── paths/                  # Reference paths, tracking errors, and previews
@@ -51,9 +51,13 @@ LiDAR mapping, visual dock-number recognition, advanced global planning, and dyn
 │   ├── simulators/
 │   │   ├── kinematic/          # Fast deterministic 2D backend
 │   │   └── mujoco/             # MuJoCo adapter, models, scenes, and assets
-│   ├── environments/           # Gymnasium task wrapper
-│   ├── controllers/            # Geometric, NMPC, and PPO controllers
-│   └── evaluation/             # Scenarios, metrics, and rollout runner
+│   ├── environments/           # Gymnasium task over the 2D or MuJoCo plant
+│   ├── evaluation/             # Editable scenarios (metrics and runner are placeholders)
+│   ├── training/               # PPO runs and campaigns, tests, bundles, CLI
+│   ├── ui/                     # Control UI: parameters, training, tests, display
+│   ├── visualization/          # Top-down view, MuJoCo viewer, offscreen 3D frames
+│   ├── validation/             # Executable specification conformance report
+│   └── controllers/            # Placeholders; NMPC plugs in here
 └── tests/                      # Unit and integration tests
 ```
 
@@ -122,8 +126,17 @@ These systems reinforce the project’s modular design: perception and localizat
   20 loading doors along the bottom x-axis, a 14 m semitrailer, and an open
   color-highlighted active loading zone without collidable side walls; its
   soft/terminal articulation thresholds are 35/60 degrees
+- PPO training framework on the shared Gymnasium task: one control UI that
+  sets truck dimensions, limits, dock size, physics, start ranges, domain
+  randomization, static obstacles, and the route planner, runs repeated training on the 2D or 3D simulator, tests each
+  run, and exports the best policy as a portable bundle that can be loaded and
+  run in a fresh simulator. It is a working pipeline, not a result: reward
+  weights and start ranges are untuned and no run is registered as an
+  experiment
+- NMPC selectable in the same UI and command line through a single controller
+  hook; the controller itself is not implemented yet
 - Living IEEE-format LaTeX report updated through the Gymnasium implementation
-- Simple closed-loop tracker, NMPC, and PPO remain planned
+- Simple closed-loop tracker and NMPC remain planned
 
 ## Vehicle-core verification
 
@@ -131,7 +144,7 @@ From the repository root:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e '.[dev,mujoco,viz]'
+.venv/bin/pip install -e '.[dev,mujoco,viz,train]'
 .venv/bin/ruff check src tests
 .venv/bin/mypy
 .venv/bin/pytest --cov --cov-report=term-missing
@@ -151,10 +164,8 @@ contributor guide before creating or renaming any MJCF element.
 ## Demo
 
 This section is the walkthrough for seeing the project run. Each numbered step
-is marked **Available** or **Planned**; planned steps are placeholders to be
-filled in as the reinforcement-learning pipeline and the control UI are built.
-Keep the step order and update the status and commands in place rather than
-adding a separate guide.
+is marked **Available** or **Planned**. Keep the step order and update the
+status and commands in place rather than adding a separate guide.
 
 ### Setup (once)
 
@@ -271,37 +282,167 @@ supports (for example, zero command delay) can be viewed this way; copy
 one of the files under `configs/`, change a value such as the bay width, and
 pass the new path.
 
-### 6. Adjust parameters in a UI — Planned
+### 6. See the reference route in the MuJoCo viewer — Available
 
-A control panel for dock dimensions, vehicle size and mass, and ground and
-contact physics, saving each edited scenario as a new named configuration.
+Every docking episode starts by building a reference route for the trailer's
+docking point from the start pose to the dock target; the controller's job is
+to follow it. The MuJoCo viewer from steps 2–4 draws that route as a green
+line in both windows. Press `P` to show or hide it.
 
-_To be documented: how to open the panel, which parameters affect both
-simulators and which affect only the 3D physics, and where saved
-configurations are written._
+The route is the same one the Gymnasium task tracks: a straight line along the
+bay centreline for an aligned start, or a two-segment line through an entry
+point just outside the bay for an offset start. It is not checked for trailer
+feasibility; Reeds–Shepp or Hybrid A* planners remain optional extensions.
 
-### 7. Train a docking policy and watch it learn — Planned
+### 7. Open the control UI — Available
 
-Start PPO training from the UI and watch episodes play back in the viewers as
-the policy improves.
+One window sets the parameters, runs either simulator, and displays the run.
 
-_To be documented: the training command and UI control, where checkpoints and
-metrics are stored, and how to resume or stop a run._
+```bash
+.venv/bin/pip install -e '.[dev,mujoco,viz,train]'
+.venv/bin/python -m trailer_docking.ui.app
+```
 
-### 8. Run a docking test with a trained policy — Planned
+The left side has three tabs (**Scenario**, **Training**, **Docking test**).
+The right side is the display, with two tabs:
 
-Choose a scenario and a trained policy, run a simulated docking attempt in 2D
-or 3D, and read the outcome (success, final error, collisions, jackknife).
+- **Top-down** draws the shared planar state, so it shows 2D and 3D runs alike.
+- **3D view (MuJoCo)** shows the rendered 3D scene: a preview of the current
+  scenario when idle, and the live episode while a 3D run is in progress.
+  Untick **Render 3D runs** to train in 3D at full speed without pictures.
 
-_To be documented: selecting a checkpoint, running a single test or a batch,
-and interpreting the reported metrics._
+The **Scenario** tab edits a scenario: the frozen vehicle, dock, and task
+specifications plus a set of overrides. **Apply** rebuilds the scene;
+**Save scenario…** writes it to its own YAML file. The frozen specification
+files are never modified.
+
+| Group | Parameters | Affects |
+|---|---|---|
+| Dock | Interior width and depth | 2D and 3D |
+| Route | Route planner (`entry` or `astar`); reward weights for staying on the route and aligning to it | 2D and 3D |
+| Vehicle | Trailer variant; tractor wheelbase and body width; trailer hitch-to-axle length, rear overhang, and body width | 2D and 3D |
+| Limits | Maximum steering angle and steering rate; reverse speed | 2D and 3D |
+| Physics (3D only) | Tractor and trailer mass, ground friction | 3D only |
+| Start pose | Standoff, lateral offset, trailer yaw, articulation ranges | 2D and 3D |
+| Randomization | Trailer length drawn per episode; observation noise | 2D and 3D |
+| Obstacles | Static boxes in the yard | 2D and 3D |
+
+The **route planner** produces each episode's reference route from the start
+pose to the dock. `entry` is the default: straight along the bay centreline,
+joined through a point just outside the opening. `astar` is a basic
+path-finding planner: an A* grid search that routes the trailer's docking
+point around the dock walls. Both are geometric and do not check that the
+truck can follow the route in reverse; further planners register in
+`paths/planners.py` and then appear in this list. The reward already
+penalizes leaving the route (squared lateral and heading deviation from it),
+and the two **Reward** fields set how strongly; blank keeps the task file's
+weights (0.5 and 0.2).
+
+**Obstacles** are static boxes. Tick **Click the map to place** and click the
+top-down view where each box should go; its length, width, height, and turn
+come from the fields beside it. A box can also be added by typing its `x` and
+`y` (metres out from the bay's rear wall, and to the left), and the list
+below removes one box or all of them. Each change is applied at once.
+Touching one ends the episode as a collision
+in both simulators, and they appear in both displays. The policy does not
+sense obstacles; it avoids them only by following a route planned around
+them, so choose the `astar` planner when obstacles lie near the route (the
+`entry` planner ignores them). An obstacle that overlaps a start pose or the
+docked vehicle is refused.
+
+**Show planned route** above the display draws or hides the route in both the
+top-down and the 3D view, before a run and while one is in progress.
+
+Rest the pointer on any field, button, or option for a short explanation of
+what it does and its default.
+
+A blank field keeps the base value; a blank randomization field leaves that
+randomization off. **Apply** refuses a scenario that could never succeed or
+that would start an episode already failed, and says why: for example a
+trailer that cannot be completely inside the bay (the `long` variant needs a
+bay deeper than the nominal 6 m), or a start range that begins in a wall.
+
+### 8. Train and get a finished result — Available
+
+On the **Training** tab choose:
+
+| Setting | Meaning |
+|---|---|
+| Method | `ppo` trains a policy. `nmpc` has nothing to train, so it only runs the tests (available once the NMPC controller is implemented) |
+| Simulator | `2d` (kinematic, fast) or `3d` (MuJoCo) for training |
+| Number of runs | How many times to repeat training, with consecutive seeds |
+| Timesteps per run | PPO budget of each run |
+| Test episodes per run, 2D / 3D | After each run the final policy is tested on the ticked simulators, on the same start poses for every run |
+
+Press **Start**. The display shows the episodes as they happen, and the status
+panel reports the run in progress, recent success rate, and each finished
+run's test results. **Stop** ends the work cleanly.
+
+When the runs finish, the best one (highest test success rate, then mean
+reward, on the first ticked simulator; the first run if none was tested) is
+written as a single portable file,
+`artifacts/<campaign-id>/policy_bundle.dockpolicy.zip`. **Export result…**
+copies it wherever you choose. The bundle contains the policy and the scenario
+it was trained on. Loading a bundle or policy file reads only its network
+weights and plain-text metadata, never pickled objects, so a file received
+from someone else cannot run code.
+
+The same thing without the UI:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli train \
+    --runs 3 --timesteps 200000 --backend 2d --eval-episodes 20 --eval-backends 2d,3d
+```
+
+Every run writes its own `results/<id>/manifest.yaml` and `metrics.csv`, and
+the campaign writes `results/<campaign-id>/manifest.yaml`, `summary.json`, and
+one `evaluation_run<k>_<simulator>.csv` per test with every episode. With the
+default output root these land in the tracked `results/` directory; commit
+only runs meant as evidence, or pass `--output-root` (CLI and UI) to write
+elsewhere.
+Checkpoints and the bundle go under the ignored `artifacts/` directory.
+
+**Read this before interpreting anything:** the reward weights and the
+scenario's start ranges are untuned, the training step limit overrides the
+task's, and the 3D simulator's episode events have not been validated against
+2D. Treat every run as a pipeline check until it is registered as an
+experiment with a held-out evaluation.
+
+_Not implemented: curriculum, parallel environments, resuming a run, and
+TensorBoard._
+
+### 9. Load a result and run it in a fresh simulator — Available
+
+On the **Docking test** tab press **Load result…** and pick a bundle. The UI
+adopts the scenario stored in it. Choose the simulator (`2d` or `3d`), the
+number of episodes, and press **Run test**: a new simulator is built and the
+policy drives it. A policy trained in 2D can be run in 3D and the reverse.
+
+The same tab also tests the latest checkpoint, a raw `.zip` policy, the
+untrained straight-reverse baseline, or the NMPC controller. Each episode is
+listed with its outcome (success, collision, jackknife, out of bounds, time
+limit) and final errors.
+
+From the command line:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli test --bundle PATH/result.dockpolicy.zip --backend 3d --episodes 20
+.venv/bin/python -m trailer_docking.training.cli test --episodes 20          # untrained baseline
+.venv/bin/python -m trailer_docking.training.cli test --nmpc --episodes 20   # once NMPC exists
+```
+
+The NMPC baseline plugs in through one function; see the
+[NMPC integration handoff](docs/design/nmpc-integration-handoff.md).
 
 ### What the demo currently does not show
 
-The Gymnasium environment is functional and interactive, but NMPC and PPO are
-not implemented, so no learned or optimizing controller is shown yet. The 2D
-`--demo` is a constant reverse command used to validate the complete success
-path; it is not a controller-performance result.
+The Gymnasium environment is functional and interactive, and the PPO pipeline
+trains and tests policies on it in 2D and 3D, but NMPC is not implemented and
+no trained policy has been evaluated as an experiment. The 2D `--demo` is a
+constant reverse command used to validate the complete success path; it is not
+a controller-performance result. The 3D task uses the same observation,
+reward, and event definitions as 2D, but agreement of its episode events with
+2D has not been validated.
 
 ## Team workflow
 
