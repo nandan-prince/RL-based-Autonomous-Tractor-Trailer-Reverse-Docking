@@ -1,0 +1,365 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+\definecolor{implementedgreen}{RGB}{0,110,55}
+\definecolor{plannedblue}{RGB}{30,80,160}
+\newcommand{\implemented}{\textcolor{implementedgreen}{\textbf{Implemented}}}
+\newcommand{\planned}{\textcolor{plannedblue}{\textbf{Planned}}}
+
+% Keep the wide acceptance artifacts together in their source order. IEEEtran
+% otherwise limits the number of double-column floats placed at the page top.
+\setcounter{dbltopnumber}{4}
+\renewcommand{\dbltopfraction}{0.98}
+\renewcommand{\dblfloatpagefraction}{0.90}
+\setlength{\dbltextfloatsep}{8pt plus 2pt minus 2pt}
+
+\title{Simulation Framework and Baseline Controllers for Autonomous\\
+Tractor--Semitrailer Reverse Docking}
+
+\author{
+  \IEEEauthorblockN{Nandan Prince}
+  \IEEEauthorblockA{MSML 642, Group 20}
+  \and
+  \IEEEauthorblockN{Chris Pedretti}
+  \IEEEauthorblockA{MSML 642, Group 20}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This Phase 1 report documents an operational two-dimensional Gymnasium task,
+a configuration-generated three-dimensional MuJoCo model, and the first
+closed-loop control vertical slice for autonomous tractor--semitrailer reverse
+docking. Both plants share a versioned vehicle definition and controller
+contract. The 2D environment supplies a path-relative observation, fixed
+reverse speed, bounded steering-rate action, collision and jackknife events,
+and a reproducible success condition. A trajectory-error linear quadratic
+regulator (LQR) and a basic nonlinear model predictive controller (NMPC) now
+drive this environment end to end. From a deliberately perturbed straight-path
+start, both controllers reach the docking success event in the compact
+scenario without collision or jackknife. These two runs establish software
+integration and closed-loop authority; they are not a
+comparative controller study. Curved paths, randomized held-out starts, PPO,
+collision-aware prediction, and controller transfer to the MuJoCo task remain
+future work. The required Phase 1 simulation, programming, and environment
+setup is complete and provides the shared foundation for PPO training and
+comparative experiments in Phase 2.
+\end{abstract}
+
+\begin{IEEEkeywords}
+tractor--semitrailer, reverse docking, Gymnasium, MuJoCo, linear quadratic
+regulation, nonlinear model predictive control
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+The project objective is to reverse one tractor and one conventional
+semitrailer into a loading bay without collision or jackknife. The planned
+study compares a trajectory-relative Proximal Policy Optimization (PPO)
+controller with NMPC under the same vehicle, action, observation, task, and
+evaluation definitions. The required experimental platform is a fast planar
+Gymnasium environment; MuJoCo provides a later 3D transfer and demonstration
+platform. This division follows the proposal while reducing the risk that the
+learning and model-based methods are evaluated on different problems.
+
+This report presents the implemented simulation stack and evaluates two
+controllers behind a common interface. Perturbed closed-loop runs demonstrate
+feedback control in the 2D task, while an open-loop cross-backend comparison
+evaluates agreement between the kinematic and MuJoCo plants. The
+trajectory-state formulation is motivated by Yan \emph{et al.}
+\cite{yan2024trajectory}; the local NMPC direction is informed by Moradi and
+Mehrandezh \cite{moradi2022nmpc}.
+
+\section{Shared System Definition}
+
+\subsection{Vehicle and control contract}
+
+The planar state contains tractor axle position and heading, trailer heading,
+steering angle, and speed. The trailer axle and hitch are reconstructed from
+rigid geometry. For the canonical on-axle hitch, tractor yaw rate is
+$\omega=v\tan\delta/L_t$ and trailer heading evolves as
+\begin{equation}
+  \dot{\psi}_r = \frac{v}{L_r}\sin(\psi_t-\psi_r),
+\end{equation}
+where $v<0$ during reverse motion. The simulator uses fixed-step RK4
+integration. The research action is a normalized scalar mapped to bounded
+steering rate; the reverse-speed target is fixed. Both LQR and NMPC use this
+same action and the same $0.10\,\mathrm{s}$ controller period.
+
+\begin{table}[t]
+  \centering
+  \caption{Compact baseline specification.}
+  \label{tab:spec}
+  \begin{tabular}{ll}
+    \toprule
+    Quantity & Frozen value \\
+    \midrule
+    Tractor wheelbase & $1.90\,\mathrm{m}$ \\
+    Tractor body & $2.90\times1.00\,\mathrm{m}$ \\
+    Trailer hitch-to-axle length & $4.00\,\mathrm{m}$ \\
+    Steering angle / rate limits & $0.50\,\mathrm{rad}$ / $0.30\,\mathrm{rad/s}$ \\
+    Reverse-speed target & $-0.20\,\mathrm{m/s}$ \\
+    Controller period & $0.10\,\mathrm{s}$ \\
+    Jackknife threshold & $45^\circ$ \\
+    Docking pose tolerance & $0.10\,\mathrm{m}$ and $3^\circ$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Reference path, observation, and task}
+
+Reference paths are polylines ordered from dock target toward start.
+Orthogonal projection supplies signed lateral error, progress, remaining
+distance, and preview points. The bounded 21-element observation contains
+lateral error, sine/cosine heading errors, articulation and articulation rate,
+steering state, speed, remaining distance, docking-pose error, and three local
+preview points. The Gymnasium environment evaluates docking success,
+collision, jackknife, workspace exit, and timeout independently from reward.
+Gymnasium's API checker passes for the registered \texttt{TrailerDocking-v0}
+task.
+
+\subsection{Programming setup}
+
+The project is implemented as an installable Python package with versioned
+dependencies and YAML-based vehicle, dock, and task configurations. Automated
+verification includes 274 passing tests with $89.37\%$ branch-aware coverage.
+Ruff linting and strict mypy type checking also pass. These checks cover the
+shared vehicle core, kinematic and MuJoCo backends, Gymnasium API, task events,
+controller integration, rendering, and artifact generation.
+
+\subsection{Continuity with the proposal}
+
+There are no material deviations from the proposed technical setup. The
+project retains the custom 2D Gymnasium environment for controller development,
+MuJoCo for the 3D demonstration and transfer stage, PPO as the principal
+learning method, and NMPC as the model-based comparison method. The fixed
+reverse-speed and steering-rate action, trajectory-relative observation,
+collision and jackknife checks, and shared evaluation interface also remain
+unchanged. LQR is included as an additional deterministic integration baseline
+and does not replace the planned PPO--NMPC comparison. MuJoCo development was
+completed earlier than originally scheduled, changing the implementation order
+without changing the project scope.
+
+\section{Implemented Controllers}
+
+\subsection{Trajectory-error LQR}
+
+The deterministic baseline numerically linearizes the verified RK4 kinematic
+plant about straight motion at the configured reverse speed. Its local error
+state contains trailer docking-point lateral error, tractor heading error,
+trailer heading error, and steering angle. A discrete Riccati iteration
+computes a feedback gain. The resulting physical steering rate is normalized
+through the shared environment action. This controller primarily validates
+sign conventions, tracking errors, actuation, and event handling; it is not
+yet claimed to solve general curved docking.
+
+\subsection{Basic NMPC}
+
+The NMPC vertical slice predicts the nonlinear articulated model over 40
+controller periods. Its objective penalizes trailer docking-point position and
+heading errors, tractor heading, articulation, steering angle, and steering
+rate. Steering rate is the sole decision input and speed remains at the fixed
+reverse target. The CasADi/IPOPT implementation \cite{andersson2019casadi}
+enforces initial state, discrete dynamics, steering-angle, steering-rate, and
+articulation constraints, applies the first input, and warm-starts the next
+solve. Collision is checked by the environment but is not yet an NMPC
+prediction constraint.
+
+The controller-facing contract includes the observation, physical state,
+reference path, tracking errors, vehicle configuration, and step index. PPO
+development can use the Gymnasium observation directly and later provide an
+adapter returning the same normalized one-element action. This is the main
+alignment convention for parallel controller development.
+
+\section{Evaluation Protocol}
+
+The closed-loop acceptance case uses a fixed straight reference path that is
+independent of the reset pose. The vehicle begins $0.35\,\mathrm{m}$ laterally
+displaced, with the tractor and trailer aligned at a $3^\circ$ heading offset.
+Each controller must steer, develop articulation, reduce the path error, and
+satisfy the configured docking-success conditions. Seed, configuration,
+reference path, initial pose, and controller settings are deterministic.
+
+The case is executed with the compact baseline. The figures show the initial
+condition, the maximum-articulation point, and terminal docking success.
+Numerical histories record lateral error, trailer-heading error, articulation,
+and steering angle throughout each rollout. Both controllers use the same
+vehicle, path, initial condition, fixed reverse speed, steering-rate limits,
+task events, and success criteria.
+
+This protocol is an engineering acceptance test. It does not randomize starts,
+does not use a held-out scenario set, and does not equalize controller tuning
+effort. Step count and accumulated reward are consequently reported as
+descriptive run outputs, not as evidence that one method outperforms another.
+
+\section{Results}
+
+\subsection{Closed-loop acceptance}
+
+Both controllers reached the configured success event without collision or
+jackknife. The NMPC solver reported no failure. Table
+\ref{tab:controller-results} reports the deterministic run outputs.
+
+\begin{table*}[!t]
+  \centering
+  \caption{Perturbed-start closed-loop acceptance results. Heading and articulation are absolute magnitudes where indicated.}
+  \label{tab:controller-results}
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    Controller & Steps & Time [s] & Final lateral [m] & Final heading [deg] & Max. articulation [deg] & Solver failures \\
+    \midrule
+    LQR  & 487 & 48.7 & $-0.0004$ & $0.0175$ & $6.59$ & 0 \\
+    NMPC & 491 & 49.1 & $ 0.0128$ & $-0.0384$ & $12.79$ & 0 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+Figures \ref{fig:lqr} and \ref{fig:nmpc} show that both methods produce a
+visible steering correction from the configured initial perturbation.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/lqr_compact_perturbed_tracking.png}
+  \caption{LQR compact acceptance run. The middle panel is selected at the
+  maximum-articulation step, demonstrating closed-loop correction from the
+  perturbed pose.}
+  \label{fig:lqr}
+\end{figure*}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/nmpc_compact_perturbed_tracking.png}
+  \caption{NMPC compact acceptance run using the same path, initial
+  perturbation, fixed reverse speed, and steering-rate action as LQR.}
+  \label{fig:nmpc}
+\end{figure*}
+
+The three-dimensional environment is also operational. Figure
+\ref{fig:mujoco-straight} shows an offscreen MuJoCo rollout at the start,
+midpoint, and rear-wall contact of a fixed straight-reverse command. The
+generated scene contains the articulated tractor--trailer, loading bay,
+Ackermann steering, driven rear wheels, hitch joint, cameras, and contact
+geometry. This is evidence that the 3D plant and renderer run end to end; it is
+not an LQR or NMPC result and does not yet demonstrate controller transfer.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/mujoco_straight_reverse.png}
+  \caption{MuJoCo 3D environment during a fixed straight reverse: start,
+  intermediate motion, and trailer contact with the loading-bay rear wall.
+  This is an environment demonstration, not a controller result.}
+  \label{fig:mujoco-straight}
+\end{figure*}
+
+Figure \ref{fig:traces} shows the corresponding compact-run error and actuator
+histories.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/compact_controller_traces.png}
+  \caption{Compact-run tracking and actuator histories. Different transients
+  are visible, but this single tuned case is not a controller comparison.}
+  \label{fig:traces}
+\end{figure}
+
+\subsection{Plant and software validation}
+
+The implementation contains 274 passing tests with branch-aware coverage of
+$89.37\%$ over the measured packages. Ruff linting and strict mypy checks pass.
+Tests cover analytic derivatives, forward/reverse and constant-steering motion,
+articulation response, angle wrapping, limits, rigid geometry reconstruction,
+deterministic replay, timestep convergence, path projection, observation
+bounds, safety events, Gymnasium API behavior, controller integration, video
+export, MuJoCo model construction, and cross-backend trajectories.
+
+The same 150 open-loop commands were applied to both plants over a
+15-second reverse S-maneuver. The maximum tractor-position gap was
+$0.008\,\mathrm{m}$ and the maximum articulation gap was
+$0.0009\,\mathrm{rad}$. Figure \ref{fig:parity} is plant-parity evidence, not
+controller-transfer evidence. The MuJoCo model is generated from the shared
+configuration and exposes the same state and command contract; MuJoCo supplies
+rigid-body dynamics and contacts \cite{todorov2012mujoco}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/parity_2d_vs_mujoco.png}
+  \caption{Open-loop low-speed comparison between the kinematic and MuJoCo
+  plants under the same reverse command sequence.}
+  \label{fig:parity}
+\end{figure}
+
+\section{Progress and Limitations}
+
+\begin{table}[t]
+  \centering
+  \caption{Current project status.}
+  \label{tab:status}
+  \begin{tabular}{p{0.62\columnwidth}p{0.25\columnwidth}}
+    \toprule
+    Component & Status \\
+    \midrule
+    Frozen vehicle/task contract & \implemented \\
+    2D kinematic plant and Gymnasium task & \implemented \\
+    MuJoCo vehicle, dock, and adapter & \implemented \\
+    Reference-path and observation modules & \implemented \\
+    Perturbed straight-path LQR acceptance & \implemented \\
+    Perturbed straight-path NMPC acceptance & \implemented \\
+    Curved and randomized controller study & \planned \\
+    PPO training and evaluation & \planned \\
+    MuJoCo task-event parity and transfer & \planned \\
+    Formal comparative experiments/ablations & \planned \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The controller evidence has four important limits. First, the reference is a
+manually defined straight path; no global planner yet connects an arbitrary
+yard pose to a selected door. Second, NMPC does not predict footprint
+collision. Third, the present initial pose is deterministic and close to the
+path. Fourth, neither controller has yet been executed through the MuJoCo task
+wrapper. Therefore the results show end-to-end control in 2D, not general
+docking performance, robustness, or 2D-to-3D transfer.
+
+The next gate is a frozen scenario suite containing straight, curved, and
+randomized starts. A geometric or LQR baseline, NMPC, and PPO will then be run
+with common seeds and saved run records. Metrics will include success,
+collision, jackknife, terminal pose error, path error, articulation, control
+effort, and compute time. PPO follows the shared action/observation contract
+and the standard clipped policy-optimization method \cite{schulman2017ppo}.
+Only after the 2D comparison is stable will the same controllers be tested
+against MuJoCo task events.
+
+With the vehicle model, Gymnasium task, safety events, reference-path
+representation, controller interface, and initial baselines operational, the
+project is ready to proceed to PPO training, curved and randomized scenarios,
+formal controller evaluation, and subsequent MuJoCo transfer testing.
+
+\section{Conclusion}
+
+Phase 1 establishes the foundational simulation and control stack for
+tractor--semitrailer reverse docking. The shared vehicle specification, planar
+kinematic model, Gymnasium task, and MuJoCo environment are operational and
+supported by automated verification. In the 2D environment, both the
+trajectory-error LQR controller and the basic NMPC controller complete a
+perturbed straight-path docking scenario through the common fixed-speed,
+steering-rate control interface. The MuJoCo results demonstrate operational
+3D vehicle motion and contact handling; closed-loop controller transfer to
+MuJoCo remains future work.
+
+These results provide an end-to-end controller integration baseline rather
+than a formal comparison of controller performance. The next phase will extend
+the evaluation to curved reference paths, randomized initial conditions, PPO
+training, robustness studies, controller ablations, and eventual 2D-to-3D
+transfer without changing the shared vehicle and task contracts.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
