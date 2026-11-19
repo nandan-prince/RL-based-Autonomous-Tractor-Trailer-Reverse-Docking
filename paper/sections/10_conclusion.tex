@@ -11,8 +11,9 @@ cross-backend trajectory checks. Shared path and task geometry and the
 Gymnasium environment are now implemented and tested, including a separately
 versioned full-size service-yard interaction scenario. A shared controller
 contract, straight-path LQR, and basic NMPC now demonstrate end-to-end
-closed-loop control in the compact 2D environment. The next milestone is PPO
-integration, followed by curved/randomized validation and formal paired
-experiments.
+closed-loop control in the compact 2D environment. A PPO training framework
+over the same task, on either plant, is implemented and software-tested but has
+produced no tuned or formally evaluated policy. The next milestone is paired
+curved/randomized PPO and NMPC evaluation in 2D.
 Conclusions about controller performance, robustness, or transfer are deferred
 until reproducible experiments exist.

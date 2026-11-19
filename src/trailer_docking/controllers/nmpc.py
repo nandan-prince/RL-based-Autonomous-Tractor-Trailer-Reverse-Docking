@@ -14,6 +14,7 @@ from trailer_docking.controllers.base import (
     ControllerContext,
     ControllerError,
     normalized_steering_rate,
+    validate_controller_action,
 )
 from trailer_docking.core.config import VehicleConfiguration
 
@@ -326,3 +327,33 @@ class BasicNMPCController:
         self._last_objective = float(solution.value(self._objective))
         self._last_solve_succeeded = True
         return normalized_steering_rate(float(controls[0, 0]), self.vehicle)
+
+
+def make_docking_controller(env: Any) -> Any:
+    """Adapt :class:`BasicNMPCController` to the shared campaign runner.
+
+    The training framework calls this factory after every episode reset. That
+    timing is important because a scenario may randomize trailer geometry and
+    rebuild the plant at reset. The returned callable reads the live state and
+    tracking data on every control step and emits the same normalized
+    steering-rate action used by PPO.
+    """
+
+    controller = BasicNMPCController(env.built.vehicle)
+    controller.reset()
+    set_label = getattr(env.task_env, "set_controller_label", None)
+    if callable(set_label):
+        set_label(controller.display_name)
+
+    def act(observation: Any) -> ControllerAction:
+        context = ControllerContext(
+            observation=np.asarray(observation, dtype=np.float32),
+            state=env.state,
+            path=env.reference_path,
+            tracking=env.task_env.tracking,
+            vehicle=env.built.vehicle,
+            step_index=env.task_env.episode_steps,
+        )
+        return validate_controller_action(controller.act(context))
+
+    return act

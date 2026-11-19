@@ -1,4 +1,9 @@
-# Gymnasium 2D docking environment
+# Gymnasium docking environment
+
+`TrailerDockingEnv(backend="3d")` runs the same task on the MuJoCo plant:
+observation, reward, and events are computed from the shared planar state in
+both cases, but agreement of episode events between the two plants has not
+been validated. Everything below describes the default 2D backend.
 
 `TrailerDockingEnv` composes the verified kinematic plant, reference path,
 path-relative observation, dock collision geometry, jackknife detection,

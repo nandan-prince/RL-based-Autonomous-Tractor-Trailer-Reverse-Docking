@@ -48,7 +48,7 @@ Implemented artifacts:
 | Primitive collision geometry | Chassis boxes and wheel cylinders are generated without decorative collision meshes | Verified |
 | Straight reversing and deterministic stepping | Forward/reverse signs, speed tracking, rest stability, reset, and repeated-rollout equality are tested | Verified |
 | Low-speed kinematic behavior | Scripted forward and reverse maneuvers agree with a test-local RK4 integration within documented tolerances | Provisionally verified |
-| Soft/hard articulation and success events | The 2D task implements these events; the MuJoCo task adapter and equality scenarios remain | Pending cross-backend task integration |
+| Soft/hard articulation and success events | The task computes these events from the shared state and can run on MuJoCo (`TrailerDockingEnv(backend="3d")`); scenarios comparing event boundaries across backends remain | Pending cross-backend event parity |
 | Direct 2D/MuJoCo parity | Shared forward and reverse command sequences compare final planar pose and yaw within explicit tolerances | Verified at plant-trajectory level |
 | NMPC/PPO transfer | No controller is implemented or transferred | Pending controllers |
 
@@ -100,7 +100,8 @@ outside the coverage gate.
 
 The canonical 2D model now reuses the shared state, command, geometry, timing,
 limits, supervisor, and configuration loaders. Shared forward and reverse
-command sequences establish direct plant-trajectory parity. The next gate is
-shared path, collision, jackknife, and goal logic now exists in the verified 2D
-Gymnasium task. The remaining parity gate is to run that same task definition
-against MuJoCo and compare event boundaries under shared scenarios.
+command sequences establish direct plant-trajectory parity. Shared path,
+collision, jackknife, and goal logic exists in the verified Gymnasium task,
+and since 2026-11-13 that task can also drive the MuJoCo plant. The remaining
+parity gate is to compare event boundaries between the two backends under
+shared scenarios.

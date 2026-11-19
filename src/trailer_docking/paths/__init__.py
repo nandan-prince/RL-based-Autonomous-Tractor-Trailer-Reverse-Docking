@@ -1,6 +1,10 @@
 """Reference-path generation and path-relative tracking utilities."""
 
-from trailer_docking.paths.generators import manual_reference, straight_reference
+from trailer_docking.paths.generators import (
+    docking_reference,
+    manual_reference,
+    straight_reference,
+)
 from trailer_docking.paths.reference import (
     NearestPathPoint,
     PathSample,
@@ -15,6 +19,7 @@ __all__ = [
     "ReferencePath",
     "ReferencePathError",
     "TrackingState",
+    "docking_reference",
     "manual_reference",
     "straight_reference",
     "tracking_state",

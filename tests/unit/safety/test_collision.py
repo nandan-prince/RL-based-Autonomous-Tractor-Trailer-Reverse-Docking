@@ -35,9 +35,7 @@ def test_nominal_target_is_collision_free_and_inside_bay(
         + vehicle_config.trailer.rear_overhang
         + vehicle_config.trailer.hitch_to_axle
     )
-    state = vehicle_config.geometry.assembled_state(
-        Pose2D(tractor_x, target.y, 0), 0
-    )
+    state = vehicle_config.geometry.assembled_state(Pose2D(tractor_x, target.y, 0), 0)
     assert not vehicle_dock_collision(
         state, vehicle_config.geometry, dock_config.geometry
     ).collided

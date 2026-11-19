@@ -1,7 +1,8 @@
 # Scripts
 
-Reusable closed-loop evaluation is now implemented as a package entry point.
-This directory remains reserved for future thin wrappers such as:
+No scripts live here yet; training and evaluation are run through package
+entry points listed below. This directory is
+reserved for thin command-line entry points such as:
 
 - training PPO
 - evaluating one or more controllers
@@ -23,7 +24,14 @@ directly:
 .venv/bin/python -m trailer_docking.visualization.viewer --mode 2d
 .venv/bin/python -m trailer_docking.evaluation.runner --controller lqr
 .venv/bin/python -m trailer_docking.evaluation.runner --controller nmpc
+.venv/bin/python -m trailer_docking.environments.viewer
+.venv/bin/python -m trailer_docking.ui.app
+.venv/bin/python -m trailer_docking.training.cli --help
 ```
+
+The UI and training CLI need the `train` extra. `training.cli` trains PPO campaigns, runs
+docking tests, and exports policy bundles; it writes each run under a unique
+experiment ID.
 
 The evaluation runner also supports explicit MP4 generation with `--record`.
 Recording is kept outside controller implementations and writes regenerable

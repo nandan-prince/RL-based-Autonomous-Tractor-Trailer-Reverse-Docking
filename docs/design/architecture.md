@@ -27,7 +27,10 @@ src/trailer_docking/
 │   ├── base.py                  Common simulator protocol
 │   ├── kinematic/               Implemented deterministic 2D state propagation
 │   └── mujoco/                  Implemented adapter, generator, MJCF, and assets
-├── environments/                Gymnasium API wrapper around the 2D stack
+├── environments/                Gymnasium task over the 2D or MuJoCo plant
+├── training/                    Scenario environment, PPO runs and campaigns,
+│                                docking tests, policy bundles, method switch, CLI
+├── ui/                          Desktop control UI (parameters, training, tests)
 ├── controllers/                 Geometric, NMPC, and PPO controller adapters
 ├── evaluation/                  Scenarios, metrics, rollout runner, and reports
 └── visualization/               Local 3D and top-down viewers of the shared state
@@ -42,10 +45,15 @@ tests/
 - `paths`, `observations`, and `safety` operate on shared core types.
 - simulator implementations conform to the runtime-checkable protocol in
   `simulators/base.py`.
-- controllers conform to the protocol in `controllers/base.py`.
-- the Gymnasium environment composes the 2D simulator and shared modules; it
-  does not own a separate vehicle model.
-- evaluation drives controllers and simulators through their common protocols.
+- the Gymnasium environment composes a simulator backend (2D by default,
+  MuJoCo on request) and the shared modules; it does not own a vehicle model.
+- `training/evaluate.py` runs a policy or a model-based controller on that
+  environment and scores the episodes. A model-based controller enters through
+  the single hook described in the
+  [NMPC integration handoff](nmpc-integration-handoff.md).
+- `controllers/base.py` defines the shared inference contract; implemented LQR
+  and NMPC controllers use it. PPO training produces an observation-only policy
+  that is evaluated through the same normalized action boundary.
 - MuJoCo XML, meshes, and scenes remain isolated from the 2D implementation.
 
 This boundary is what allows a PPO policy or NMPC controller developed in 2D
@@ -67,11 +75,11 @@ defined in the [shared controller interface](controller-interface.md).
 6. Implement the MuJoCo model and validate its side of the simulator contract.
 7. Run shared held-out scenarios through the evaluation runner.
 
-Steps 1--4, the straight-path LQR and basic NMPC portion of step 5, and the
-MuJoCo portion of step 6 are implemented. Direct low-speed
-trajectory parity is tested for forward and reverse maneuvers, and the 2D task
-has verified collision, jackknife, docking, boundary, and timeout events. The
-next critical controller step is PPO integration and broader curved/randomized
-tracking validation. MuJoCo task-event parity remains a transfer gate.
-See the [MuJoCo alignment audit](mujoco-alignment-audit.md) for the current
-contract-by-contract status.
+Steps 1--4, the straight-path LQR and basic NMPC portion of step 5, the PPO
+training infrastructure, and the MuJoCo portion of step 6 are implemented.
+Direct low-speed trajectory parity is tested for forward and reverse maneuvers,
+and the 2D task has verified collision, jackknife, docking, boundary, and
+timeout events. No PPO policy has been tuned or registered as an experiment,
+and the controllers have not undergone curved/randomized paired evaluation.
+MuJoCo task-event parity remains a transfer gate. See the
+[MuJoCo alignment audit](mujoco-alignment-audit.md) for current status.

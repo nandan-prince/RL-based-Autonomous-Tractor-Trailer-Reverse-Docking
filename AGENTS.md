@@ -49,6 +49,11 @@ The current cross-team contract is:
 - `configs/vehicles/compact_semitrailer_v1.yaml`
 - `configs/environments/nominal_dock_v1.yaml`
 
+Controller work is split between the team members. Before implementing or
+changing the NMPC baseline, read `docs/design/nmpc-integration-handoff.md`: it
+defines the single hook through which NMPC plugs into the shared runner,
+command line, and control UI, and the plant contract it must respect.
+
 The specification fixes coordinate/sign conventions, semantic reference frames, nominal geometry, state and command contracts, limits, timing, docking success, required MuJoCo names, and parity checks. Initial MuJoCo mass, inertia, contact, damping, and control gains are modeling choices that must be recorded and validated; a visually realistic model is not evidence of physical accuracy.
 
 ## 3. Standing rule: implementation and manuscript evolve together
@@ -217,17 +222,18 @@ parity tests against MuJoCo. The 2D Gymnasium task is implemented with paths,
 preview observations, collision/jackknife/docking events, versioned rewards,
 deterministic resets, and interactive rendering. A straight-path
 trajectory-error LQR and basic fixed-speed NMPC controller now run through a
-shared normalized steering-rate interface and closed-loop runner. PPO, broader
-controller validation, and applying the same task events in MuJoCo remain
-pending.
+shared normalized steering-rate interface and closed-loop runner. The PPO
+training, evaluation, and bundle infrastructure is also implemented, but no
+tuned PPO policy or formal controller comparison is registered. Broader
+controller validation and MuJoCo task-event parity remain pending.
 
 1. Implement typed state, command, geometry, limits, and configuration objects from the frozen version-1 specification.
 2. Maintain the implemented and quantitatively validated 2D kinematic model: straight reverse, constant steering, articulation behavior, angle wrapping, rigid geometry, determinism, and timestep convergence.
 3. Maintain the implemented reference paths, path-relative errors/previews, vehicle footprints, dock geometry, collision checks, jackknife checks, and goal evaluation.
 4. Maintain the implemented Gymnasium environment with deterministic reset/step tests, explicit reward decomposition, and diagnostic `info` fields.
-5. Maintain the implemented straight-path LQR and basic NMPC vertical slices;
-   implement PPO against the frozen controller interface, then extend all three
-   with instrumentation, saved configurations, and broader scenarios.
+5. Maintain the implemented straight-path LQR and basic NMPC vertical slices
+   and PPO training infrastructure; integrate and evaluate all methods through
+   the frozen action/task contract, then extend them to broader scenarios.
 6. Maintain the implemented version-1 MuJoCo vehicle and dock; preserve its
    verified semantic sites, hitch joint, Ackermann mapping, wheels,
    drive/braking, collision/contact behavior, timing, and neutral-pose

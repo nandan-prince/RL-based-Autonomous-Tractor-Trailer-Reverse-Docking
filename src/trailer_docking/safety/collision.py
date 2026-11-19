@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from math import hypot
 
 from trailer_docking.core.geometry import Bounds1D, DockGeometry, VehicleGeometry
+from trailer_docking.core.obstacles import Obstacle, obstacle_name
 from trailer_docking.core.state import Point2D, VehicleState
 
 Polygon2D = tuple[Point2D, ...]
@@ -120,6 +122,25 @@ def vehicle_dock_collision(
     return CollisionReport(contacts)
 
 
+def vehicle_obstacle_contacts(
+    state: VehicleState, vehicle: VehicleGeometry, obstacles: Sequence[Obstacle]
+) -> tuple[str, ...]:
+    """Name every chassis footprint that overlaps a static obstacle."""
+
+    if not obstacles:
+        return ()
+    bodies = {
+        "tractor": vehicle.tractor.footprint(state.tractor_pose),
+        "trailer": vehicle.trailer.footprint(state.trailer_pose),
+    }
+    return tuple(
+        f"{body}:{obstacle_name(index)}"
+        for body, footprint in bodies.items()
+        for index, obstacle in enumerate(obstacles)
+        if polygons_intersect(footprint, obstacle.polygon())
+    )
+
+
 def vehicle_inside_workspace(
     state: VehicleState,
     vehicle: VehicleGeometry,
@@ -128,9 +149,9 @@ def vehicle_inside_workspace(
 ) -> bool:
     """Return true only when both complete chassis footprints are in bounds."""
 
-    points = vehicle.tractor.footprint(
-        state.tractor_pose
-    ) + vehicle.trailer.footprint(state.trailer_pose)
+    points = vehicle.tractor.footprint(state.tractor_pose) + vehicle.trailer.footprint(
+        state.trailer_pose
+    )
     return all(
         x_bounds.minimum <= point.x <= x_bounds.maximum
         and y_bounds.minimum <= point.y <= y_bounds.maximum
