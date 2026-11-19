@@ -61,6 +61,7 @@ def test_straight_reverse_docks_from_an_aligned_start(
     assert result.path_length == pytest.approx(0.02 * result.steps, rel=0.02)
     assert result.steering_rate_rms == pytest.approx(0.0, abs=1e-9)
     assert result.mean_policy_time_ms >= 0.0
+    assert result.controller == "ppo-policy"
     assert summarize(results) == {
         "episodes": 1,
         "success_rate": 1.0,
@@ -75,6 +76,7 @@ def test_straight_reverse_docks_from_an_aligned_start(
         "mean_path_length": result.path_length,
         "mean_steering_rate_rms": result.steering_rate_rms,
         "mean_policy_time_ms": result.mean_policy_time_ms,
+        "solve_failures": 0,
         "outcome_success": 1,
     }
 
@@ -163,6 +165,10 @@ def test_cli_test_subcommand(aligned_scenario: Scenario, tmp_path, capsys) -> No
     assert "episode 0: success" in output
     assert "success_rate: 1.000" in output
     assert "outcome_success: 1" in output
+    assert cli.main(
+        ["test", "--scenario", str(path), "--lqr", "--episodes", "1"]
+    ) == 0
+    assert "episode 0: success" in capsys.readouterr().out
 
 
 def test_cli_errors_return_2(aligned_scenario: Scenario, tmp_path, capsys) -> None:

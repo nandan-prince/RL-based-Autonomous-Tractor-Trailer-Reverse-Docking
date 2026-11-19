@@ -9,6 +9,7 @@ from trailer_docking.controllers.base import (
     normalized_steering_rate,
     validate_controller_action,
 )
+from trailer_docking.controllers.ppo import PPOController
 from trailer_docking.environments import TrailerDockingEnv
 
 
@@ -47,4 +48,29 @@ def test_action_validation_and_context(vehicle_config) -> None:
             env.vehicle,
             -1,
         )
+    env.close()
+
+
+def test_ppo_adapter_uses_only_the_observation(vehicle_config) -> None:
+    env = TrailerDockingEnv(vehicle=vehicle_config)
+    observation, _ = env.reset()
+    seen: list[np.ndarray] = []
+
+    def policy(value: np.ndarray) -> np.ndarray:
+        seen.append(value)
+        return np.array([0.4], dtype=np.float32)
+
+    controller = PPOController(policy)
+    context = ControllerContext(
+        observation,
+        env.state,
+        env.path,
+        env.tracking,
+        env.vehicle,
+        0,
+    )
+    action = controller.act(context)
+    np.testing.assert_array_equal(action, np.array([0.4], dtype=np.float32))
+    assert seen == [observation]
+    assert controller.name == "ppo-policy"
     env.close()

@@ -320,7 +320,6 @@ def test_tests_run_on_the_chosen_simulator(tmp_path: Path) -> None:
 
     for options in (
         {"backend": "4d"},
-        {"method": "lqr"},
         {"baseline": True, "use_bundle": True},
         {"policy_path": "x.zip", "use_bundle": True},
         {"use_bundle": True},
@@ -338,6 +337,13 @@ def test_nmpc_test_uses_the_controller_hook(tmp_path: Path) -> None:
 
     assert runner.calls[0]["controller_factory"] is make_docking_controller
     assert controller.test_policy == "NMPC controller [2d]"
+
+    run_test(controller, method="lqr")
+    from trailer_docking.controllers.lqr import make_docking_controller as lqr_factory
+
+    assert controller.test_status == "finished"
+    assert runner.calls[1]["controller_factory"] is lqr_factory
+    assert controller.test_policy == "LQR controller [2d]"
 
 
 # ----------------------------------------------------------------- bundles

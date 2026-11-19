@@ -472,6 +472,7 @@ From the command line:
 .venv/bin/python -m trailer_docking.training.cli test --bundle PATH/result.dockpolicy.zip --backend 3d --episodes 20
 .venv/bin/python -m trailer_docking.training.cli test --episodes 20          # untrained baseline
 .venv/bin/python -m trailer_docking.training.cli test --nmpc --episodes 20
+.venv/bin/python -m trailer_docking.training.cli test --lqr --episodes 20
 ```
 
 The NMPC baseline plugs in through the shared per-episode controller factory;

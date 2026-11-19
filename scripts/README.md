@@ -27,6 +27,7 @@ directly:
 .venv/bin/python -m trailer_docking.environments.viewer
 .venv/bin/python -m trailer_docking.ui.app
 .venv/bin/python -m trailer_docking.training.cli --help
+.venv/bin/python -m trailer_docking.training.cli test --lqr --episodes 20
 ```
 
 The UI and training CLI need the `train` extra. `training.cli` trains PPO campaigns, runs

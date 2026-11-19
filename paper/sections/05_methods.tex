@@ -131,6 +131,13 @@ can be added to the normalized observation. Both are disabled by default, and
 the noise is expressed in normalized observation units rather than as a
 sensor model.
 
+At evaluation, a thin PPO controller adapter receives the shared per-step
+controller context but forwards only its normalized observation to the policy.
+The evaluator uses that same context construction, action validation, timing,
+and metric path for PPO, LQR, and NMPC. Model-based controllers may use the
+physical state, reference, and vehicle model carried by the context; this
+information asymmetry is explicit rather than hidden in separate runners.
+
 A training campaign repeats a run with consecutive seeds on either plant,
 tests each final policy on a fixed set of start poses on the selected plants,
 and exports the run with the highest test success rate as a single bundle

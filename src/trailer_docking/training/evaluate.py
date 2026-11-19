@@ -19,6 +19,12 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from trailer_docking.controllers.base import (
+    Controller,
+    ControllerContext,
+    validate_controller_action,
+)
+from trailer_docking.controllers.ppo import PPOController
 from trailer_docking.core.state import VehicleState
 from trailer_docking.evaluation.scenarios import Scenario
 from trailer_docking.training.config import validate_backend
@@ -52,6 +58,8 @@ class EpisodeResult:
     maneuver_time: float = 0.0
     path_length: float = 0.0
     steering_rate_rms: float = 0.0
+    controller: str = ""
+    solve_failures: int = 0
     # Wall-clock time differs between identical rollouts.
     mean_policy_time_ms: float = field(default=0.0, compare=False)
 
@@ -185,9 +193,10 @@ def run_docking_test(
     ``max_episode_steps=None`` uses the task configuration's own step limit.
     ``backend`` chooses the simulator: ``"2d"`` (kinematic) or ``"3d"``
     (MuJoCo); each call builds a fresh one.  ``on_frame`` receives rendered
-    images of 3D episodes.  A ``controller_factory`` replaces ``policy`` with
-    a controller built from the environment at the start of every episode,
-    which is how a model-based controller such as NMPC is tested.  If
+    images of 3D episodes. A ``controller_factory`` replaces ``policy`` with
+    a shared ``Controller`` built from the environment at the start of every
+    episode. Policies are wrapped by ``PPOController``, so every method uses
+    the same context, action validation, timing, and metric path. If
     ``should_stop()`` becomes true the test ends immediately and only the
     episodes that already finished are returned.  Outcomes are the task's
     termination reasons: ``success``, ``collision``, ``jackknife``,
@@ -221,7 +230,16 @@ def run_docking_test(
             if stopping():
                 break
             observation, info = env.reset(seed=seed + index)
-            act = policy if policy is not None else controller_factory(env)  # type: ignore[misc]
+            controller: Controller
+            if policy is not None:
+                controller = PPOController(policy)
+            else:
+                assert controller_factory is not None
+                controller = controller_factory(env)
+            controller.reset()
+            set_label = getattr(env.task_env, "set_controller_label", None)
+            if callable(set_label):
+                set_label(str(getattr(controller, "display_name", controller.name)))
             max_articulation = abs(env.state.articulation_angle)
             total_reward = 0.0
             steps = 0
@@ -233,8 +251,16 @@ def run_docking_test(
             while not finished:
                 if stopping():
                     return results
+                context = ControllerContext(
+                    observation=np.asarray(observation, dtype=np.float32),
+                    state=env.state,
+                    path=env.reference_path,
+                    tracking=env.task_env.tracking,
+                    vehicle=env.built.vehicle,
+                    step_index=env.task_env.episode_steps,
+                )
                 called = time.perf_counter()
-                action = np.asarray(act(observation), dtype=np.float32).reshape((1,))
+                action = validate_controller_action(controller.act(context))
                 policy_seconds += time.perf_counter() - called
                 observation, reward, terminated, truncated, info = env.step(action)
                 total_reward += float(reward)
@@ -261,6 +287,8 @@ def run_docking_test(
                     maneuver_time=env.state.simulation_time,
                     path_length=path_length,
                     steering_rate_rms=sqrt(rate_squares / steps),
+                    controller=controller.name,
+                    solve_failures=int(getattr(controller, "solve_failures", 0)),
                     mean_policy_time_ms=1000.0 * policy_seconds / steps,
                 )
             )
@@ -276,7 +304,8 @@ def summarize(results: Sequence[EpisodeResult]) -> dict[str, float | int]:
     ``jackknife_rate``, ``mean_total_reward``, ``mean_abs_lateral_error``,
     ``mean_abs_longitudinal_error``, ``mean_abs_yaw_error``,
     ``max_abs_articulation``, ``mean_maneuver_time``, ``mean_path_length``,
-    ``mean_steering_rate_rms``, ``mean_policy_time_ms`` and one
+    ``mean_steering_rate_rms``, ``mean_policy_time_ms``, ``solve_failures``
+    and one
     ``outcome_<name>`` count per outcome that occurred.  An empty input
     yields zero episodes and zero rates.
     """
@@ -296,6 +325,7 @@ def summarize(results: Sequence[EpisodeResult]) -> dict[str, float | int]:
         "mean_path_length": 0.0,
         "mean_steering_rate_rms": 0.0,
         "mean_policy_time_ms": 0.0,
+        "solve_failures": 0,
     }
     if count == 0:
         return summary
@@ -319,6 +349,7 @@ def summarize(results: Sequence[EpisodeResult]) -> dict[str, float | int]:
     summary["mean_path_length"] = mean(r.path_length for r in results)
     summary["mean_steering_rate_rms"] = mean(r.steering_rate_rms for r in results)
     summary["mean_policy_time_ms"] = mean(r.mean_policy_time_ms for r in results)
+    summary["solve_failures"] = sum(r.solve_failures for r in results)
     outcomes = Counter(r.outcome for r in results)
     for name in sorted(outcomes):
         summary[f"outcome_{name}"] = outcomes[name]

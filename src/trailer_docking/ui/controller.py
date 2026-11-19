@@ -54,6 +54,7 @@ _JOIN_TIMEOUT = 2.0
 
 # Marks a test of the model-based controller rather than a policy.
 _NMPC = object()
+_LQR = object()
 
 
 class ControllerError(Exception):
@@ -756,15 +757,15 @@ class AppController:
         when there is one and the untrained straight-reverse policy
         otherwise.  ``baseline=True`` forces the untrained policy and
         ``use_bundle=True`` runs the policy of the loaded bundle.
-        ``method="nmpc"`` tests the model-based controller instead of a
-        policy.  ``backend`` is ``"2d"`` or ``"3d"``; ``show_3d`` renders 3D
+        ``method="nmpc"`` or ``method="lqr"`` tests a classical controller
+        instead of a policy. ``backend`` is ``"2d"`` or ``"3d"``; ``show_3d`` renders 3D
         episodes for :attr:`spectator_frame`.
         """
 
         if backend not in BACKENDS:
             raise ParameterError("simulator must be 2d or 3d")
-        if method not in ("ppo", "nmpc"):
-            raise ParameterError("method must be ppo or nmpc")
+        if method not in ("ppo", "nmpc", "lqr"):
+            raise ParameterError("method must be ppo, nmpc, or lqr")
         if sum((baseline, policy_path is not None, use_bundle)) > 1:
             raise ParameterError(
                 "choose one of a policy file, the loaded bundle, or the baseline"
@@ -779,6 +780,8 @@ class AppController:
             source: Any
             if method == "nmpc":
                 source = _NMPC
+            elif method == "lqr":
+                source = _LQR
             elif baseline:
                 source = None
             elif use_bundle:
@@ -800,6 +803,8 @@ class AppController:
                 description = "untrained straight-reverse baseline"
             elif source is _NMPC:
                 description = "NMPC controller"
+            elif source is _LQR:
+                description = "LQR controller"
             elif isinstance(source, Path):
                 description = str(source)
             else:
@@ -860,6 +865,10 @@ class AppController:
                 from trailer_docking.training.methods import nmpc_controller_factory
 
                 options["controller_factory"] = nmpc_controller_factory()
+            elif source is _LQR:
+                from trailer_docking.training.methods import lqr_controller_factory
+
+                options["controller_factory"] = lqr_controller_factory()
             elif isinstance(source, Path):
                 policy = self._policy_loader(source)
             elif source is not None:

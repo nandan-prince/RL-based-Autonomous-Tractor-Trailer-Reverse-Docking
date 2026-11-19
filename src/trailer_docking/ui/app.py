@@ -45,7 +45,7 @@ from trailer_docking.ui.controller import (
 
 REFRESH_MILLISECONDS = 66  # about 15 Hz
 POLICY_LATEST, POLICY_BASELINE, POLICY_FILE = "latest", "baseline", "file"
-POLICY_BUNDLE, POLICY_NMPC = "bundle", "nmpc"
+POLICY_BUNDLE, POLICY_NMPC, POLICY_LQR = "bundle", "nmpc", "lqr"
 METHODS = ("ppo", "nmpc")
 BUNDLE_FILETYPES = (
     ("Policy bundle", "*.dockpolicy.zip"),
@@ -621,6 +621,7 @@ class DockingApp:
             (POLICY_BUNDLE, "Loaded result bundle"),
             (POLICY_BASELINE, "Untrained straight-reverse baseline"),
             (POLICY_NMPC, "NMPC controller"),
+            (POLICY_LQR, "LQR trajectory controller"),
             (POLICY_FILE, "Saved policy file (.zip):"),
         ):
             ttk.Radiobutton(
@@ -927,7 +928,13 @@ class DockingApp:
                 seed=seed,
                 baseline=choice == POLICY_BASELINE,
                 use_bundle=choice == POLICY_BUNDLE,
-                method="nmpc" if choice == POLICY_NMPC else "ppo",
+                method=(
+                    "nmpc"
+                    if choice == POLICY_NMPC
+                    else "lqr"
+                    if choice == POLICY_LQR
+                    else "ppo"
+                ),
                 backend=self._test_backend.get(),
                 show_3d=self._render_3d.get(),
             )

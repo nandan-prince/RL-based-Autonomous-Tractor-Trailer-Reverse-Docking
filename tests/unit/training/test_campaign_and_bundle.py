@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 import yaml
 
+from trailer_docking.controllers.ppo import PPOController
 from trailer_docking.evaluation.scenarios import Scenario, ScenarioOverrides
 from trailer_docking.training import cli
 from trailer_docking.training.bundle import (
@@ -30,6 +31,7 @@ from trailer_docking.training.evaluate import (
 )
 from trailer_docking.training.methods import (
     MethodUnavailableError,
+    lqr_controller_factory,
     nmpc_controller_factory,
     validate_method,
 )
@@ -465,6 +467,10 @@ def test_nmpc_factory_loads_the_implemented_controller_hook() -> None:
 
     assert nmpc_controller_factory() is make_docking_controller
 
+    from trailer_docking.controllers.lqr import make_docking_controller as lqr_hook
+
+    assert lqr_controller_factory() is lqr_hook
+
 
 def test_a_controller_factory_is_rebuilt_from_the_environment_each_episode(
     aligned_scenario: Scenario,
@@ -474,12 +480,15 @@ def test_a_controller_factory_is_rebuilt_from_the_environment_each_episode(
     def factory(env: Any) -> Any:
         # A model-based controller reads the shared state and reference path.
         seen.append((env.state.simulation_time, env.reference_path.length))
-        return lambda observation: [0.0]  # any shape-(1,) array-like
+        return PPOController(
+            lambda observation: np.zeros(1, np.float32), name="factory-test"
+        )
 
     results = run_docking_test(
         aligned_scenario, None, episodes=2, controller_factory=factory
     )
     assert [r.outcome for r in results] == ["success", "success"]
+    assert [r.controller for r in results] == ["factory-test", "factory-test"]
     assert len(seen) == 2 and all(time == 0.0 for time, _ in seen)
     with pytest.raises(ValueError, match="either a policy or"):
         run_docking_test(aligned_scenario, None)

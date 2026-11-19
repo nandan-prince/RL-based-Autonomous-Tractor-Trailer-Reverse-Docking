@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isfinite
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -222,3 +223,9 @@ class TrajectoryLQRController:
         )
         steering_rate = -float((self._gain @ error)[0])
         return normalized_steering_rate(steering_rate, self.vehicle)
+
+
+def make_docking_controller(env: Any) -> TrajectoryLQRController:
+    """Build the LQR tracker for the episode's resolved vehicle geometry."""
+
+    return TrajectoryLQRController(env.built.vehicle)

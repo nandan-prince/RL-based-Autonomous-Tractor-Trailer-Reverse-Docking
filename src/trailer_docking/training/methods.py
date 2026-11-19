@@ -4,35 +4,38 @@
 trained, so selecting it skips training and only tests the controller on the
 same scenario, seeds, and simulators as a PPO policy.
 
-The NMPC controller itself lives in :mod:`trailer_docking.controllers.nmpc`.
-This module only defines how it is found, so that work can proceed
-independently.  The expected hook is one function::
+The model-based controllers live under :mod:`trailer_docking.controllers`.
+This module exposes their per-episode factories to the shared evaluator::
 
-    def make_docking_controller(env) -> Callable[[observation], action]
+    def make_docking_controller(env) -> Controller
 
 called once at the start of every episode, after the environment was reset.
 ``env`` is the :class:`~trailer_docking.training.environment.ScenarioDockingEnv`;
 it exposes the shared vehicle state (``env.state``), the reference path
 (``env.reference_path``), and the built vehicle, dock, and task
-(``env.built``).  The returned callable receives the policy observation and
-may ignore it; it must return one normalized steering-rate action in
-``[-1, 1]`` with shape ``(1,)``, the same bounded command PPO produces.
+(``env.built``). The evaluator constructs a ``ControllerContext`` for every
+step and validates the same normalized action contract for every method.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from trailer_docking.controllers.base import Controller
 
 METHOD_PPO = "ppo"
 METHOD_NMPC = "nmpc"
 METHODS = (METHOD_PPO, METHOD_NMPC)
 NMPC_MODULE = "trailer_docking.controllers.nmpc"
 NMPC_HOOK = "make_docking_controller"
+LQR_MODULE = "trailer_docking.controllers.lqr"
+LQR_HOOK = "make_docking_controller"
 
-ControllerFactory = Callable[[Any], Callable[[Any], Any]]
-"""``factory(env)`` returns the per-episode ``observation -> action`` callable."""
+ControllerFactory = Callable[[Any], "Controller"]
+"""``factory(env)`` returns one controller for the resolved episode."""
 
 
 class MethodUnavailableError(RuntimeError):
@@ -59,6 +62,20 @@ def nmpc_controller_factory() -> ControllerFactory:
         raise MethodUnavailableError(
             f"NMPC is not implemented yet: {NMPC_MODULE} does not provide"
             f" {NMPC_HOOK}(env)"
+        )
+    hook: ControllerFactory = factory
+    return hook
+
+
+def lqr_controller_factory() -> ControllerFactory:
+    """Return the implemented trajectory-error LQR episode factory."""
+
+    module = import_module(LQR_MODULE)
+    factory = getattr(module, LQR_HOOK, None)
+    if not callable(factory):
+        raise MethodUnavailableError(
+            f"LQR is not implemented: {LQR_MODULE} does not provide"
+            f" {LQR_HOOK}(env)"
         )
     hook: ControllerFactory = factory
     return hook

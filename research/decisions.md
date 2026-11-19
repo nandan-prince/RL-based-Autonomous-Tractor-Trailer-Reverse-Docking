@@ -495,3 +495,14 @@ predict collision constraints. Both complete the same straight-path acceptance
 scenario from a `0.35 m` lateral and `3 degree` heading offset without collision
 or jackknife. This is an engineering integration check, not a controller
 comparison or performance result.
+
+### D-016 addendum — shared inference execution (2026-11-19)
+
+`PPOController` now adapts a deterministic saved policy to the same
+`Controller` protocol as LQR and NMPC while forwarding only the normalized
+observation. The shared evaluator, rather than method-specific wrappers,
+constructs `ControllerContext`, validates actions, measures inference time, and
+records controller identity and NMPC solve failures. Per-episode NMPC and LQR
+factories are created after reset so randomized vehicle geometry is reflected
+in their models. LQR is available from the common test CLI and UI; it remains a
+diagnostic baseline rather than a primary training method.

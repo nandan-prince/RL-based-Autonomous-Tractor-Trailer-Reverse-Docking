@@ -7,7 +7,7 @@ Usage::
         [--backend 2d|3d]
         [--eval-episodes N] [--eval-backends 2d,3d] [--output-root DIR]
     python -m trailer_docking.training.cli test [--scenario PATH]
-        [--policy PATH | --bundle PATH | --nmpc] [--backend 2d|3d]
+        [--policy PATH | --bundle PATH | --nmpc | --lqr] [--backend 2d|3d]
         [--episodes N] [--seed N]
     python -m trailer_docking.training.cli export --policy PATH
         --output PATH [--scenario PATH]
@@ -44,6 +44,7 @@ from trailer_docking.training.evaluate import (
 from trailer_docking.training.methods import (
     METHODS,
     MethodUnavailableError,
+    lqr_controller_factory,
     nmpc_controller_factory,
 )
 from trailer_docking.training.session import TrainingProgress
@@ -94,6 +95,9 @@ def _parser() -> argparse.ArgumentParser:
     source.add_argument("--bundle", type=Path, help="exported policy bundle")
     source.add_argument(
         "--nmpc", action="store_true", help="run the NMPC controller instead"
+    )
+    source.add_argument(
+        "--lqr", action="store_true", help="run the trajectory LQR instead"
     )
     test.add_argument("--backend", choices=BACKENDS, default="2d")
     test.add_argument("--episodes", type=int, default=1)
@@ -234,6 +238,17 @@ def _test(arguments: argparse.Namespace) -> int:
             seed=arguments.seed,
             backend=arguments.backend,
             controller_factory=nmpc_controller_factory(),
+        )
+        _print_results(results)
+        return EXIT_OK
+    if arguments.lqr:
+        results = run_docking_test(
+            scenario,
+            None,
+            episodes=arguments.episodes,
+            seed=arguments.seed,
+            backend=arguments.backend,
+            controller_factory=lqr_controller_factory(),
         )
         _print_results(results)
         return EXIT_OK

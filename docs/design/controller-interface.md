@@ -71,9 +71,9 @@ These controllers are first vertical-slice baselines. Their successful straight
 tracking checks do not establish robustness, optimality, or comparative
 performance.
 
-## PPO handoff checklist
+## PPO integration status
 
-Before merging PPO work, verify that it:
+The merged PPO infrastructure now:
 
 1. Uses `action_mode="fixed_reverse"` for the primary policy.
 2. Produces a `(1,)` `float32` action in `[-1, 1]`.
@@ -81,7 +81,8 @@ Before merging PPO work, verify that it:
 4. Uses the existing observation without reordering fields.
 5. Uses seeded Gymnasium reset and records all three configuration fingerprints.
 6. Can save, load, and run deterministically for evaluation.
-7. Implements a thin `Controller` inference adapter for the shared runner.
+7. Uses `PPOController`, a thin observation-only adapter implementing the
+   shared `Controller` protocol.
 8. Is evaluated on the same explicit paths and reset options as LQR and NMPC.
 9. Keeps training-only wrappers, normalization statistics, and reward changes
    versioned and available during evaluation.
