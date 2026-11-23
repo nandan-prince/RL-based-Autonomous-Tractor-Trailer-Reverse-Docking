@@ -9,10 +9,15 @@ Implemented controllers:
   derived from a numerical linearization of the verified kinematic backend.
 - `BasicNMPCController`: a CasADi/IPOPT nonlinear receding-horizon tracker with
   fixed reverse speed and bounded steering-rate authority.
+- `PPOController`: the observation-only adapter used to execute a trained PPO
+  policy through the same normalized steering-rate interface.
 
-The PPO module remains intentionally untouched for parallel development. PPO
-training may use the Gymnasium environment directly; its evaluation adapter
-should implement `Controller` and return the same normalized one-element action.
+All three methods use the controller contract in `base.py`. LQR and NMPC are
+rebuilt for each resolved episode so they receive that episode's geometry and
+reference path. PPO receives the normalized observation and returns the same
+one-element action in `[-1, 1]`. Versioned LQR/NMPC settings live in
+`configs/controllers/baseline_controllers_v1.yaml`; PPO optimization settings
+live in `TrainingConfig` and the run manifest.
 
 Install the NMPC dependency with:
 
@@ -28,6 +33,23 @@ Run the closed-loop demonstrations interactively:
 .venv/bin/python -m trailer_docking.evaluation.runner --controller lqr --scenario service-center
 .venv/bin/python -m trailer_docking.evaluation.runner --controller nmpc --scenario service-center
 ```
+
+Run a saved PPO checkpoint, or compare methods on identical resolved episodes:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli test \
+  --policy PATH/policy_final.zip --backend 2d --episodes 5
+
+.venv/bin/python -m trailer_docking.training.cli compare \
+  --controllers lqr,nmpc,ppo \
+  --policy PATH/policy_final.zip \
+  --backends 2d,3d --episodes 5 --seed 100000
+```
+
+The executable capability matrix is documented in
+[`control-ui-capability-matrix.md`](../../../docs/design/control-ui-capability-matrix.md).
+Passing it proves that each adapter/backend combination executes; it is not a
+claim of successful curved docking or equal 2D/3D performance.
 
 Use `--no-render` for a headless acceptance run. The default scenario is the
 compact baseline; `--scenario service-center` selects the full-size yard. Both

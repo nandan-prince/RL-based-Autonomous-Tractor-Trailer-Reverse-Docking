@@ -43,11 +43,18 @@ renderer are also implemented. A separately configured full-size interactive
 case demonstrates the same 2D stack in a $200\times100\,\mathrm{m}$ service
 yard. A deterministic trajectory-error LQR and a basic fixed-speed NMPC now
 complete straight-path closed-loop acceptance maneuvers through a shared
-controller interface. A PPO training framework runs the task on either plant, repeats
-and tests training runs, and exports reloadable policies is implemented and
-software-tested. Tuned or evaluated PPO policies, curved and randomized
-controller validation, MuJoCo task-event parity, and comparative results are
-explicitly identified as planned work.
+controller interface. A PPO training framework runs the task on either plant,
+repeats and tests training runs, and exports reloadable policies. Its optimizer
+and reward settings are explicit, and a fingerprinted episode resolver supports
+paired controller/backend evaluation. Classical-controller settings and
+train/validation/test split ownership are versioned, formal comparisons can
+write immutable evidence packages, and a gated three-stage PPO curriculum is
+implemented. Three smooth predefined curve templates, deterministic
+per-episode template sampling, a curved-path curriculum, and a controlled
+multi-seed reward-study runner are also implemented. The framework is
+software-tested. A full curriculum or reward-study run, tuned or evaluated PPO
+policy, curved and randomized controller validation, MuJoCo task-event parity,
+and comparative results are explicitly identified as planned work.
 \end{abstract}
 
 \begin{IEEEkeywords}

@@ -1,0 +1,22 @@
+name: curved-docking-mixed-v2
+vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+dock_path: configs/environments/nominal_dock_v1.yaml
+task_path: configs/environments/gymnasium_docking_v2.yaml
+
+# Version 2 uses the dense trailer-tail and heading improvement reward. Copy
+# this file under a new name before changing weights for an exploratory run.
+overrides: {}
+
+start:
+  standoff: [6.0, 9.0]
+  lateral: [-1.2, 1.2]
+  trailer_yaw: [-0.06, 0.06]
+  articulation: [-0.04, 0.04]
+
+randomization:
+  trailer_hitch_to_axle: null
+  observation_noise_std: 0.0
+  reference_planners: [curve_gentle, curve_early, curve_late]
+
+planner: curve_gentle
+obstacles: []

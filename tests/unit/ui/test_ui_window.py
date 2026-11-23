@@ -94,6 +94,159 @@ def test_window_gives_every_captioned_control_a_tooltip(window: Any) -> None:
     assert tip._window is None
 
 
+def test_backend_and_algorithm_controls_match_capabilities(
+    window: Any,
+) -> None:
+    """Only PPO trains; both backends and all test methods stay selectable."""
+
+    ttk = pytest.importorskip("tkinter.ttk")
+
+    def descendants(widget: Any) -> list[Any]:
+        children = list(widget.winfo_children())
+        return children + [item for child in children for item in descendants(child)]
+
+    radios = [
+        widget
+        for widget in descendants(window.root)
+        if isinstance(widget, ttk.Radiobutton)
+    ]
+    captions = {widget.cget("text") for widget in radios}
+    assert {"2D", "3D"} <= captions
+    assert window._target_selector.cget("values") == (
+        "Saved PPO model",
+        "Loaded portable model",
+        "NMPC",
+        "LQR",
+        "No-steering baseline",
+    )
+    window._training_backend.set("3d")
+    assert window._training_backend.get() == "3d"
+    assert window._method.get() == "ppo"
+
+
+def test_training_controls_build_only_supported_ppo_config(
+    window: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[Any, bool]] = []
+    monkeypatch.setattr(
+        window.controller,
+        "start_training",
+        lambda config, show_3d=False: calls.append((config, show_3d)),
+    )
+    window._training_backend.set("3d")
+    window._runs.set("2")
+    window._timesteps.set("5000")
+    window._training_seed.set("4")
+    window._evaluation_episodes.set("0")
+    window._ppo_vars["learning_rate"].set("0.0007")
+    window._ppo_vars["n_steps"].set("128")
+    window._ppo_vars["batch_size"].set("64")
+    window._parameter_vars["reward_progress"].set("12.5")
+    window._render_training_3d.set(True)
+    window._on_start_training()
+
+    config, show_3d = calls[0]
+    assert config.method == "ppo"
+    assert config.backend == "3d"
+    assert config.runs == 2 and config.total_timesteps == 5000 and config.seed == 4
+    assert config.learning_rate == pytest.approx(0.0007)
+    assert config.n_steps == 128 and config.batch_size == 64
+    assert window.controller.scenario.overrides.reward_progress == pytest.approx(12.5)
+    assert config.evaluation_episodes == 0
+    assert show_3d is True
+
+
+@pytest.mark.parametrize(
+    ("choice", "method", "baseline"),
+    [
+        ("No-steering baseline", "ppo", True),
+        ("NMPC", "nmpc", False),
+        ("LQR", "lqr", False),
+    ],
+)
+@pytest.mark.parametrize("backend", ["2d", "3d"])
+def test_test_controls_route_every_algorithm_backend_cell(
+    window: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    choice: str,
+    method: str,
+    baseline: bool,
+    backend: str,
+) -> None:
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        window.controller,
+        "start_test",
+        lambda **options: calls.append(options),
+    )
+    window._evaluation_target.set(choice)
+    window._test_backend.set(backend)
+    window._episodes.set("2")
+    window._test_seed.set("7")
+    window._on_start_test()
+
+    assert calls == [
+        {
+            "policy_path": None,
+            "episodes": 2,
+            "seed": 7,
+            "baseline": baseline,
+            "use_bundle": False,
+            "method": method,
+            "backend": backend,
+            "show_3d": True,
+        }
+    ]
+
+
+@pytest.mark.parametrize("backend", ["2d", "3d"])
+def test_saved_ppo_control_routes_to_selected_backend(
+    window: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    backend: str,
+) -> None:
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        window.controller,
+        "start_test",
+        lambda **options: calls.append(options),
+    )
+    policy = tmp_path / "policy.zip"
+    window._evaluation_target.set("Saved PPO model")
+    window._policy_file.set(str(policy))
+    window._test_backend.set(backend)
+    window._on_start_test()
+
+    assert calls[0]["policy_path"] == str(policy)
+    assert calls[0]["method"] == "ppo"
+    assert calls[0]["backend"] == backend
+    assert calls[0]["baseline"] is False
+
+
+def test_model_browser_discovers_and_selects_previous_checkpoint(window: Any) -> None:
+    checkpoint = (
+        window.controller.output_root
+        / "artifacts"
+        / "past-run"
+        / "checkpoints"
+        / "policy_final.zip"
+    )
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"checkpoint")
+
+    window._refresh_saved_models()
+
+    rows = window._model_tree.get_children()
+    assert len(rows) == 1
+    assert tuple(window._model_tree.item(rows[0], "values"))[:2] == (
+        "past-run",
+        "policy_final.zip",
+    )
+    assert window._policy_file.get() == checkpoint.as_posix()
+    assert window._evaluation_target.get() == "Saved PPO model"
+
+
 def test_clicking_the_map_places_boxes_only_while_placing(window: Any) -> None:
     controller = window.controller
     _click(window, 10.0, 3.0)

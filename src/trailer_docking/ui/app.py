@@ -46,7 +46,6 @@ from trailer_docking.ui.controller import (
 REFRESH_MILLISECONDS = 66  # about 15 Hz
 POLICY_LATEST, POLICY_BASELINE, POLICY_FILE = "latest", "baseline", "file"
 POLICY_BUNDLE, POLICY_NMPC, POLICY_LQR = "bundle", "nmpc", "lqr"
-METHODS = ("ppo", "nmpc")
 BUNDLE_FILETYPES = (
     ("Policy bundle", "*.dockpolicy.zip"),
     ("All files", "*.*"),
@@ -54,13 +53,73 @@ BUNDLE_FILETYPES = (
 SCENARIO_FILETYPES = (("Scenario YAML", "*.yaml *.yml"), ("All files", "*.*"))
 POLICY_FILETYPES = (("Saved policy", "*.zip"), ("All files", "*.*"))
 
+PPO_FIELDS = (
+    ("learning_rate", "Learning rate", "0.0003"),
+    ("n_steps", "Rollout steps", "1024"),
+    ("batch_size", "Batch size", "256"),
+    ("n_epochs", "Epochs per rollout", "10"),
+    ("gamma", "Discount (gamma)", "0.99"),
+    ("gae_lambda", "GAE lambda", "0.95"),
+    ("clip_range", "Policy clip range", "0.2"),
+    ("clip_range_vf", "Value clip range (blank = off)", ""),
+    ("entropy_coefficient", "Entropy coefficient", "0.0"),
+    ("value_coefficient", "Value-loss coefficient", "0.5"),
+    ("max_grad_norm", "Maximum gradient norm", "0.5"),
+    ("target_kl", "Target KL (blank = off)", ""),
+)
+
+TRAINING_REWARD_KEYS = (
+    "path_lateral_weight",
+    "path_heading_weight",
+    "reward_progress",
+    "reward_time",
+    "reward_lateral_improvement",
+    "reward_lateral_deviation_multiplier",
+    "reward_heading_improvement",
+    "reward_articulation",
+    "reward_steering_rate",
+    "reward_success",
+    "reward_collision",
+    "reward_jackknife",
+    "reward_out_of_bounds",
+)
+
 
 TOOLTIP_DELAY_MILLISECONDS = 450
 # Help for controls that are not scenario parameters, found by their caption.
 CAPTION_HELP = {
-    "Method": "method",
+    "Algorithm": "method",
+    "Simulator": "training_backend",
     "Number of runs": "runs",
     "Timesteps per run": "timesteps",
+    "Experiment name": "purpose",
+    "Timesteps": "timesteps",
+    "Training seed": "training_seed",
+    "Independent runs": "runs",
+    "Episode step limit": "max_episode_steps",
+    "Save every N steps": "checkpoint_interval",
+    "Device": "device",
+    "Evaluate after training": "evaluation_episodes",
+    "Learning rate": "learning_rate",
+    "Rollout steps": "n_steps",
+    "Batch size": "batch_size",
+    "Epochs per rollout": "n_epochs",
+    "Discount (gamma)": "gamma",
+    "GAE lambda": "gae_lambda",
+    "Policy clip range": "clip_range",
+    "Value clip range (blank = off)": "clip_range_vf",
+    "Entropy coefficient": "entropy_coefficient",
+    "Value-loss coefficient": "value_coefficient",
+    "Maximum gradient norm": "max_grad_norm",
+    "Target KL (blank = off)": "target_kl",
+    "Start training": "start",
+    "Save portable model\N{HORIZONTAL ELLIPSIS}": "export",
+    "Controller": "evaluation_controller",
+    "Refresh": "refresh_models",
+    "Open checkpoint\N{HORIZONTAL ELLIPSIS}": "policy_file",
+    "Open portable model\N{HORIZONTAL ELLIPSIS}": "load_result",
+    "Render live MuJoCo frames (slow)": "render_3d",
+    "Render live MuJoCo frames": "render_3d",
     "Seed of first run": "training_seed",
     "Test episodes per run": "evaluation_episodes",
     "Test each run in:": "evaluation_episodes",
@@ -197,6 +256,22 @@ def _whole_number(text: str, label: str, *, minimum: int) -> int:
     return value
 
 
+def _number(text: str, label: str, *, minimum: float | None = None) -> float:
+    try:
+        value = float(text.strip())
+    except ValueError:
+        raise ControllerError(f"{label}: '{text}' is not a number") from None
+    if minimum is not None and value < minimum:
+        raise ControllerError(f"{label} must be at least {minimum:g}")
+    return value
+
+
+def _optional_number(
+    text: str, label: str, *, minimum: float | None = None
+) -> float | None:
+    return None if not text.strip() else _number(text, label, minimum=minimum)
+
+
 class DockingApp:
     """The main window; a thin view over an :class:`AppController`."""
 
@@ -212,11 +287,19 @@ class DockingApp:
         self._idle_route: tuple[Any, ...] = ()
         self._shown_frame: object = None
         self._photo: Any = None
+        self._raw_3d_frame: Any = None
+        self._rendered_3d_size: tuple[int, int] | None = None
+        self._resize_3d_after_id: str | None = None
         self._shown_results: tuple[str, ...] = ()
         self._parameter_vars: dict[str, tk.StringVar] = {}
+        self._saved_policy_paths: dict[str, Path] = {}
+        self._last_model_refresh_checkpoint: str | None = None
 
         root.title("Tractor-trailer docking \N{EM DASH} training control")
-        root.minsize(1100, 620)
+        window_width = min(1400, max(root.winfo_screenwidth() - 80, 900))
+        window_height = min(850, max(root.winfo_screenheight() - 120, 620))
+        root.geometry(f"{window_width}x{window_height}")
+        root.minsize(min(1100, window_width), min(620, window_height))
         root.protocol("WM_DELETE_WINDOW", self.close)
 
         panes = ttk.Frame(root, padding=6)
@@ -229,6 +312,12 @@ class DockingApp:
         self._build_scenario_tab(notebook)
         self._build_training_tab(notebook)
         self._build_test_tab(notebook)
+        # Scenario construction initializes variables shared by the training
+        # reward editor, but the user-facing order follows the three normal
+        # tasks: train, inspect/evaluate models, then advanced scene editing.
+        notebook.insert(0, self._training_tab)
+        notebook.insert(1, self._test_tab)
+        notebook.select(self._training_tab)
 
         toolbar = ttk.Frame(right)
         toolbar.pack(side=tk.TOP, fill=tk.X)
@@ -239,12 +328,6 @@ class DockingApp:
             variable=self._show_route,
             command=self._on_route_toggled,
         ).pack(side=tk.LEFT)
-        self._render_3d = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            toolbar,
-            text="Render 3D runs (slower training)",
-            variable=self._render_3d,
-        ).pack(side=tk.LEFT, padx=(12, 0))
         self._status_bar = tk.StringVar(value="Ready")
         ttk.Label(
             right, textvariable=self._status_bar, relief=tk.SUNKEN, anchor=tk.W
@@ -262,6 +345,7 @@ class DockingApp:
             "Runs on the 3D simulator are shown here while they run.",
         )
         self._image_3d.pack(fill=tk.BOTH, expand=True)
+        self._frame_3d.bind("<Configure>", self._on_3d_panel_resized)
         self._displays.bind("<<NotebookTabChanged>>", self._on_display_changed)
 
         self._rebuild_view()
@@ -270,9 +354,37 @@ class DockingApp:
 
     # ---------------------------------------------------------------- tabs
 
+    def _ui_parameter_values(self) -> dict[str, str]:
+        """Scenario values with effective reward defaults made explicit."""
+
+        values = self.controller.parameter_values()
+        task = self.controller.built.task
+        reward_defaults = {
+            "path_lateral_weight": task.reward_lateral_error,
+            "path_heading_weight": task.reward_heading_error,
+            "reward_progress": task.reward_progress,
+            "reward_time": task.reward_time,
+            "reward_lateral_improvement": task.reward_lateral_improvement,
+            "reward_lateral_deviation_multiplier": (
+                task.reward_lateral_deviation_multiplier
+            ),
+            "reward_heading_improvement": task.reward_heading_improvement,
+            "reward_articulation": task.reward_articulation,
+            "reward_steering_rate": task.reward_steering_rate,
+            "reward_success": task.reward_success,
+            "reward_collision": task.reward_collision,
+            "reward_jackknife": task.reward_jackknife,
+            "reward_out_of_bounds": task.reward_out_of_bounds,
+        }
+        for key, value in reward_defaults.items():
+            if not values[key]:
+                values[key] = f"{value:g}"
+        return values
+
     def _build_scenario_tab(self, notebook: ttk.Notebook) -> None:
         outer = ttk.Frame(notebook)
-        notebook.add(outer, text="Scenario")
+        self._scenario_tab = outer
+        notebook.add(outer, text="3  Advanced scenario")
         # The parameter groups are taller than the window, so they scroll.
         canvas = tk.Canvas(outer, highlightthickness=0, width=350)
         scrollbar = ttk.Scrollbar(outer, orient=tk.VERTICAL, command=canvas.yview)
@@ -288,7 +400,7 @@ class DockingApp:
         canvas.bind(
             "<Configure>", lambda event: canvas.itemconfigure(window, width=event.width)
         )
-        values = self.controller.parameter_values()
+        values = self._ui_parameter_values()
         for group in GROUPS:
             frame = ttk.LabelFrame(tab, text=group, padding=6)
             frame.pack(fill=tk.X, pady=(0, 6))
@@ -506,60 +618,153 @@ class DockingApp:
 
     def _build_training_tab(self, notebook: ttk.Notebook) -> None:
         tab = ttk.Frame(notebook, padding=8)
-        notebook.add(tab, text="Training")
-        form = ttk.Frame(tab)
-        form.pack(fill=tk.X)
+        self._training_tab = tab
+        notebook.add(tab, text="1  Train PPO")
+        ttk.Label(
+            tab,
+            text="Configure one reproducible PPO run. Models are saved automatically.",
+            foreground="#444444",
+            wraplength=330,
+        ).pack(anchor=tk.W, pady=(0, 6))
+
+        settings = ttk.Notebook(tab)
+        settings.pack(fill=tk.X)
+        setup = ttk.Frame(settings, padding=6)
+        ppo = ttk.Frame(settings, padding=6)
+        rewards = ttk.Frame(settings, padding=6)
+        settings.add(setup, text="Run")
+        settings.add(ppo, text="PPO")
+        settings.add(rewards, text="Rewards")
+
+        form = setup
         form.columnconfigure(1, weight=1)
-        self._method = tk.StringVar(value=METHODS[0])
+        self._method = tk.StringVar(value="ppo")
         self._training_backend = tk.StringVar(value=BACKENDS[0])
         self._runs = tk.StringVar(value="1")
         self._timesteps = tk.StringVar(value="200000")
         self._training_seed = tk.StringVar(value="0")
+        self._purpose = tk.StringVar(value="ppo-ui")
+        self._max_episode_steps = tk.StringVar(value="900")
+        self._checkpoint_interval = tk.StringVar(value="20000")
+        self._device = tk.StringVar(value="cpu")
         self._evaluation_episodes = tk.StringVar(value="20")
         self._evaluate_2d = tk.BooleanVar(value=True)
         self._evaluate_3d = tk.BooleanVar(value=False)
-        choices: tuple[tuple[str, tk.StringVar, tuple[str, ...]], ...] = (
-            ("Method", self._method, METHODS),
-            ("Simulator", self._training_backend, BACKENDS),
+        self._render_training_3d = tk.BooleanVar(value=False)
+        # Compatibility alias for callers of the former shared render switch.
+        self._render_3d = self._render_training_3d
+        ttk.Label(form, text="Simulator").grid(
+            row=0, column=0, sticky=tk.W, padx=(0, 6)
         )
-        for row, (label, variable, options) in enumerate(choices):
+        selector = ttk.Frame(form)
+        selector.grid(row=0, column=1, sticky=tk.EW, pady=1)
+        self._training_backend_buttons: dict[str, ttk.Radiobutton] = {}
+        for column, backend in enumerate(BACKENDS):
+            selector.columnconfigure(column, weight=1)
+            button = ttk.Radiobutton(
+                selector,
+                text=backend.upper(),
+                variable=self._training_backend,
+                value=backend,
+            )
+            button.grid(row=0, column=column, sticky=tk.W, padx=(0, 12))
+            self._training_backend_buttons[backend] = button
+        entries: tuple[tuple[str, tk.StringVar, str], ...] = (
+            ("Experiment name", self._purpose, "entry"),
+            ("Timesteps", self._timesteps, "entry"),
+            ("Training seed", self._training_seed, "entry"),
+            ("Independent runs", self._runs, "entry"),
+            ("Episode step limit", self._max_episode_steps, "entry"),
+            ("Save every N steps", self._checkpoint_interval, "entry"),
+            ("Device", self._device, "device"),
+            ("Evaluate after training", self._evaluation_episodes, "entry"),
+        )
+        self._training_entries: list[tk.Widget] = []
+        for row, (label, variable, kind) in enumerate(entries, start=1):
             ttk.Label(form, text=label).grid(
                 row=row, column=0, sticky=tk.W, padx=(0, 6)
             )
-            ttk.Combobox(
-                form, textvariable=variable, values=options, state="readonly", width=12
-            ).grid(row=row, column=1, sticky=tk.EW, pady=1)
-        entries = (
-            ("Number of runs", self._runs),
-            ("Timesteps per run", self._timesteps),
-            ("Seed of first run", self._training_seed),
-            ("Test episodes per run", self._evaluation_episodes),
+            if kind == "device":
+                entry: tk.Widget = ttk.Combobox(
+                    form,
+                    textvariable=variable,
+                    values=("cpu", "auto", "mps", "cuda"),
+                    state="readonly",
+                    width=12,
+                )
+            else:
+                entry = ttk.Entry(form, textvariable=variable, width=14)
+            entry.grid(row=row, column=1, sticky=tk.EW, pady=1)
+            self._training_entries.append(entry)
+        tests = ttk.Frame(form)
+        tests.grid(
+            row=len(entries) + 1,
+            column=0,
+            columnspan=2,
+            sticky=tk.W,
+            pady=(4, 0),
         )
-        for row, (label, variable) in enumerate(entries, start=len(choices)):
-            ttk.Label(form, text=label).grid(
+        ttk.Label(tests, text="Evaluation simulator:").pack(side=tk.LEFT)
+        self._evaluation_buttons: list[ttk.Checkbutton] = []
+        for text, test_variable in (
+            ("2D", self._evaluate_2d),
+            ("3D", self._evaluate_3d),
+        ):
+            evaluation_button = ttk.Checkbutton(
+                tests, text=text, variable=test_variable
+            )
+            evaluation_button.pack(side=tk.LEFT, padx=(6, 0))
+            self._evaluation_buttons.append(evaluation_button)
+        self._training_render_button = ttk.Checkbutton(
+            form,
+            text="Render live MuJoCo frames (slow)",
+            variable=self._render_training_3d,
+        )
+        self._training_render_button.grid(
+            row=len(entries) + 2, column=0, columnspan=2, sticky=tk.W, pady=(3, 0)
+        )
+
+        ppo.columnconfigure(1, weight=1)
+        self._ppo_vars: dict[str, tk.StringVar] = {}
+        self._normalize_advantage = tk.BooleanVar(value=True)
+        for row, (key, label, default) in enumerate(PPO_FIELDS):
+            variable = tk.StringVar(value=default)
+            self._ppo_vars[key] = variable
+            ttk.Label(ppo, text=label).grid(row=row, column=0, sticky=tk.W, padx=(0, 6))
+            entry = ttk.Entry(ppo, textvariable=variable, width=14)
+            entry.grid(row=row, column=1, sticky=tk.EW, pady=1)
+            self._training_entries.append(entry)
+        normalize = ttk.Checkbutton(
+            ppo,
+            text="Normalize advantages",
+            variable=self._normalize_advantage,
+        )
+        normalize.grid(row=len(PPO_FIELDS), column=0, columnspan=2, sticky=tk.W)
+        self._training_entries.append(normalize)
+
+        rewards.columnconfigure(1, weight=1)
+        self._reward_entries: list[ttk.Entry] = []
+        specs = {spec.key: spec for spec in PARAMETERS}
+        for row, key in enumerate(TRAINING_REWARD_KEYS):
+            spec = specs[key]
+            ttk.Label(rewards, text=spec.label).grid(
                 row=row, column=0, sticky=tk.W, padx=(0, 6)
             )
-            ttk.Entry(form, textvariable=variable, width=14).grid(
-                row=row, column=1, sticky=tk.EW, pady=1
+            entry = ttk.Entry(
+                rewards, textvariable=self._parameter_vars[key], width=14
             )
-        tests = ttk.Frame(tab)
-        tests.pack(fill=tk.X, pady=(4, 0))
-        ttk.Label(tests, text="Test each run in:").pack(side=tk.LEFT)
-        ttk.Checkbutton(tests, text="2D", variable=self._evaluate_2d).pack(
-            side=tk.LEFT, padx=(6, 0)
-        )
-        ttk.Checkbutton(tests, text="3D", variable=self._evaluate_3d).pack(
-            side=tk.LEFT, padx=(6, 0)
-        )
+            entry.grid(row=row, column=1, sticky=tk.EW, pady=1)
+            self._reward_entries.append(entry)
         ttk.Label(
-            tab,
-            text="NMPC is not trained: it is only tested.",
+            rewards,
+            text="These are the effective coefficients saved with the run.",
             foreground="#555555",
-        ).pack(anchor=tk.W, pady=(4, 0))
+        ).grid(row=len(TRAINING_REWARD_KEYS), column=0, columnspan=2, sticky=tk.W)
+
         buttons = ttk.Frame(tab)
         buttons.pack(fill=tk.X, pady=6)
         self._train_button = ttk.Button(
-            buttons, text="Start", command=self._on_start_training
+            buttons, text="Start training", command=self._on_start_training
         )
         self._train_button.pack(side=tk.LEFT)
         self._train_stop_button = ttk.Button(
@@ -568,7 +773,7 @@ class DockingApp:
         self._train_stop_button.pack(side=tk.LEFT, padx=4)
         self._export_button = ttk.Button(
             buttons,
-            text="Export result\N{HORIZONTAL ELLIPSIS}",
+            text="Save portable model\N{HORIZONTAL ELLIPSIS}",
             command=self._on_export,
         )
         self._export_button.pack(side=tk.LEFT)
@@ -585,60 +790,118 @@ class DockingApp:
 
     def _build_test_tab(self, notebook: ttk.Notebook) -> None:
         tab = ttk.Frame(notebook, padding=8)
-        notebook.add(tab, text="Docking test")
-        form = ttk.Frame(tab)
-        form.pack(fill=tk.X)
+        self._test_tab = tab
+        notebook.add(tab, text="2  Models & Evaluate")
+
+        models = ttk.LabelFrame(tab, text="Saved PPO models", padding=6)
+        models.pack(fill=tk.BOTH, expand=True)
+        self._model_tree = ttk.Treeview(
+            models,
+            columns=("run", "checkpoint", "sim", "status"),
+            show="headings",
+            height=7,
+            selectmode="browse",
+        )
+        self._model_tree.heading("run", text="Experiment")
+        self._model_tree.heading("checkpoint", text="Checkpoint")
+        self._model_tree.heading("sim", text="Sim")
+        self._model_tree.heading("status", text="Status")
+        self._model_tree.column("run", width=145, stretch=True)
+        self._model_tree.column("checkpoint", width=95, stretch=False)
+        self._model_tree.column("sim", width=38, stretch=False)
+        self._model_tree.column("status", width=60, stretch=False)
+        self._model_tree.pack(fill=tk.BOTH, expand=True)
+        self._model_tree.bind("<<TreeviewSelect>>", self._on_model_selected)
+        model_buttons = ttk.Frame(models)
+        model_buttons.pack(fill=tk.X, pady=(4, 0))
+        self._refresh_models_button = ttk.Button(
+            model_buttons, text="Refresh", command=self._refresh_saved_models
+        )
+        self._refresh_models_button.pack(side=tk.LEFT)
+        self._browse_button = ttk.Button(
+            model_buttons,
+            text="Open checkpoint\N{HORIZONTAL ELLIPSIS}",
+            command=self._on_browse,
+        )
+        self._browse_button.pack(side=tk.LEFT, padx=4)
+        self._load_result_button = ttk.Button(
+            model_buttons,
+            text="Open portable model\N{HORIZONTAL ELLIPSIS}",
+            command=self._on_load_result,
+        )
+        self._load_result_button.pack(side=tk.LEFT)
+
+        self._policy_file = tk.StringVar()
+        self._bundle_text = tk.StringVar(value="No model selected")
+        ttk.Label(
+            models,
+            textvariable=self._bundle_text,
+            foreground="#555555",
+            wraplength=330,
+        ).pack(anchor=tk.W, pady=(4, 0))
+
+        evaluation = ttk.LabelFrame(tab, text="Evaluate", padding=6)
+        evaluation.pack(fill=tk.X, pady=(6, 0))
+        evaluation.columnconfigure(1, weight=1)
+        form = evaluation
         form.columnconfigure(1, weight=1)
         self._episodes = tk.StringVar(value="1")
         self._test_seed = tk.StringVar(value="0")
         self._test_backend = tk.StringVar(value=BACKENDS[0])
-        ttk.Label(form, text="Simulator").grid(
+        self._evaluation_target = tk.StringVar(value="Saved PPO model")
+        self._policy_choice = tk.StringVar(value=POLICY_FILE)
+        ttk.Label(form, text="Controller").grid(
             row=0, column=0, sticky=tk.W, padx=(0, 6)
         )
-        ttk.Combobox(
+        self._target_selector = ttk.Combobox(
             form,
-            textvariable=self._test_backend,
-            values=BACKENDS,
+            textvariable=self._evaluation_target,
+            values=(
+                "Saved PPO model",
+                "Loaded portable model",
+                "NMPC",
+                "LQR",
+                "No-steering baseline",
+            ),
             state="readonly",
-            width=12,
-        ).grid(row=0, column=1, sticky=tk.EW, pady=1)
+        )
+        self._target_selector.grid(row=0, column=1, sticky=tk.EW, pady=1)
+        ttk.Label(form, text="Simulator").grid(
+            row=1, column=0, sticky=tk.W, padx=(0, 6)
+        )
+        backend_selector = ttk.Frame(form)
+        backend_selector.grid(row=1, column=1, sticky=tk.EW, pady=1)
+        self._test_backend_buttons: dict[str, ttk.Radiobutton] = {}
+        for column, backend in enumerate(BACKENDS):
+            backend_selector.columnconfigure(column, weight=1)
+            button = ttk.Radiobutton(
+                backend_selector,
+                text=backend.upper(),
+                variable=self._test_backend,
+                value=backend,
+            )
+            button.grid(row=0, column=column, sticky=tk.W, padx=(0, 12))
+            self._test_backend_buttons[backend] = button
+        self._test_entries: list[ttk.Entry] = []
         for row, (label, variable) in enumerate(
-            (("Episodes", self._episodes), ("Seed", self._test_seed)), start=1
+            (("Episodes", self._episodes), ("Seed", self._test_seed)), start=2
         ):
             ttk.Label(form, text=label).grid(
                 row=row, column=0, sticky=tk.W, padx=(0, 6)
             )
-            ttk.Entry(form, textvariable=variable, width=14).grid(
-                row=row, column=1, sticky=tk.EW, pady=1
-            )
-
-        policy = ttk.LabelFrame(tab, text="Policy", padding=6)
-        policy.pack(fill=tk.X, pady=6)
-        self._policy_choice = tk.StringVar(value=POLICY_LATEST)
-        self._policy_file = tk.StringVar()
-        for value, text in (
-            (POLICY_LATEST, "Latest training checkpoint"),
-            (POLICY_BUNDLE, "Loaded result bundle"),
-            (POLICY_BASELINE, "Untrained straight-reverse baseline"),
-            (POLICY_NMPC, "NMPC controller"),
-            (POLICY_LQR, "LQR trajectory controller"),
-            (POLICY_FILE, "Saved policy file (.zip):"),
-        ):
-            ttk.Radiobutton(
-                policy, text=text, value=value, variable=self._policy_choice
-            ).pack(anchor=tk.W)
-        self._bundle_text = tk.StringVar(value="No result bundle loaded")
-        ttk.Label(
-            policy, textvariable=self._bundle_text, foreground="#555555", wraplength=300
-        ).pack(anchor=tk.W)
-        chooser = ttk.Frame(policy)
-        chooser.pack(fill=tk.X)
-        ttk.Entry(chooser, textvariable=self._policy_file).pack(
-            side=tk.LEFT, fill=tk.X, expand=True
+            entry = ttk.Entry(form, textvariable=variable, width=14)
+            entry.grid(row=row, column=1, sticky=tk.EW, pady=1)
+            self._test_entries.append(entry)
+        self._render_test_3d = tk.BooleanVar(value=True)
+        self._test_render_button = ttk.Checkbutton(
+            form, text="Render live MuJoCo frames", variable=self._render_test_3d
         )
-        ttk.Button(
-            chooser, text="Browse\N{HORIZONTAL ELLIPSIS}", command=self._on_browse
-        ).pack(side=tk.LEFT, padx=(4, 0))
+        self._test_render_button.grid(
+            row=4, column=0, columnspan=2, sticky=tk.W, pady=(3, 0)
+        )
+        # Kept for the refresh-state code; selection is now one clear combobox.
+        self._policy_buttons: dict[str, ttk.Radiobutton] = {}
+        self._policy_file_entry = ttk.Entry(form, textvariable=self._policy_file)
 
         buttons = ttk.Frame(tab)
         buttons.pack(fill=tk.X)
@@ -650,12 +913,6 @@ class DockingApp:
             buttons, text="Stop", command=self._guard(self.controller.stop_test)
         )
         self._test_stop_button.pack(side=tk.LEFT, padx=4)
-        self._load_result_button = ttk.Button(
-            buttons,
-            text="Load result\N{HORIZONTAL ELLIPSIS}",
-            command=self._on_load_result,
-        )
-        self._load_result_button.pack(side=tk.LEFT)
         self._test_text = tk.StringVar()
         ttk.Label(
             tab,
@@ -674,6 +931,7 @@ class DockingApp:
         scrollbar.configure(command=self._results.xview)
         scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
         self._results.pack(fill=tk.BOTH, expand=True)
+        self._refresh_saved_models()
 
     # ---------------------------------------------------------------- view
 
@@ -720,8 +978,32 @@ class DockingApp:
 
         from PIL import Image, ImageTk
 
-        self._photo = ImageTk.PhotoImage(Image.fromarray(frame), master=self.root)
+        self._raw_3d_frame = frame
+        image = Image.fromarray(frame)
+        width = self._frame_3d.winfo_width() - 16
+        height = self._frame_3d.winfo_height() - 16
+        if width > 10 and height > 10:
+            image.thumbnail((width, height), Image.Resampling.LANCZOS)
+            self._rendered_3d_size = (width, height)
+        self._photo = ImageTk.PhotoImage(image, master=self.root)
         self._image_3d.configure(image=self._photo, text="")
+
+    def _on_3d_panel_resized(self, event: tk.Event) -> None:
+        """Debounce panel resizes and refit the latest frame without cropping."""
+
+        if self._raw_3d_frame is None or event.width <= 10 or event.height <= 10:
+            return
+        requested = (event.width - 16, event.height - 16)
+        if requested == self._rendered_3d_size:
+            return
+        if self._resize_3d_after_id is not None:
+            self.root.after_cancel(self._resize_3d_after_id)
+        self._resize_3d_after_id = self.root.after(75, self._refit_3d_frame)
+
+    def _refit_3d_frame(self) -> None:
+        self._resize_3d_after_id = None
+        if not self._closed and self._raw_3d_frame is not None:
+            self._show_frame(self._raw_3d_frame)
 
     def _preview_3d(self) -> None:
         """Render the idle scene; a failure becomes a message, not a dialog."""
@@ -732,6 +1014,7 @@ class DockingApp:
             )
         except ControllerError as error:
             self._photo = None
+            self._raw_3d_frame = None
             self._image_3d.configure(image="", text=str(error))
 
     def _on_route_toggled(self) -> None:
@@ -777,6 +1060,7 @@ class DockingApp:
             # earlier run or preview would look like the current one.
             self._shown_frame = None
             self._photo = None
+            self._raw_3d_frame = None
             self._image_3d.configure(
                 image="",
                 text="This run has no 3D picture.\n"
@@ -798,7 +1082,7 @@ class DockingApp:
         return run
 
     def _sync_parameter_fields(self) -> None:
-        for key, value in self.controller.parameter_values().items():
+        for key, value in self._ui_parameter_values().items():
             self._parameter_vars[key].set(value)
 
     def _on_apply(self) -> None:
@@ -845,9 +1129,71 @@ class DockingApp:
         if path:
             self._policy_file.set(path)
             self._policy_choice.set(POLICY_FILE)
+            self._evaluation_target.set("Saved PPO model")
+            self._bundle_text.set(f"Selected checkpoint: {path}")
+
+    def _refresh_saved_models(self) -> None:
+        """Rebuild the model browser from checkpoints already on disk."""
+
+        selected_path = (
+            self._policy_file.get().strip()
+            if hasattr(self, "_policy_file")
+            else ""
+        )
+        self._model_tree.delete(*self._model_tree.get_children())
+        self._saved_policy_paths.clear()
+        selected_item = ""
+        for index, policy in enumerate(self.controller.saved_policies()):
+            item = f"policy-{index}"
+            self._saved_policy_paths[item] = policy.path
+            self._model_tree.insert(
+                "",
+                tk.END,
+                iid=item,
+                values=(
+                    policy.experiment_id,
+                    policy.name,
+                    policy.backend or "?",
+                    policy.status or "?",
+                ),
+            )
+            if policy.path.as_posix() == selected_path:
+                selected_item = item
+        if selected_item:
+            self._model_tree.selection_set(selected_item)
+            self._model_tree.see(selected_item)
+        elif self._saved_policy_paths:
+            first = next(iter(self._saved_policy_paths))
+            self._model_tree.selection_set(first)
+            self._on_model_selected()
+        else:
+            self._bundle_text.set(
+                "No checkpoints found. Complete a training run or open a checkpoint."
+            )
+
+    def _on_model_selected(self, _event: object = None) -> None:
+        selected = self._model_tree.selection()
+        if not selected:
+            return
+        path = self._saved_policy_paths.get(selected[0])
+        if path is None:
+            return
+        self._policy_file.set(path.as_posix())
+        self._policy_choice.set(POLICY_FILE)
+        self._evaluation_target.set("Saved PPO model")
+        self._bundle_text.set(f"Selected checkpoint: {path}")
 
     def _on_start_training(self) -> None:
         def start() -> None:
+            # Reward fields are part of the scenario contract consumed by the
+            # environment. Apply exactly the fields shown on the training tab
+            # before creating the immutable training configuration.
+            self.controller.apply_parameters(
+                {
+                    key: self._parameter_vars[key].get()
+                    for key in TRAINING_REWARD_KEYS
+                }
+            )
             backends = tuple(
                 name
                 for name, chosen in (
@@ -859,18 +1205,74 @@ class DockingApp:
             episodes = _whole_number(
                 self._evaluation_episodes.get(), "Test episodes per run", minimum=0
             )
+            ppo = self._ppo_vars
             config = self.controller.make_training_config(
-                method=self._method.get(),
+                method="ppo",
                 backend=self._training_backend.get(),
                 runs=_whole_number(self._runs.get(), "Number of runs", minimum=1),
                 total_timesteps=_whole_number(
                     self._timesteps.get(), "Timesteps per run", minimum=1
                 ),
                 seed=_whole_number(self._training_seed.get(), "Seed", minimum=0),
+                learning_rate=_number(
+                    ppo["learning_rate"].get(), "Learning rate", minimum=0.0
+                ),
+                n_steps=_whole_number(
+                    ppo["n_steps"].get(), "Rollout steps", minimum=1
+                ),
+                batch_size=_whole_number(
+                    ppo["batch_size"].get(), "Batch size", minimum=1
+                ),
+                n_epochs=_whole_number(
+                    ppo["n_epochs"].get(), "Epochs per rollout", minimum=1
+                ),
+                gamma=_number(ppo["gamma"].get(), "Discount", minimum=0.0),
+                gae_lambda=_number(
+                    ppo["gae_lambda"].get(), "GAE lambda", minimum=0.0
+                ),
+                clip_range=_number(
+                    ppo["clip_range"].get(), "Policy clip range", minimum=0.0
+                ),
+                clip_range_vf=_optional_number(
+                    ppo["clip_range_vf"].get(),
+                    "Value clip range",
+                    minimum=0.0,
+                ),
+                normalize_advantage=self._normalize_advantage.get(),
+                entropy_coefficient=_number(
+                    ppo["entropy_coefficient"].get(),
+                    "Entropy coefficient",
+                    minimum=0.0,
+                ),
+                value_coefficient=_number(
+                    ppo["value_coefficient"].get(),
+                    "Value-loss coefficient",
+                    minimum=0.0,
+                ),
+                max_grad_norm=_number(
+                    ppo["max_grad_norm"].get(),
+                    "Maximum gradient norm",
+                    minimum=0.0,
+                ),
+                target_kl=_optional_number(
+                    ppo["target_kl"].get(), "Target KL", minimum=0.0
+                ),
+                device=self._device.get(),
+                max_episode_steps=_whole_number(
+                    self._max_episode_steps.get(), "Episode step limit", minimum=1
+                ),
+                checkpoint_interval=_whole_number(
+                    self._checkpoint_interval.get(),
+                    "Checkpoint interval",
+                    minimum=1,
+                ),
+                purpose=self._purpose.get().strip(),
                 evaluation_episodes=episodes if backends else 0,
                 evaluation_backends=backends or ("2d",),
             )
-            self.controller.start_training(config, show_3d=self._render_3d.get())
+            self.controller.start_training(
+                config, show_3d=self._render_training_3d.get()
+            )
 
         self._guard(start)()
 
@@ -899,6 +1301,7 @@ class DockingApp:
             bundle = self.controller.load_result(path)
             self._bundle_text.set(f"Loaded: {bundle.description()}")
             self._policy_choice.set(POLICY_BUNDLE)
+            self._evaluation_target.set("Loaded portable model")
             self._sync_parameter_fields()
             self._rebuild_view()
             self._status_bar.set(
@@ -916,8 +1319,19 @@ class DockingApp:
         def start() -> None:
             episodes = _whole_number(self._episodes.get(), "Episodes", minimum=1)
             seed = _whole_number(self._test_seed.get(), "Seed", minimum=0)
-            choice = self._policy_choice.get()
+            target = self._evaluation_target.get()
+            choice = {
+                "Saved PPO model": POLICY_FILE,
+                "Loaded portable model": POLICY_BUNDLE,
+                "NMPC": POLICY_NMPC,
+                "LQR": POLICY_LQR,
+                "No-steering baseline": POLICY_BASELINE,
+            }.get(target)
+            if choice is None:
+                raise ControllerError(f"unknown evaluation controller: {target}")
             policy_path: str | None = None
+            if choice == POLICY_BUNDLE and self.controller.loaded_bundle is None:
+                raise ControllerError("open a portable model first")
             if choice == POLICY_FILE:
                 policy_path = self._policy_file.get().strip()
                 if not policy_path:
@@ -936,7 +1350,7 @@ class DockingApp:
                     else "ppo"
                 ),
                 backend=self._test_backend.get(),
-                show_3d=self._render_3d.get(),
+                show_3d=self._render_test_3d.get(),
             )
 
         self._guard(start)()
@@ -963,6 +1377,14 @@ class DockingApp:
         if progress is not None and progress.total_timesteps > 0:
             fraction = min(progress.timesteps / progress.total_timesteps, 1.0)
         self._progress.configure(value=fraction)
+        checkpoint = None if progress is None else progress.checkpoint_path
+        checkpoint_key = None if checkpoint is None else str(checkpoint)
+        if (
+            not controller.busy
+            and checkpoint_key != self._last_model_refresh_checkpoint
+        ):
+            self._last_model_refresh_checkpoint = checkpoint_key
+            self._refresh_saved_models()
 
         testing = controller.test_status_lines()
         # The per-episode lines go in the list below; keep the summary short.
@@ -980,14 +1402,40 @@ class DockingApp:
         test_active = controller.test_status == "running"
         busy = controller.busy
         idle_state = tk.DISABLED if busy else tk.NORMAL
-        for button in (
+        for action_button in (
             self._apply_button,
             self._load_button,
             self._train_button,
             self._test_button,
             self._load_result_button,
         ):
-            button.configure(state=idle_state)
+            action_button.configure(state=idle_state)
+        controlled_widgets: tuple[Any, ...] = (
+            *self._training_backend_buttons.values(),
+            *self._test_backend_buttons.values(),
+            *self._policy_buttons.values(),
+            *self._training_entries,
+            *self._reward_entries,
+            *self._test_entries,
+            self._policy_file_entry,
+            self._browse_button,
+            self._refresh_models_button,
+            self._target_selector,
+            self._training_render_button,
+            self._test_render_button,
+        )
+        for controlled_widget in controlled_widgets:
+            controlled_widget.configure(state=idle_state)
+        evaluations_enabled = False
+        try:
+            evaluations_enabled = int(self._evaluation_episodes.get()) > 0
+        except ValueError:
+            evaluations_enabled = True
+        evaluation_state = (
+            tk.NORMAL if not busy and evaluations_enabled else tk.DISABLED
+        )
+        for evaluation_button in self._evaluation_buttons:
+            evaluation_button.configure(state=evaluation_state)
         self._export_button.configure(
             state=tk.NORMAL
             if not busy and controller.latest_bundle is not None
@@ -1012,6 +1460,8 @@ class DockingApp:
         self._closed = True
         if self._after_id is not None:
             self.root.after_cancel(self._after_id)
+        if self._resize_3d_after_id is not None:
+            self.root.after_cancel(self._resize_3d_after_id)
         self.controller.shutdown()
         if self._view is not None:
             import matplotlib.pyplot as plt

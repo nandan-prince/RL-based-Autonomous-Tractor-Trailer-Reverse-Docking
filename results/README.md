@@ -20,6 +20,11 @@ Large or regenerable outputs belong under ignored
 `artifacts/<experiment-id>/` paths. Record their locations and checksums in the
 manifest when they are needed for reproduction.
 
+Controlled PPO reward studies additionally store a top-level `study.yaml`, one
+validation CSV per condition/seed cell, `cells.csv`, and `summary.json`. Their
+validation results are tuning evidence and must not be relabeled as held-out
+test results.
+
 For MuJoCo runs, the manifest must include the complete resolved
 `MujocoTuning` values as well as vehicle/dock fingerprints and the Git revision.
 The tuning values are not currently included in the vehicle YAML fingerprint.
@@ -28,5 +33,6 @@ Never overwrite a completed result directory. Preserve meaningful failed or
 negative runs and label invalid implementation runs clearly. Every manuscript
 number, table, and experimental figure must identify the experiment IDs from
 which it was produced. No formal controller experiments have been recorded
-yet; generated LQR/NMPC demonstration videos under `artifacts/` are engineering
-visualizations, not reportable comparative evidence.
+yet in the tracked evidence set; generated LQR/NMPC demonstration videos and
+unregistered training campaigns are engineering artifacts, not reportable
+comparative evidence.

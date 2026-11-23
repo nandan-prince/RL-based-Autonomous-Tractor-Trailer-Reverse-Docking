@@ -79,12 +79,17 @@ the same for PPO, so the comparison stays fair:
 Command line:
 
 ```bash
-# 20 episodes in 2D, then the same seeds in 3D
+# 20 independent smoke-test episodes in each backend
 .venv/bin/python -m trailer_docking.training.cli test --nmpc --episodes 20
 .venv/bin/python -m trailer_docking.training.cli test --nmpc --episodes 20 --backend 3d
 
+# one paired set, resolved once and replayed in both backends
+.venv/bin/python -m trailer_docking.training.cli compare \
+    --controllers lqr,nmpc --backends 2d,3d --episodes 20 --seed 100000
+
 # full evaluation run with saved records (no training happens)
 .venv/bin/python -m trailer_docking.training.cli train --method nmpc \
+    --controller-config configs/controllers/baseline_controllers_v1.yaml \
     --eval-episodes 100 --eval-backends 2d,3d
 ```
 
@@ -99,8 +104,15 @@ maximum articulation, maneuver time, path length, steering-rate RMS, and mean
 controller time per step. Controller time is measured around `Controller.act`, so
 it is the online compute cost the proposal lists as a metric.
 
-For a like-for-like comparison, test PPO and NMPC with the same scenario file
-and the same `--seed`; episode `i` uses seed `seed + i` in both.
+The baseline horizon, costs, solver tolerance, and iteration limit now come
+from `configs/controllers/baseline_controllers_v1.yaml`; campaigns record the
+resolved mapping and fingerprint. Do not change Python defaults for an
+experiment-specific tuning choice---create a new named configuration file.
+
+For a like-for-like comparison, use `training.cli compare`. It resolves each
+seed into an explicit geometry, articulated start, and reference path once,
+then replays the same fingerprinted episode objects for every method/backend
+cell. Equal seed numbers alone are not the experimental pairing contract.
 
 ## Minimal skeleton
 

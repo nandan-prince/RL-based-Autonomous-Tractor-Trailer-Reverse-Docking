@@ -47,7 +47,7 @@ from trailer_docking.paths.planners import DEFAULT_PLANNER, validate_planner
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_VEHICLE_PATH = Path("configs/vehicles/compact_semitrailer_v1.yaml")
 DEFAULT_DOCK_PATH = Path("configs/environments/nominal_dock_v1.yaml")
-DEFAULT_TASK_PATH = Path("configs/environments/gymnasium_docking_v1.yaml")
+DEFAULT_TASK_PATH = Path("configs/environments/gymnasium_docking_v2.yaml")
 
 # Names of override fields that only the MuJoCo backend can represent.
 PHYSICS_ONLY_FIELDS = frozenset(
@@ -62,6 +62,22 @@ _TRAILER_DIMENSIONS = (
     "trailer_body_width",
 )
 _LIMIT_FIELDS = ("steering_angle_max", "steering_rate_max", "reverse_speed")
+_NONNEGATIVE_OVERRIDE_FIELDS = frozenset(
+    {
+        "path_lateral_weight",
+        "path_heading_weight",
+        "reward_progress",
+        "reward_time",
+        "reward_lateral_improvement",
+        "reward_heading_improvement",
+        "reward_articulation",
+        "reward_steering_rate",
+        "reward_success",
+        "reward_collision",
+        "reward_jackknife",
+        "reward_out_of_bounds",
+    }
+)
 
 
 def resolve_config_path(path: Path) -> Path:
@@ -119,15 +135,16 @@ class DomainRandomization:
     """Per-episode variation beyond the start pose; everything is off by default.
 
     ``trailer_hitch_to_axle`` is a ``(minimum, maximum)`` range in metres from
-    which each episode's trailer length is drawn.  ``observation_noise_std``
-    is the standard deviation of zero-mean Gaussian noise added to every
-    element of the normalized observation, which is then clipped to its
-    bounds.  The noise is in normalized observation units; it is not a model
-    of any particular sensor.
+    which each episode's trailer length is drawn. ``reference_planners`` is a
+    finite set of registered predefined path generators sampled once per
+    episode. ``observation_noise_std`` is the standard deviation of zero-mean
+    Gaussian noise added to every normalized observation element. The noise
+    is in normalized observation units; it is not a sensor model.
     """
 
     trailer_hitch_to_axle: tuple[float, float] | None = None
     observation_noise_std: float = 0.0
+    reference_planners: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         bounds = self.trailer_hitch_to_axle
@@ -158,12 +175,33 @@ class DomainRandomization:
                 "observation_noise_std must be finite and not negative"
             )
         object.__setattr__(self, "observation_noise_std", float(deviation))
+        planners = self.reference_planners
+        if planners is not None:
+            if isinstance(planners, str):
+                raise ConfigurationError(
+                    "reference_planners must be a sequence of planner names"
+                )
+            selected = tuple(planners)
+            if not selected:
+                raise ConfigurationError("reference_planners cannot be empty")
+            if len(set(selected)) != len(selected):
+                raise ConfigurationError("reference_planners cannot contain duplicates")
+            try:
+                selected = tuple(validate_planner(item) for item in selected)
+            except ValueError as error:
+                raise ConfigurationError(str(error)) from error
+            object.__setattr__(self, "reference_planners", selected)
 
     def to_dict(self) -> dict[str, Any]:
         bounds = self.trailer_hitch_to_axle
         return {
             "trailer_hitch_to_axle": None if bounds is None else list(bounds),
             "observation_noise_std": self.observation_noise_std,
+            "reference_planners": (
+                None
+                if self.reference_planners is None
+                else list(self.reference_planners)
+            ),
         }
 
 
@@ -184,6 +222,17 @@ class ScenarioOverrides:
     reverse_speed: float | None = None
     path_lateral_weight: float | None = None
     path_heading_weight: float | None = None
+    reward_progress: float | None = None
+    reward_time: float | None = None
+    reward_lateral_improvement: float | None = None
+    reward_lateral_deviation_multiplier: float | None = None
+    reward_heading_improvement: float | None = None
+    reward_articulation: float | None = None
+    reward_steering_rate: float | None = None
+    reward_success: float | None = None
+    reward_collision: float | None = None
+    reward_jackknife: float | None = None
+    reward_out_of_bounds: float | None = None
     tractor_chassis_mass: float | None = None
     trailer_body_mass: float | None = None
     ground_friction: float | None = None
@@ -201,8 +250,15 @@ class ScenarioOverrides:
             if isinstance(value, bool) or not isinstance(value, Real):
                 raise ConfigurationError(f"{item.name} must be a number")
             number = float(value)
-            if not isfinite(number) or number <= 0.0:
-                raise ConfigurationError(f"{item.name} must be finite and positive")
+            nonnegative = item.name in _NONNEGATIVE_OVERRIDE_FIELDS
+            invalid = number < 0.0 if nonnegative else number <= 0.0
+            if not isfinite(number) or invalid:
+                condition = (
+                    "finite and not negative"
+                    if nonnegative
+                    else "finite and positive"
+                )
+                raise ConfigurationError(f"{item.name} must be {condition}")
             object.__setattr__(self, item.name, number)
 
 
@@ -263,6 +319,22 @@ class Scenario:
             weights["reward_lateral_error"] = changes.path_lateral_weight
         if changes.path_heading_weight is not None:
             weights["reward_heading_error"] = changes.path_heading_weight
+        for field_name in (
+            "reward_progress",
+            "reward_time",
+            "reward_lateral_improvement",
+            "reward_lateral_deviation_multiplier",
+            "reward_heading_improvement",
+            "reward_articulation",
+            "reward_steering_rate",
+            "reward_success",
+            "reward_collision",
+            "reward_jackknife",
+            "reward_out_of_bounds",
+        ):
+            value = getattr(changes, field_name)
+            if value is not None:
+                weights[field_name] = value
         if weights:
             task = replace(task, **weights)
         if changes.trailer_variant is not None:
@@ -679,3 +751,10 @@ def sample_start(
         target_yaw + rng.uniform(*start.trailer_yaw),
         rng.uniform(*start.articulation),
     )
+
+
+def sample_reference_planner(scenario: Scenario, rng: random.Random) -> str:
+    """Select one registered planner using the episode's canonical RNG."""
+
+    choices = scenario.randomization.reference_planners
+    return scenario.planner if choices is None else rng.choice(choices)

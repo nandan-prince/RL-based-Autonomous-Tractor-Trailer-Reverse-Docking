@@ -225,7 +225,9 @@ class TrajectoryLQRController:
         return normalized_steering_rate(steering_rate, self.vehicle)
 
 
-def make_docking_controller(env: Any) -> TrajectoryLQRController:
+def make_docking_controller(
+    env: Any, configuration: LQRConfiguration | None = None
+) -> TrajectoryLQRController:
     """Build the LQR tracker for the episode's resolved vehicle geometry."""
 
-    return TrajectoryLQRController(env.built.vehicle)
+    return TrajectoryLQRController(env.built.vehicle, configuration)

@@ -328,7 +328,9 @@ class BasicNMPCController:
         return normalized_steering_rate(float(controls[0, 0]), self.vehicle)
 
 
-def make_docking_controller(env: Any) -> BasicNMPCController:
+def make_docking_controller(
+    env: Any, configuration: NMPCConfiguration | None = None
+) -> BasicNMPCController:
     """Build NMPC for the episode currently loaded by the campaign runner.
 
     The training framework calls this factory after every episode reset. That
@@ -337,5 +339,5 @@ def make_docking_controller(env: Any) -> BasicNMPCController:
     ``ControllerContext`` and validates every normalized action.
     """
 
-    controller = BasicNMPCController(env.built.vehicle)
+    controller = BasicNMPCController(env.built.vehicle, configuration)
     return controller

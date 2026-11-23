@@ -53,7 +53,7 @@ DEFAULT_DOCK_PATH = (
     REPOSITORY_ROOT / "configs" / "environments" / "nominal_dock_v1.yaml"
 )
 DEFAULT_TASK_PATH = (
-    REPOSITORY_ROOT / "configs" / "environments" / "gymnasium_docking_v1.yaml"
+    REPOSITORY_ROOT / "configs" / "environments" / "gymnasium_docking_v2.yaml"
 )
 
 
@@ -143,6 +143,8 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         self._x_bounds: Bounds1D
         self._y_bounds: Bounds1D
         self._previous_distance = 0.0
+        self._previous_lateral_distance = 0.0
+        self._previous_heading_distance = 0.0
         self._steps = 0
         self._episode_ended = False
         self._last_reward = 0.0
@@ -296,6 +298,11 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.obstacles,
         )
         self._previous_distance = self.tracking.distance_to_goal
+        lateral_scale = max(self.dock.geometry.interior_width, 1.0)
+        self._previous_lateral_distance = (
+            abs(self.tracking.lateral_error) / lateral_scale
+        )
+        self._previous_heading_distance = abs(self.tracking.trailer_heading_error)
         self._steps = 0
         self._episode_ended = False
         self._last_reward = 0.0
@@ -325,6 +332,15 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         progress = self._previous_distance - self.tracking.distance_to_goal
         lateral_scale = max(self.dock.geometry.interior_width, 1.0)
         heading = self.tracking.trailer_heading_error
+        lateral_distance = abs(self.tracking.lateral_error) / lateral_scale
+        lateral_improvement = self._previous_lateral_distance - lateral_distance
+        lateral_change_multiplier = (
+            1.0
+            if lateral_improvement >= 0.0
+            else self.settings.reward_lateral_deviation_multiplier
+        )
+        heading_distance = abs(heading)
+        heading_improvement = self._previous_heading_distance - heading_distance
         articulation = (
             state.articulation_angle / self.vehicle.limits.articulation_hard_abs_max
         )
@@ -335,6 +351,11 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             "lateral": -self.settings.reward_lateral_error
             * (self.tracking.lateral_error / lateral_scale) ** 2,
             "heading": -self.settings.reward_heading_error * heading**2,
+            "lateral_improvement": self.settings.reward_lateral_improvement
+            * lateral_change_multiplier
+            * lateral_improvement,
+            "heading_improvement": self.settings.reward_heading_improvement
+            * heading_improvement,
             "articulation": -self.settings.reward_articulation * articulation**2,
             "steering_rate": -self.settings.reward_steering_rate * steering_rate**2,
             "success": self.settings.reward_success if self.status.success else 0.0,
@@ -377,6 +398,11 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         reward = self._reward(state)
         self._last_reward = reward
         self._previous_distance = self.tracking.distance_to_goal
+        self._previous_lateral_distance = (
+            abs(self.tracking.lateral_error)
+            / max(self.dock.geometry.interior_width, 1.0)
+        )
+        self._previous_heading_distance = abs(self.tracking.trailer_heading_error)
         terminated = self.status.terminated
         truncated = not terminated and self._steps >= self.settings.max_episode_steps
         self._episode_ended = terminated or truncated

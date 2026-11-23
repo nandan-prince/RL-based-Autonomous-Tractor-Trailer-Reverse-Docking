@@ -682,6 +682,9 @@ class DockingTaskConfiguration:
     reward_time: float = 0.01
     reward_lateral_error: float = 0.5
     reward_heading_error: float = 0.2
+    reward_lateral_improvement: float = 0.0
+    reward_lateral_deviation_multiplier: float = 2.0
+    reward_heading_improvement: float = 0.0
     reward_articulation: float = 0.15
     reward_steering_rate: float = 0.02
     reward_success: float = 100.0
@@ -706,6 +709,9 @@ class DockingTaskConfiguration:
             "reward_time",
             "reward_lateral_error",
             "reward_heading_error",
+            "reward_lateral_improvement",
+            "reward_lateral_deviation_multiplier",
+            "reward_heading_improvement",
             "reward_articulation",
             "reward_steering_rate",
             "reward_success",
@@ -718,6 +724,10 @@ class DockingTaskConfiguration:
             invalid = not isfinite(value) or value < 0.0
             if invalid or (name in positive and value == 0.0):
                 raise ConfigurationError(f"{name} has an invalid value")
+        if self.reward_lateral_deviation_multiplier < 1.0:
+            raise ConfigurationError(
+                "reward_lateral_deviation_multiplier must be at least 1"
+            )
         if not isfinite(self.workspace_rear_padding) or self.workspace_rear_padding < 0:
             raise ConfigurationError("workspace_rear_padding has an invalid value")
         if self.workspace_outward_limit is not None and (
@@ -1206,12 +1216,20 @@ def load_docking_task_configuration(path: str | Path) -> DockingTaskConfiguratio
         "jackknife",
         "out_of_bounds",
     }
+    improvement_fields = {
+        "lateral_improvement",
+        "lateral_deviation_multiplier",
+        "heading_improvement",
+    }
+    specification_id = _text(data["specification_id"], "specification_id")
+    if specification_id == "gymnasium-docking-v2":
+        reward_fields.update(improvement_fields)
     _exact_keys(reward, reward_fields, "reward")
     previews = _numbers(
         observation["preview_distances"], "observation.preview_distances"
     )
     return DockingTaskConfiguration(
-        specification_id=_text(data["specification_id"], "specification_id"),
+        specification_id=specification_id,
         schema_version=_integer(data["schema_version"], "schema_version"),
         start_standoff=_number(scenario["start_standoff"], "scenario.start_standoff"),
         workspace_lateral_half_width=_number(
@@ -1238,6 +1256,24 @@ def load_docking_task_configuration(path: str | Path) -> DockingTaskConfiguratio
         reward_time=_number(reward["time"], "reward.time"),
         reward_lateral_error=_number(reward["lateral_error"], "reward.lateral_error"),
         reward_heading_error=_number(reward["heading_error"], "reward.heading_error"),
+        reward_lateral_improvement=(
+            _number(reward["lateral_improvement"], "reward.lateral_improvement")
+            if "lateral_improvement" in reward
+            else 0.0
+        ),
+        reward_lateral_deviation_multiplier=(
+            _number(
+                reward["lateral_deviation_multiplier"],
+                "reward.lateral_deviation_multiplier",
+            )
+            if "lateral_deviation_multiplier" in reward
+            else 2.0
+        ),
+        reward_heading_improvement=(
+            _number(reward["heading_improvement"], "reward.heading_improvement")
+            if "heading_improvement" in reward
+            else 0.0
+        ),
         reward_articulation=_number(reward["articulation"], "reward.articulation"),
         reward_steering_rate=_number(reward["steering_rate"], "reward.steering_rate"),
         reward_success=_number(reward["success"], "reward.success"),

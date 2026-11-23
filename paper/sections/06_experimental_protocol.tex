@@ -1,15 +1,34 @@
 \section{Experimental Protocol}
 
-\planned{} Experiments will be identified by immutable IDs and linked to a
+\implemented{} The experiment infrastructure identifies formal comparisons by
+immutable IDs and links them to a
 versioned configuration, Git state, dependency versions, vehicle and dock
 fingerprints, seeds, output paths, validity status, and interpretation notes.
 MuJoCo runs will additionally store the complete resolved tuning values because
 those values are not part of the version-1 vehicle fingerprint.
 Large checkpoints and trajectories will remain outside the tracked manuscript,
 while compact metrics, summaries, and reproducible figures will be retained.
+The version-1 suite assigns training seeds 0--2, validation episodes beginning
+at seed 100000, and a disjoint 100-episode final test range beginning at seed
+200000. These are split definitions, not completed experiments. Validation may
+guide tuning; the held-out range must remain untouched until the condition is
+frozen.
+
+\implemented{} Reward tuning can be executed as a controlled study rather than
+as unrelated training commands. Conditions are constructed from one base
+mixed-curve scenario and may change only declared reward coefficients. Every
+condition is trained on the same selected seed set and validated on the same
+physical starts, geometries, and sampled curve templates. Because a reward
+change alters the scenario fingerprint, both full episode fingerprints and
+reward-independent physical-input fingerprints are retained. Validation
+results may select a condition but are not held-out test evidence.
 
 The primary comparison will evaluate PPO and NMPC on identical held-out starts,
 target docks, geometry, plant limits, state availability, and safety definitions.
+The implemented episode resolver freezes each sampled geometry, articulated
+start state, and reference path under a content fingerprint, and the comparison
+runner replays that episode set for every selected method and plant. Thus the
+pairing mechanism exists even though the held-out study has not yet been run.
 Methodological asymmetries will be stated explicitly: NMPC receives an explicit
 prediction model, while PPO receives training experience and a selected
 observation representation. Offline training/tuning cost will be separated

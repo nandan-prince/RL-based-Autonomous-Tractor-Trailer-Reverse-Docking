@@ -52,12 +52,12 @@ LiDAR mapping, visual dock-number recognition, advanced global planning, and dyn
 │   │   ├── kinematic/          # Fast deterministic 2D backend
 │   │   └── mujoco/             # MuJoCo adapter, models, scenes, and assets
 │   ├── environments/           # Gymnasium task over the 2D or MuJoCo plant
-│   ├── evaluation/             # Editable scenarios (metrics and runner are placeholders)
-│   ├── training/               # PPO runs and campaigns, tests, bundles, CLI
+│   ├── evaluation/             # Resolved episodes, suites, metrics, and runners
+│   ├── training/               # PPO campaigns, curricula, studies, bundles, CLI
 │   ├── ui/                     # Control UI: parameters, training, tests, display
 │   ├── visualization/          # Top-down view, MuJoCo viewer, offscreen 3D frames
 │   ├── validation/             # Executable specification conformance report
-│   └── controllers/            # Placeholders; NMPC plugs in here
+│   └── controllers/            # Shared interface plus PPO, LQR, and NMPC adapters
 └── tests/                      # Unit and integration tests
 ```
 
@@ -136,10 +136,64 @@ These systems reinforce the project’s modular design: perception and localizat
   policy as a portable bundle that can be loaded in a fresh simulator
 - NMPC selectable through the same training CLI and UI integration hook; PPO,
   LQR, and NMPC share the fixed-reverse steering-rate plant contract
-- These are working vertical slices, not comparative results: PPO tuning,
-  curved/randomized validation, and formal paired experiments remain planned
+- Fingerprinted resolved episodes freeze geometry, start state, and reference
+  path once for paired controller/backend comparisons
+- PPO rollout and optimization hyperparameters plus every reward term are
+  explicit validated configuration values and are recorded with each run
+- The current version-2 PPO task adds dense trailer-tail and heading-error
+  improvement rewards while preserving the original version-1 task for
+  reproducible comparison; whether it learns faster remains untested
+- LQR/NMPC settings, train/validation/test seed ownership, formal comparison
+  evidence, and a gated three-stage PPO curriculum are versioned and tested
+- Three smooth predefined curve templates, deterministic mixed-path sampling,
+  a shortened straight-to-curved PPO curriculum, and a controlled multi-seed
+  reward-study runner are implemented and software-tested
+- These are working infrastructure and vertical slices, not comparative
+  results: the full curved curriculum, reward study, curved/randomized
+  validation, and frozen held-out experiment remain to be run
 - Living IEEE-format LaTeX report updated through the combined controller and
   learning-pipeline milestone
+
+## Teammate handoff: install and test
+
+Pull this branch, enter the repository root, and create a clean environment:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e '.[dev,mujoco,viz,train,control]'
+```
+
+Run the high-value acceptance checks first:
+
+```bash
+.venv/bin/python -m trailer_docking.validation.vehicle_spec
+.venv/bin/pytest tests/integration/test_control_capability_matrix.py -q
+.venv/bin/pytest tests/integration/gymnasium \
+  tests/integration/test_backends_and_randomization.py -q
+.venv/bin/pytest tests/integration/mujoco \
+  tests/integration/test_kinematic_mujoco_parity.py -q
+```
+
+Then open the desktop workflow with the current curved scenario:
+
+```bash
+.venv/bin/python -m trailer_docking.ui.app \
+  --scenario configs/scenarios/curved_docking_mixed_v2.yaml
+```
+
+Use the **Train PPO** tab for one controlled campaign, **Models & Evaluate** to
+run a saved PPO policy, LQR, or NMPC in either plant, and **Advanced scenario**
+for geometry/start/path changes. Begin policy diagnosis in 2D, keep PPO's
+learning rate at `0.0003`, and disable live MuJoCo rendering for long 3D runs.
+The version-2 reward is an unvalidated hypothesis; do not report a smoke run as
+evidence that it improves learning.
+
+Training writes checkpoints and portable bundles under ignored `artifacts/`.
+It also writes compact run records under `results/`; keep exploratory result
+directories local unless the run has a deliberate immutable experiment ID,
+configuration, notes, and valid interpretation. See [tests/README.md](tests/README.md)
+for the complete acceptance sequence and
+[results/README.md](results/README.md) before committing outputs.
 
 ## Vehicle-core verification
 
@@ -174,7 +228,7 @@ status and commands in place rather than adding a separate guide.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e '.[dev,mujoco,viz]'
+.venv/bin/pip install -e '.[dev,mujoco,viz,train,control]'
 ```
 
 On Windows use `py -3.12 -m venv .venv` and replace `.venv/bin/` with
@@ -346,15 +400,28 @@ One window sets the parameters, runs either simulator, and displays the run.
 .venv/bin/python -m trailer_docking.ui.app
 ```
 
-The left side has three tabs (**Scenario**, **Training**, **Docking test**).
+The left side is organized by workflow:
+
+1. **Train PPO** sets the run, PPO optimizer, and reward configuration.
+2. **Models & Evaluate** finds checkpoints from earlier sessions and evaluates
+   a selected PPO model, NMPC, LQR, or the no-steering baseline.
+3. **Advanced scenario** edits geometry, paths, start distributions,
+   randomization, physics, and obstacles.
+
 The right side is the display, with two tabs:
 
 - **Top-down** draws the shared planar state, so it shows 2D and 3D runs alike.
 - **3D view (MuJoCo)** shows the rendered 3D scene: a preview of the current
   scenario when idle, and the live episode while a 3D run is in progress.
-  Untick **Render 3D runs** to train in 3D at full speed without pictures.
+  Live rendering is a separate option for training and evaluation. Leave it
+  off during long 3D training runs for substantially better throughput.
 
-The **Scenario** tab edits a scenario: the frozen vehicle, dock, and task
+Only PPO appears in **Train PPO**, because NMPC and LQR do not learn parameters.
+All three controllers can be run on both simulators from **Models & Evaluate**. The
+complete supported/unsupported matrix and control semantics are recorded in
+the [control UI capability matrix](docs/design/control-ui-capability-matrix.md).
+
+The **Advanced scenario** tab edits a scenario: the frozen vehicle, dock, and task
 specifications plus a set of overrides. **Apply** rebuilds the scene;
 **Save scenario…** writes it to its own YAML file. The frozen specification
 files are never modified.
@@ -362,24 +429,29 @@ files are never modified.
 | Group | Parameters | Affects |
 |---|---|---|
 | Dock | Interior width and depth | 2D and 3D |
-| Route | Route planner (`entry` or `astar`); reward weights for staying on the route and aligning to it | 2D and 3D |
+| Route | Route planner (`entry`, `astar`, or a predefined smooth curve); reward weights for staying on the route and aligning to it | 2D and 3D |
+| Reward | Progress, time, articulation, steering, success, collision, jackknife, and boundary weights | 2D and 3D |
 | Vehicle | Trailer variant; tractor wheelbase and body width; trailer hitch-to-axle length, rear overhang, and body width | 2D and 3D |
 | Limits | Maximum steering angle and steering rate; reverse speed | 2D and 3D |
 | Physics (3D only) | Tractor and trailer mass, ground friction | 3D only |
 | Start pose | Standoff, lateral offset, trailer yaw, articulation ranges | 2D and 3D |
-| Randomization | Trailer length drawn per episode; observation noise | 2D and 3D |
+| Randomization | Trailer length drawn per episode; observation noise; configured path-template sets | 2D and 3D |
 | Obstacles | Static boxes in the yard | 2D and 3D |
 
 The **route planner** produces each episode's reference route from the start
 pose to the dock. `entry` is the default: straight along the bay centreline,
 joined through a point just outside the opening. `astar` is a basic
-path-finding planner: an A* grid search that routes the trailer's docking
-point around the dock walls. Both are geometric and do not check that the
-truck can follow the route in reverse; further planners register in
+path-finding planner that routes the docking point around dock walls.
+`curve_gentle`, `curve_early`, and `curve_late` are sampled cubic templates
+with aligned endpoint tangents and different transition locations. A scenario
+may sample a configured set of those templates once per episode. All planners
+are geometric and do not prove that the articulated vehicle can follow the
+route safely in reverse; further planners register in
 `paths/planners.py` and then appear in this list. The reward already
 penalizes leaving the route (squared lateral and heading deviation from it),
-and the two **Reward** fields set how strongly; blank keeps the task file's
-weights (0.5 and 0.2).
+and the two **Route** fields set how strongly; blank keeps the task file's
+weights (0.5 and 0.2). The separate **Reward** group exposes every remaining
+term. Zero deliberately disables a term for a controlled reward ablation.
 
 **Obstacles** are static boxes. Tick **Click the map to place** and click the
 top-down view where each box should go; its length, width, height, and turn
@@ -407,24 +479,42 @@ bay deeper than the nominal 6 m), or a start range that begins in a wall.
 
 ### 8. Train and get a finished result — Available
 
-On the **Training** tab choose:
+On **Train PPO**, the **Run** page selects the simulator, budget, seed,
+checkpoint interval, device, evaluation settings, and number of independent
+runs. The **PPO** page exposes every Stable-Baselines3 setting passed by this
+project: learning rate, rollout size, batch size, optimization epochs,
+discount, GAE, policy/value clipping, advantage normalization, entropy/value
+coefficients, gradient clipping, and target KL. The **Rewards** page exposes
+the effective path, progress, time, articulation, steering, success, collision,
+jackknife, and workspace coefficients. These displayed values are the values
+saved with the scenario and run; they are not hidden library defaults.
+
+The current `gymnasium-docking-v2` reward also exposes **Tail moves toward
+path**, **Tail deviation penalty multiplier**, and **Heading improvement**.
+The defaults reward normalized tail-distance reduction by `5.0`, charge
+worsening at `2.0` times that rate, and reward reduction in absolute trailer
+heading error by `1.0`. The original absolute lateral/heading and articulation
+penalties remain active. These values are an initial reward-design hypothesis,
+not a demonstrated optimum.
+
+The core run controls are:
 
 | Setting | Meaning |
 |---|---|
-| Method | `ppo` trains a policy. `nmpc` has nothing to train, so it only runs the tests (available once the NMPC controller is implemented) |
 | Simulator | `2d` (kinematic, fast) or `3d` (MuJoCo) for training |
-| Number of runs | How many times to repeat training, with consecutive seeds |
-| Timesteps per run | PPO budget of each run |
-| Test episodes per run, 2D / 3D | After each run the final policy is tested on the ticked simulators, on the same start poses for every run |
+| Independent runs | How many times to repeat training, with consecutive seeds |
+| Timesteps | PPO budget of each run |
+| Save every N steps | Checkpoint interval; the final policy is always saved |
+| Evaluate after training, 2D / 3D | After each run the final policy is tested on the selected simulators, on the same start poses for every run |
 
-Press **Start**. The display shows the episodes as they happen, and the status
+Press **Start training**. The display shows the episodes as they happen, and the status
 panel reports the run in progress, recent success rate, and each finished
 run's test results. **Stop** ends the work cleanly.
 
 When the runs finish, the best one (highest test success rate, then mean
 reward, on the first ticked simulator; the first run if none was tested) is
 written as a single portable file,
-`artifacts/<campaign-id>/policy_bundle.dockpolicy.zip`. **Export result…**
+`artifacts/<campaign-id>/policy_bundle.dockpolicy.zip`. **Save portable model…**
 copies it wherever you choose. The bundle contains the policy and the scenario
 it was trained on. Loading a bundle or policy file reads only its network
 weights and plain-text metadata, never pickled objects, so a file received
@@ -436,6 +526,115 @@ The same thing without the UI:
 .venv/bin/python -m trailer_docking.training.cli train \
     --runs 3 --timesteps 200000 --backend 2d --eval-episodes 20 --eval-backends 2d,3d
 ```
+
+The PPO settings are not hidden library defaults. They can be changed from the
+CLI and are written to the run manifest, for example:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli train \
+    --timesteps 200000 --learning-rate 0.0003 \
+    --n-steps 1024 --batch-size 256 --n-epochs 10 \
+    --gamma 0.99 --gae-lambda 0.95 --clip-range 0.2 \
+    --entropy-coefficient 0.0 --value-coefficient 0.5 \
+    --max-grad-norm 0.5 --device cpu
+```
+
+Run paired controller cells on exactly the same resolved episodes with:
+
+```bash
+# LQR and NMPC on one frozen 2D episode set
+.venv/bin/python -m trailer_docking.training.cli compare \
+    --controllers lqr,nmpc --backends 2d --episodes 20 --seed 100000
+
+# Add a trained PPO policy and replay the same set in both plants
+.venv/bin/python -m trailer_docking.training.cli compare \
+    --controllers lqr,nmpc,ppo --policy PATH/policy_final.zip \
+    --backends 2d,3d --episodes 20 --seed 100000
+```
+
+The command prints the stable episode fingerprints used by every cell. To
+create a formal validation evidence package with the versioned controller
+settings and experiment suite:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli compare \
+    --scenario PATH/scenario.yaml \
+    --suite configs/experiments/compact_docking_suite_v1.yaml \
+    --split validation \
+    --controllers lqr,nmpc,ppo \
+    --policy PATH/policy_final.zip \
+    --controller-config configs/controllers/baseline_controllers_v1.yaml \
+    --backends 2d \
+    --save-results \
+    --purpose validation-controller-comparison
+```
+
+This writes an immutable configuration under `configs/experiments/` and the
+manifest, per-episode metrics, summary, and caveats under `results/`. Reserve
+`--split test` for the final frozen condition; do not tune against it.
+
+Run the configured PPO curriculum with:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli curriculum \
+    --config configs/training/ppo_curriculum_v1.yaml
+```
+
+It trains aligned straight reverse, then perturbed reverse, then randomized
+docking, advancing only when the validation success gate passes. To continue
+from a chosen checkpoint at a later stage:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli curriculum \
+    --config configs/training/ppo_curriculum_v1.yaml \
+    --start-stage 1 \
+    --initial-policy PATH/policy_final.zip
+```
+
+This continuation loads policy weights safely but resets PPO optimizer and
+schedule state. It is a warm start, not an exact interrupted-run resume. The
+curriculum CLI is headless; use the control UI for live single-condition 3D
+training. See the
+[experiment and curriculum contract](docs/design/experiment-and-curriculum.md).
+
+To move quickly from the straight warm-up into mixed predefined curves:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli curriculum \
+    --config configs/training/ppo_curved_curriculum_v1.yaml
+```
+
+If you already have an acceptable straight-policy checkpoint, skip the warm-up
+and begin at the first curved stage:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli curriculum \
+    --config configs/training/ppo_curved_curriculum_v1.yaml \
+    --start-stage 1 \
+    --initial-policy PATH/policy_final.zip
+```
+
+For a single exploratory PPO campaign instead of the gated curriculum:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli train \
+    --scenario configs/scenarios/curved_docking_mixed_v2.yaml \
+    --timesteps 150000 --runs 1 --seed 0
+```
+
+To compare named reward variants on the same curved-path distribution,
+training seeds, PPO settings, and validation inputs:
+
+```bash
+.venv/bin/python -m trailer_docking.training.cli reward-study \
+    --config configs/training/ppo_curved_reward_study_v1.yaml \
+    --initial-policy PATH/policy_final.zip
+```
+
+The initial policy is optional, but supplying the same straight-policy
+checkpoint to every condition makes the reward study a controlled warm-start
+experiment. Edit a copied, newly named study YAML to change reward conditions;
+do not overwrite a configuration already associated with results.
 
 Every run writes its own `results/<id>/manifest.yaml` and `metrics.csv`, and
 the campaign writes `results/<campaign-id>/manifest.yaml`, `summary.json`, and
@@ -451,18 +650,20 @@ task's, and the 3D simulator's episode events have not been validated against
 2D. Treat every run as a pipeline check until it is registered as an
 experiment with a held-out evaluation.
 
-_Not implemented: curriculum, parallel environments, resuming a run, and
-TensorBoard._
+_Not implemented: parallel environments, exact optimizer-state resume,
+curriculum visualization in the UI, and TensorBoard._
 
 ### 9. Load a result and run it in a fresh simulator — Available
 
-On the **Docking test** tab press **Load result…** and pick a bundle. The UI
-adopts the scenario stored in it. Choose the simulator (`2d` or `3d`), the
-number of episodes, and press **Run test**: a new simulator is built and the
-policy drives it. A policy trained in 2D can be run in 3D and the reverse.
+The **Models & Evaluate** tab automatically lists raw PPO checkpoints under
+`artifacts/*/checkpoints/`, including models produced before the UI was
+opened. Select one, or use **Open checkpoint…** for a checkpoint elsewhere.
+**Open portable model…** loads a `.dockpolicy.zip` bundle and adopts its saved
+scenario. Choose the controller, simulator, episode count, and seed, then
+press **Run test**. A policy trained in 2D can be run in 3D and the reverse.
 
-The same tab also tests the latest checkpoint, a raw `.zip` policy, the
-untrained straight-reverse baseline, or the NMPC controller. Each episode is
+The same tab tests a selected PPO model, portable bundle, no-steering baseline,
+NMPC, or LQR. Each episode is
 listed with its outcome (success, collision, jackknife, out of bounds, time
 limit) and final errors.
 

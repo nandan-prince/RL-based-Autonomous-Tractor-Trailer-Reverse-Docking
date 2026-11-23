@@ -14,6 +14,7 @@ from __future__ import annotations
 import random
 from collections.abc import Callable
 from dataclasses import replace
+from math import isclose
 from typing import Any, cast
 
 import gymnasium as gym
@@ -25,12 +26,16 @@ from trailer_docking.environments.docking_env import (
     Backend,
     TrailerDockingEnv,
 )
+from trailer_docking.evaluation.episodes import ResolvedEpisode
 from trailer_docking.evaluation.scenarios import (
     BuiltScenario,
     Scenario,
+    sample_reference_planner,
     sample_start,
 )
+from trailer_docking.paths.planners import plan_reference
 from trailer_docking.paths.reference import ReferencePath
+from trailer_docking.simulators.kinematic import KinematicSimulator
 from trailer_docking.training.config import validate_backend
 
 OUTCOME_SUCCESS = "success"
@@ -93,6 +98,8 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
         self._start_rng = random.Random(0)
         self._noise_rng = np.random.default_rng(0)
         self._frame_renderer: Any = None
+        self._resolved_episode: ResolvedEpisode | None = None
+        self._reference_planner = self.scenario.planner
         self._steps = 0
         self.built: BuiltScenario = self.scenario.build()
         # The task's own fingerprints describe the base specifications only;
@@ -151,9 +158,36 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
         self.built = episode.build()
         self.task_env = self._make_task_env(self.built)
 
-    def _annotate(self, info: dict[str, Any]) -> None:
+    def _use_resolved_vehicle(self, episode: ResolvedEpisode) -> None:
+        """Build the exact geometry frozen in a replayed episode when needed."""
+
+        current = self.built.vehicle.trailer.hitch_to_axle
+        if isclose(current, episode.trailer_hitch_to_axle, abs_tol=1e-12):
+            return
+        fixed = replace(
+            self.scenario,
+            overrides=replace(
+                self.scenario.overrides,
+                trailer_hitch_to_axle=episode.trailer_hitch_to_axle,
+            ),
+            randomization=replace(
+                self.scenario.randomization, trailer_hitch_to_axle=None
+            ),
+        )
+        self._close_renderer()
+        self.task_env.close()
+        self.built = fixed.build()
+        self.task_env = self._make_task_env(self.built)
+
+    def _annotate(
+        self, info: dict[str, Any], episode: ResolvedEpisode | None = None
+    ) -> None:
         info["scenario_fingerprint"] = self.scenario_fingerprint
         info["trailer_hitch_to_axle"] = self.built.vehicle.trailer.hitch_to_axle
+        info["planner"] = self._reference_planner
+        if episode is not None:
+            info["episode_seed"] = episode.seed
+            info["episode_fingerprint"] = episode.episode_fingerprint
 
     def _noisy(self, observation: Observation) -> Observation:
         deviation = self.scenario.randomization.observation_noise_std
@@ -197,22 +231,59 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[Observation, dict[str, Any]]:
+        chosen = dict(options or {})
+        resolved = chosen.pop("resolved_episode", None)
+        if resolved is not None and not isinstance(resolved, ResolvedEpisode):
+            raise ValueError("options['resolved_episode'] must be ResolvedEpisode")
+        if resolved is not None:
+            if resolved.scenario_fingerprint != self.scenario_fingerprint:
+                raise ValueError("resolved episode belongs to a different scenario")
+            if seed is not None and seed != resolved.seed:
+                raise ValueError("reset seed does not match resolved episode seed")
+            seed = resolved.seed
+        self._resolved_episode = resolved
         super().reset(seed=seed)
         # Only an explicit seed restarts the random sequences; unseeded resets
         # continue them, so a run is reproducible from its first seed.
         if seed is not None:
             self._start_rng = random.Random(seed)
             self._noise_rng = np.random.default_rng(seed)
-        self._randomize_vehicle()
-        chosen = dict(options or {})
+        if resolved is not None:
+            self._use_resolved_vehicle(resolved)
+            chosen.update(resolved.reset_options())
+            self._reference_planner = resolved.reference_planner
+        else:
+            self._randomize_vehicle()
         if "tractor_pose" not in chosen:
             tractor_pose, trailer_yaw = sample_start(
                 self.scenario, self.built, self._start_rng
             )
             chosen["tractor_pose"] = tractor_pose
             chosen["trailer_yaw"] = trailer_yaw
+        if "reference_path" not in chosen:
+            self._reference_planner = sample_reference_planner(
+                self.scenario, self._start_rng
+            )
+            steering = float(chosen.get("steering_angle", 0.0))
+            trailer_yaw = float(
+                chosen.get("trailer_yaw", chosen["tractor_pose"].yaw)
+            )
+            state = KinematicSimulator(self.built.vehicle).reset(
+                chosen["tractor_pose"],
+                trailer_yaw,
+                steering_angle=steering,
+            )
+            chosen["reference_path"] = plan_reference(
+                self._reference_planner,
+                self.built.vehicle.geometry,
+                self.built.dock.geometry,
+                state,
+                self.built.obstacles,
+            )
+        elif resolved is None:
+            self._reference_planner = "explicit"
         observation, info = self.task_env.reset(seed=seed, options=chosen)
-        self._annotate(info)
+        self._annotate(info, resolved)
         self._steps = 0
         if self.on_route is not None:
             self.on_route(self.task_env.path)
@@ -223,7 +294,7 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
         self, action: Observation
     ) -> tuple[Observation, float, bool, bool, dict[str, Any]]:
         observation, reward, terminated, truncated, info = self.task_env.step(action)
-        self._annotate(info)
+        self._annotate(info, self._resolved_episode)
         self._steps += 1
         self._publish(force_frame=terminated or truncated)
         return self._noisy(observation), float(reward), terminated, truncated, info

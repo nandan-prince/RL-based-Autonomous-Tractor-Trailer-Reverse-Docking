@@ -26,6 +26,7 @@ from trailer_docking.controllers.base import (
 )
 from trailer_docking.controllers.ppo import PPOController
 from trailer_docking.core.state import VehicleState
+from trailer_docking.evaluation.episodes import ResolvedEpisode
 from trailer_docking.evaluation.scenarios import Scenario
 from trailer_docking.training.config import validate_backend
 from trailer_docking.training.methods import ControllerFactory
@@ -60,6 +61,8 @@ class EpisodeResult:
     steering_rate_rms: float = 0.0
     controller: str = ""
     solve_failures: int = 0
+    episode_seed: int | None = None
+    episode_fingerprint: str = ""
     # Wall-clock time differs between identical rollouts.
     mean_policy_time_ms: float = field(default=0.0, compare=False)
 
@@ -78,13 +81,20 @@ def straight_reverse_policy(observation: np.ndarray) -> np.ndarray:
 def load_policy(path: str | Path) -> Policy:
     """Load a Stable-Baselines3 PPO ``.zip`` as a deterministic policy."""
 
+    source = resolve_policy_path(path)
+    return policy_from_bytes(source.read_bytes())
+
+
+def resolve_policy_path(path: str | Path) -> Path:
+    """Return the actual PPO archive path, accepting an omitted ``.zip`` suffix."""
+
     source = Path(path)
     if not source.is_file():
         zipped = source.with_name(source.name + ".zip")
         if not zipped.is_file():
             raise FileNotFoundError(f"policy file not found: {source}")
         source = zipped
-    return policy_from_bytes(source.read_bytes())
+    return source
 
 
 class PolicyFormatError(ValueError):
@@ -185,6 +195,7 @@ def run_docking_test(
     on_frame: Callable[[Any], None] | None = None,
     should_stop: Callable[[], bool] | None = None,
     controller_factory: ControllerFactory | None = None,
+    resolved_episodes: Sequence[ResolvedEpisode] | None = None,
 ) -> list[EpisodeResult]:
     """Run ``episodes`` episodes of ``policy`` and return their results.
 
@@ -205,6 +216,8 @@ def run_docking_test(
 
     if episodes < 1:
         raise ValueError("episodes must be at least 1")
+    if resolved_episodes is not None and len(resolved_episodes) != episodes:
+        raise ValueError("resolved_episodes length must equal episodes")
     if (policy is None) == (controller_factory is None):
         raise ValueError("give either a policy or a controller_factory")
 
@@ -229,7 +242,12 @@ def run_docking_test(
         for index in range(episodes):
             if stopping():
                 break
-            observation, info = env.reset(seed=seed + index)
+            resolved = (
+                None if resolved_episodes is None else resolved_episodes[index]
+            )
+            episode_seed = seed + index if resolved is None else resolved.seed
+            options = None if resolved is None else {"resolved_episode": resolved}
+            observation, info = env.reset(seed=episode_seed, options=options)
             controller: Controller
             if policy is not None:
                 controller = PPOController(policy)
@@ -289,6 +307,8 @@ def run_docking_test(
                     steering_rate_rms=sqrt(rate_squares / steps),
                     controller=controller.name,
                     solve_failures=int(getattr(controller, "solve_failures", 0)),
+                    episode_seed=info.get("episode_seed", episode_seed),
+                    episode_fingerprint=str(info.get("episode_fingerprint", "")),
                     mean_policy_time_ms=1000.0 * policy_seconds / steps,
                 )
             )

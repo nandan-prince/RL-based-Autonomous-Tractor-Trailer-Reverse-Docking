@@ -47,10 +47,18 @@ plant command per step. Its primary action is normalized steering rate at the
 fixed reverse-speed target. A separate two-action teleoperation mode adds speed
 authority for manual debugging without changing the research action contract.
 The reward combines progress with penalties for time, lateral and heading
-error, articulation, and steering rate, plus explicit terminal terms. Every
-component is returned in the diagnostic information and versioned in a strict
-task configuration. Success, collision, jackknife, workspace exit, and timeout
-are evaluated independently of reward.
+error, articulation, and steering rate, plus explicit terminal terms. The
+version-2 task additionally defines $d_t=|e_{y,t}|/w_{\mathrm{bay}}$ from the
+trailer rear docking point and adds a dense change term
+$w_{\Delta d}q_t(d_{t-1}-d_t)$, where $q_t=1$ when distance decreases and
+$q_t=2$ when it increases. A second change term rewards reduction in absolute
+trailer-heading error. Absolute tracking and safety terms remain active, so
+oscillation cannot earn a positive cycle merely by repeatedly approaching and
+leaving the path. Every component is returned in the diagnostic information
+and versioned in a strict task configuration. Success, collision, jackknife,
+workspace exit, and timeout are evaluated independently of reward. The new
+weights are engineering hypotheses and have not been shown to improve
+learning.
 
 The compact registered task remains the controller-comparison baseline. The
 full-size interactive task is selected explicitly by separate vehicle, dock,
@@ -84,8 +92,9 @@ and discrete-dynamics constraints, applies the first input, warm-starts the next
 solve, and reports solve failures. Collision is evaluated by the environment
 but is not yet a prediction constraint. Curved-path, randomized-start,
 obstacle, solver-failure, and timing validation remain planned before NMPC is
-used in the formal comparison. Controller settings will be promoted into
-versioned experiment configurations for reported studies.
+used in the final formal comparison. Its costs, horizon, tolerances, and
+solver limits are now loaded from the same strict, fingerprinted controller
+configuration used by the shared evaluation runner.
 
 \subsection{Route planners}
 
@@ -153,19 +162,69 @@ proposal: success, collision, and jackknife rates, final position and heading
 errors, maximum articulation, maneuver time, path length, steering-rate
 root-mean-square, and controller computation time per step.
 
+For paired evaluation, a scenario distribution is resolved before any
+controller runs. The resolver draws randomized geometry, samples the
+articulated initial state, and constructs the reference path once. It stores
+these values with the seed and a content fingerprint in an immutable episode
+definition. Every PPO, LQR, or NMPC and 2D/MuJoCo evaluation cell replays that
+same definition; replay refuses a mismatched scenario fingerprint or seed.
+This prevents equal nominal seeds from concealing differences in random-number
+consumption between methods or simulators.
+
 The task environment can drive the MuJoCo plant through the same command and
 state contract; observation, reward, and terminal events are computed from the
 shared planar state in both cases. Agreement of episode events between the two
 plants has not been validated, so three-dimensional runs are engineering
 checks.
 
-\planned{} No hyperparameter, reward weight, or start range has been tuned;
-the source work does not report its PPO hyperparameters or preview spacing, so
-library defaults are used except for a rollout length of 1024 steps and a
-minibatch of 256. A straight-to-curved curriculum, parallel
-environments, and the observation ablations (global coordinates, removal of
+\implemented{} PPO rollout and optimization parameters are explicit validated
+run-configuration fields rather than implicit library settings. They include
+learning rate, rollout and minibatch size, training epochs, discount, GAE
+factor, clipping ranges, advantage normalization, entropy and value
+coefficients, gradient clipping, target KL, seed, and device. Every existing
+reward coefficient is an explicit scenario override and is therefore included
+in the scenario fingerprint; setting a coefficient to zero supports a named
+reward ablation. The policy network architecture remains fixed.
+
+\implemented{} LQR and NMPC costs and numerical settings are loaded from a
+strict versioned controller configuration. A separate experiment-suite
+configuration owns disjoint training, validation, and held-out test seed
+ranges. Formal paired comparison runs serialize these resolved inputs, policy
+checksums, every episode definition, per-episode metrics, aggregate summaries,
+software versions, runtime information, and Git state under an immutable
+experiment ID.
+
+\implemented{} The first PPO curriculum is configuration-driven. Its stages
+progress from aligned straight reverse through perturbed reverse to randomized
+initial states and trailer length. Each stage has a scenario, training budget,
+and minimum validation success rate; advancement occurs only after evaluation
+on the suite-owned validation split. The next stage loads policy tensors
+through the weights-only loader. Optimizer moments, rollout state, schedules,
+and timestep counters restart, so this is a policy warm start rather than exact
+optimizer resume.
+
+\implemented{} Three predefined curved references supplement the straight and
+piecewise-linear routes. Each is a sampled cubic path with dock-aligned
+endpoint tangents; fixed control-point fractions define gentle, early, and late
+lateral transitions. A scenario may sample a registered template once per
+episode. The selected name and complete path are stored in the resolved episode
+so every controller/backend cell can replay it. These curves are geometric
+tracking references and do not certify articulated reverse feasibility.
+
+\implemented{} A separate curved curriculum uses a short aligned warm-up,
+single-template gentle curves, and then a mixture of all three templates. A
+controlled reward-study runner trains every named reward condition over the
+same selected training seeds and validates on physically identical resolved
+episodes. Its schema permits only reward coefficients to vary; scenario,
+path distribution, PPO settings, and evaluation ownership remain shared.
+
+\planned{} No hyperparameter, reward weight, curve distribution, or start range has been tuned;
+the source work does not report its PPO hyperparameters or preview spacing.
+The configured curriculum budgets and gates are therefore engineering starting
+values. Parallel environments, exact optimizer-state resume, curriculum
+visualization, and the observation ablations (global coordinates, removal of
 preview information) remain planned, and no trained policy has been evaluated
-as an experiment.
+as a formal experiment.
 
 The primary PPO policy consumes only the normalized Gymnasium observation;
 unlike LQR and NMPC it does not receive privileged physical-state or model

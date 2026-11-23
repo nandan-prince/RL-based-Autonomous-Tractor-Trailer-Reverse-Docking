@@ -1,0 +1,99 @@
+specification_id: ppo-curved-docking-curriculum-v1
+schema_version: 1
+
+# Engineering starting values. Validation gates may be tuned, but the held-out
+# test split must not be inspected while making those choices.
+training:
+  total_timesteps: 20000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 900
+  checkpoint_interval: 20000
+  purpose: curved-curriculum
+  runs: 1
+  backend: 2d
+  evaluation_episodes: 0
+  evaluation_backends: [2d]
+  evaluation_seed: 100000
+  method: ppo
+
+suite:
+  specification_id: compact-docking-suite-v1
+  schema_version: 1
+  training_seeds: [0, 1, 2]
+  validation:
+    seed: 100000
+    episodes: 20
+  test:
+    seed: 200000
+    episodes: 100
+
+stages:
+  - name: straight-warmup
+    timesteps: 20000
+    minimum_validation_success: 0.70
+    scenario:
+      name: curved-curriculum-straight-warmup
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides: {}
+      start:
+        standoff: [4.0, 4.0]
+        lateral: [0.0, 0.0]
+        trailer_yaw: [0.0, 0.0]
+        articulation: [0.0, 0.0]
+      randomization: {}
+      planner: entry
+      obstacles: []
+
+  - name: gentle-curves
+    timesteps: 120000
+    minimum_validation_success: 0.55
+    scenario:
+      name: curved-curriculum-gentle
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides: {}
+      start:
+        standoff: [5.0, 7.0]
+        lateral: [-0.8, 0.8]
+        trailer_yaw: [-0.03, 0.03]
+        articulation: [-0.02, 0.02]
+      randomization:
+        reference_planners: [curve_gentle]
+      planner: curve_gentle
+      obstacles: []
+
+  - name: mixed-predefined-curves
+    timesteps: 300000
+    minimum_validation_success: 0.50
+    scenario:
+      name: curved-curriculum-mixed
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides: {}
+      start:
+        standoff: [6.0, 9.0]
+        lateral: [-1.2, 1.2]
+        trailer_yaw: [-0.06, 0.06]
+        articulation: [-0.04, 0.04]
+      randomization:
+        reference_planners: [curve_gentle, curve_early, curve_late]
+      planner: curve_gentle
+      obstacles: []

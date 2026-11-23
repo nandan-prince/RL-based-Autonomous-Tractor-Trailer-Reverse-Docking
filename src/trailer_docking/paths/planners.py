@@ -19,8 +19,13 @@ planner only has to be registered here.
     The final leg into the bay is always the straight centreline, because the
     bay is narrower than the grown walls allow a grid search to enter.
 
-Neither planner checks that an articulated vehicle can actually follow the
-route in reverse: both are geometric.  A feasibility-checked planner
+``curve_gentle``, ``curve_early``, ``curve_late``
+    Predefined sampled cubic references with dock-aligned endpoint tangents
+    and fixed transition locations. They adapt their endpoints to the resolved
+    start and goal but do not optimize online.
+
+No planner checks that an articulated vehicle can actually follow the route
+in reverse: all are geometric. A feasibility-checked planner
 (Reeds-Shepp, Hybrid A*) can be registered under a new name.
 """
 
@@ -37,6 +42,7 @@ from trailer_docking.paths.generators import (
     ENTRY_STANDOFF,
     docking_reference,
     manual_reference,
+    smooth_docking_reference,
 )
 from trailer_docking.paths.reference import ReferencePath
 from trailer_docking.safety.collision import dock_wall_polygons
@@ -242,13 +248,69 @@ def astar_reference(
     return manual_reference(tuple(distinct))
 
 
+def _smooth_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    goal_fraction: float,
+    start_fraction: float,
+) -> ReferencePath:
+    goal = dock.target_position
+    start = vehicle.trailer.rear_face(state.trailer_pose)
+    return smooth_docking_reference(
+        goal,
+        start,
+        goal_control_fraction=goal_fraction,
+        start_control_fraction=start_fraction,
+    )
+
+
+def curve_gentle_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """Symmetric smooth docking curve used as the first curved-path task."""
+
+    return _smooth_reference(vehicle, dock, state, 0.35, 0.35)
+
+
+def curve_early_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """Curve whose lateral transition occurs earlier near the dock."""
+
+    return _smooth_reference(vehicle, dock, state, 0.20, 0.50)
+
+
+def curve_late_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """Curve whose lateral transition occurs later near the start."""
+
+    return _smooth_reference(vehicle, dock, state, 0.50, 0.20)
+
+
 PLANNERS: dict[str, Planner] = {
     "entry": entry_reference,
     "astar": astar_reference,
+    "curve_gentle": curve_gentle_reference,
+    "curve_early": curve_early_reference,
+    "curve_late": curve_late_reference,
 }
 PLANNER_LABELS: dict[str, str] = {
     "entry": "straight in through an entry point",
     "astar": "A* grid search around the walls",
+    "curve_gentle": "smooth symmetric predefined curve",
+    "curve_early": "smooth predefined curve with an early transition",
+    "curve_late": "smooth predefined curve with a late transition",
 }
 
 

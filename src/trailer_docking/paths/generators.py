@@ -9,6 +9,7 @@ from trailer_docking.paths.reference import ReferencePath
 # Distance outside the bay opening at which an offset approach joins the
 # bay centreline.
 ENTRY_STANDOFF = 0.75
+CURVE_SAMPLES = 41
 
 
 def straight_reference(goal: Point2D, start: Point2D) -> ReferencePath:
@@ -21,6 +22,55 @@ def manual_reference(points_goal_to_start: tuple[Point2D, ...]) -> ReferencePath
     """Create a piecewise-linear path from explicitly reviewed waypoints."""
 
     return ReferencePath(points_goal_to_start)
+
+
+def smooth_docking_reference(
+    goal: Point2D,
+    start: Point2D,
+    *,
+    goal_control_fraction: float = 0.35,
+    start_control_fraction: float = 0.35,
+    samples: int = CURVE_SAMPLES,
+) -> ReferencePath:
+    """Return a sampled cubic docking curve with aligned endpoint tangents.
+
+    The path is ordered from the dock goal outward to the episode start, like
+    every project reference path. Both endpoint tangents point along ``+x`` so
+    an aligned tractor--trailer can begin and finish the reverse maneuver
+    without an artificial heading discontinuity. The two fractions define a
+    reproducible curve template rather than an online path optimization.
+    """
+
+    if samples < 2:
+        raise ValueError("a smooth docking reference needs at least two samples")
+    for name, fraction in (
+        ("goal_control_fraction", goal_control_fraction),
+        ("start_control_fraction", start_control_fraction),
+    ):
+        if not 0.0 < fraction < 1.0:
+            raise ValueError(f"{name} must be between zero and one")
+    span = start.x - goal.x
+    if span <= 1e-9 or abs(start.y - goal.y) <= 1e-12:
+        return straight_reference(goal, start)
+    first_control = Point2D(goal.x + goal_control_fraction * span, goal.y)
+    second_control = Point2D(start.x - start_control_fraction * span, start.y)
+    points: list[Point2D] = []
+    for index in range(samples):
+        parameter = index / (samples - 1)
+        complement = 1.0 - parameter
+        points.append(
+            Point2D(
+                complement**3 * goal.x
+                + 3.0 * complement**2 * parameter * first_control.x
+                + 3.0 * complement * parameter**2 * second_control.x
+                + parameter**3 * start.x,
+                complement**3 * goal.y
+                + 3.0 * complement**2 * parameter * first_control.y
+                + 3.0 * complement * parameter**2 * second_control.y
+                + parameter**3 * start.y,
+            )
+        )
+    return ReferencePath(tuple(points))
 
 
 def docking_reference(

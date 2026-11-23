@@ -46,7 +46,13 @@ def _length(points: tuple[Point2D, ...]) -> float:
 
 def test_registry() -> None:
     assert DEFAULT_PLANNER == "entry"
-    assert set(PLANNERS) == set(PLANNER_LABELS) == {"entry", "astar"}
+    assert set(PLANNERS) == set(PLANNER_LABELS) == {
+        "entry",
+        "astar",
+        "curve_gentle",
+        "curve_early",
+        "curve_late",
+    }
     assert validate_planner("astar") == "astar"
     with pytest.raises(ValueError, match="planner must be one of"):
         validate_planner("rrt")
@@ -92,6 +98,23 @@ def test_astar_matches_the_default_planner_on_an_aligned_start() -> None:
     searched = _route("astar", 10.0, 0.0)
     assert _length(searched) == pytest.approx(_length(default))
     assert all(point.y == pytest.approx(0.0) for point in searched)
+
+
+@pytest.mark.parametrize(
+    "planner", ["curve_gentle", "curve_early", "curve_late"]
+)
+@pytest.mark.parametrize("lateral", [-1.2, 1.2])
+def test_predefined_curves_are_smooth_and_align_at_both_ends(
+    planner: str, lateral: float
+) -> None:
+    points = _route(planner, 11.0, lateral)
+    assert len(points) == 41
+    assert points[0] == BAY.target_position
+    assert points[-1] == Point2D(11.0, lateral)
+    # Endpoint tangents are horizontal and the interior changes laterally.
+    assert abs(points[1].y - points[0].y) < 0.01
+    assert abs(points[-1].y - points[-2].y) < 0.01
+    assert any(abs(point.y) > 0.1 for point in points[1:-1])
 
 
 def test_planner_is_part_of_the_scenario() -> None:
@@ -159,7 +182,9 @@ def test_reward_penalizes_leaving_the_planned_route() -> None:
     assert lateral == pytest.approx(base_lateral * 5.0 / 0.5)
     assert heading == pytest.approx(base_heading * 0.4 / 0.2)
     assert weighted.fingerprint != Scenario(start=start).fingerprint
-    for bad in (-1.0, 0.0, float("nan")):
+    # Zero deliberately disables a term for a reward ablation.
+    assert ScenarioOverrides(path_lateral_weight=0.0).path_lateral_weight == 0.0
+    for bad in (-1.0, float("nan")):
         with pytest.raises(ValueError):
             Scenario(overrides=ScenarioOverrides(path_lateral_weight=bad)).build()
 

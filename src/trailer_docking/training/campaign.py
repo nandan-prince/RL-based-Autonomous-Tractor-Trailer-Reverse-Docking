@@ -33,7 +33,9 @@ from typing import Any
 
 import yaml
 
+from trailer_docking.controllers.configuration import ControllerConfigurations
 from trailer_docking.core.state import Point2D, VehicleState
+from trailer_docking.evaluation.episodes import resolve_episodes
 from trailer_docking.evaluation.scenarios import Scenario
 from trailer_docking.training.bundle import BUNDLE_SUFFIX, export_bundle
 from trailer_docking.training.config import TrainingConfig
@@ -138,6 +140,7 @@ class TrainingCampaign:
         test_runner: TestRunner | None = None,
         policy_loader: Callable[[Path], Any] | None = None,
         controller_loader: Callable[[], Any] | None = None,
+        controller_configurations: ControllerConfigurations | None = None,
         live_3d: bool = False,
     ) -> None:
         self.scenario = scenario
@@ -147,6 +150,11 @@ class TrainingCampaign:
         self._test_runner = test_runner or _default_test_runner
         self._policy_loader = policy_loader or _default_policy_loader
         self._controller_loader = controller_loader or nmpc_controller_factory
+        self._controller_configurations = (
+            ControllerConfigurations()
+            if controller_configurations is None and controller_loader is None
+            else controller_configurations
+        )
         self._lock = threading.Lock()
         self._stop_requested = threading.Event()
         self._thread: threading.Thread | None = None
@@ -379,6 +387,16 @@ class TrainingCampaign:
             "scenario": self.scenario.to_dict(),
             "scenario_fingerprint": self.scenario.fingerprint,
             "config": self.config.to_dict(),
+            "controller_configurations": (
+                None
+                if self._controller_configurations is None
+                else self._controller_configurations.to_dict()
+            ),
+            "controller_fingerprint": (
+                None
+                if self._controller_configurations is None
+                else self._controller_configurations.fingerprint
+            ),
             "simulator_backend": self.config.backend,
             # Needed whenever any phase ran in MuJoCo, including tests of a
             # policy trained in 2D: no YAML fingerprint covers these values.
@@ -471,6 +489,11 @@ class TrainingCampaign:
         config = self.config
         if config.evaluation_episodes == 0:
             return []
+        resolved = resolve_episodes(
+            self.scenario,
+            episodes=config.evaluation_episodes,
+            seed=config.evaluation_seed,
+        )
         policy: Any = None
         controller: dict[str, Any] = {}
         if checkpoint is not None:
@@ -502,6 +525,7 @@ class TrainingCampaign:
                     backend=backend,
                     on_state=self._on_evaluation_state,
                     should_stop=self._stop_requested.is_set,
+                    resolved_episodes=resolved,
                     **options,
                     **controller,
                 )

@@ -8,6 +8,7 @@ from trailer_docking.controllers.base import (
     normalized_steering_rate,
     validate_controller_action,
 )
+from trailer_docking.controllers.configuration import ControllerConfigurations
 from trailer_docking.controllers.lqr import LQRConfiguration, TrajectoryLQRController
 from trailer_docking.controllers.nmpc import BasicNMPCController, NMPCConfiguration
 from trailer_docking.controllers.ppo import PPOController
@@ -16,6 +17,7 @@ __all__ = [
     "BasicNMPCController",
     "Controller",
     "ControllerAction",
+    "ControllerConfigurations",
     "ControllerContext",
     "ControllerError",
     "LQRConfiguration",

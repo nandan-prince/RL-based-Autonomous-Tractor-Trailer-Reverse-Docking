@@ -226,6 +226,16 @@ shared normalized steering-rate interface and closed-loop runner. The PPO
 training, evaluation, and bundle infrastructure is also implemented, but no
 tuned PPO policy or formal controller comparison is registered. Broader
 controller validation and MuJoCo task-event parity remain pending.
+Fingerprint-based resolved episodes now freeze randomized geometry, start
+state, and reference path for paired controller/backend replay. PPO optimizer
+settings and all task reward terms are explicit configuration values; they are
+controllable infrastructure, not tuned or validated experimental choices.
+Versioned LQR/NMPC settings, disjoint train/validation/test suites, immutable
+comparison evidence packages, and a gated PPO policy-warm-start curriculum are
+implemented. Smooth predefined curve templates, deterministic mixed-path
+sampling, and controlled multi-seed reward-study infrastructure are also
+implemented. No completed curriculum, reward study, or held-out comparison
+should be inferred from the existence of that infrastructure.
 
 1. Implement typed state, command, geometry, limits, and configuration objects from the frozen version-1 specification.
 2. Maintain the implemented and quantitatively validated 2D kinematic model: straight reverse, constant steering, articulation behavior, angle wrapping, rigid geometry, determinism, and timestep convergence.

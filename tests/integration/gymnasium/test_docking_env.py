@@ -92,6 +92,42 @@ def test_explicit_reference_path_is_independent_of_initial_state() -> None:
     env.close()
 
 
+def test_tail_improvement_reward_and_double_deviation_penalty() -> None:
+    """Moving the trailer tail toward the line pays; mirror drift costs twice."""
+
+    def accumulated(action: float) -> float:
+        env = TrailerDockingEnv()
+        goal = env.dock.geometry.target_position
+        start = Point2D(10.0, 0.0)
+        path = straight_reference(goal, start)
+        pose = aligned_pose_for_docking_point(
+            env.vehicle, Point2D(start.x, 0.4), 0.0
+        )
+        env.reset(
+            options={
+                "tractor_pose": pose,
+                "trailer_yaw": 0.0,
+                "reference_path": path,
+            }
+        )
+        total = 0.0
+        for _ in range(50):
+            _, _, terminated, truncated, info = env.step(
+                np.array([action], dtype=np.float32)
+            )
+            total += info["reward_terms"]["lateral_improvement"]
+            if terminated or truncated:
+                break
+        env.close()
+        return total
+
+    toward = accumulated(1.0)
+    away = accumulated(-1.0)
+    assert toward > 0.0
+    assert away < 0.0
+    assert away == pytest.approx(-2.0 * toward)
+
+
 def test_success_collision_jackknife_and_timeout_events(
     vehicle_config, dock_config
 ) -> None:

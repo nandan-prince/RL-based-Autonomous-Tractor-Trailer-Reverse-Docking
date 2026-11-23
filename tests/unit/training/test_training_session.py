@@ -89,6 +89,23 @@ def test_tiny_training_run_writes_the_experiment_package(
     assert "untuned" in manifest["note"]
     assert manifest["simulator_backend"] == "2d"
     assert manifest["mujoco_tuning"] is None
+    assert manifest["ppo_hyperparameters"] == {
+        "policy": "MlpPolicy",
+        "learning_rate": config.learning_rate,
+        "n_steps": config.n_steps,
+        "batch_size": config.batch_size,
+        "n_epochs": config.n_epochs,
+        "gamma": config.gamma,
+        "gae_lambda": config.gae_lambda,
+        "clip_range": config.clip_range,
+        "ent_coef": config.entropy_coefficient,
+        "vf_coef": config.value_coefficient,
+        "max_grad_norm": config.max_grad_norm,
+        "clip_range_vf": config.clip_range_vf,
+        "normalize_advantage": config.normalize_advantage,
+        "target_kl": config.target_kl,
+        "device": config.device,
+    }
 
     with (results / "metrics.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
@@ -142,6 +159,40 @@ def test_same_minute_runs_get_distinct_experiment_ids(
     ]
     for identifier in identifiers:
         assert (tmp_path / "results" / identifier / "manifest.yaml").is_file()
+
+
+def test_training_can_warm_start_from_safe_policy_weights(
+    aligned_scenario: Scenario, tmp_path
+) -> None:
+    pytest.importorskip("stable_baselines3")
+    config = TrainingConfig(total_timesteps=64, evaluation_episodes=0, **TINY)
+    first = TrainingSession(aligned_scenario, config, output_root=tmp_path)
+    first.start()
+    first.join(120)
+    checkpoint = first.progress.checkpoint_path
+    assert checkpoint is not None and checkpoint.is_file()
+
+    second = TrainingSession(
+        aligned_scenario,
+        config,
+        output_root=tmp_path,
+        initial_policy=checkpoint,
+    )
+    second.start()
+    second.join(120)
+    assert second.progress.status == "finished"
+    assert second.progress.experiment_id is not None
+    manifest = yaml.safe_load(
+        (
+            tmp_path
+            / "results"
+            / second.progress.experiment_id
+            / "manifest.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["initial_policy_path"] == checkpoint.as_posix()
+    assert manifest["initial_policy_sha256"]
+    assert manifest["warm_start_resets_optimizer_and_schedules"] is True
 
 
 def test_stop_ends_a_long_run_promptly(aligned_scenario: Scenario, tmp_path) -> None:

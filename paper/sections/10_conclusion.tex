@@ -13,7 +13,14 @@ versioned full-size service-yard interaction scenario. A shared controller
 contract, straight-path LQR, and basic NMPC now demonstrate end-to-end
 closed-loop control in the compact 2D environment. A PPO training framework
 over the same task, on either plant, is implemented and software-tested but has
-produced no tuned or formally evaluated policy. The next milestone is paired
-curved/randomized PPO and NMPC evaluation in 2D.
+produced no tuned or formally evaluated policy. Versioned controller settings,
+disjoint experiment splits, immutable comparison evidence, and a gated PPO
+curriculum now provide the control needed for that work; only a tiny software
+curriculum run has been executed. Smooth predefined curve templates, a
+straight-to-curved curriculum, and a multi-seed reward-study runner now provide
+a controlled path from straight stabilization to curved tracking and reward
+tuning. Only tiny software runs of these additions have been executed. The
+next milestone is running and diagnosing the curved 2D curriculum and reward
+study before a frozen paired PPO--NMPC evaluation.
 Conclusions about controller performance, robustness, or transfer are deferred
 until reproducible experiments exist.

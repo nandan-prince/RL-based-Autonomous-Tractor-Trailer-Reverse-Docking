@@ -50,7 +50,7 @@ def validate_method(value: object) -> str:
     return str(value)
 
 
-def nmpc_controller_factory() -> ControllerFactory:
+def nmpc_controller_factory(configuration: Any = None) -> ControllerFactory:
     """Return the implemented NMPC hook, with a clear optional-dependency error."""
 
     try:
@@ -63,11 +63,13 @@ def nmpc_controller_factory() -> ControllerFactory:
             f"NMPC is not implemented yet: {NMPC_MODULE} does not provide"
             f" {NMPC_HOOK}(env)"
         )
-    hook: ControllerFactory = factory
-    return hook
+    if configuration is None:
+        hook: ControllerFactory = factory
+        return hook
+    return lambda env: factory(env, configuration)
 
 
-def lqr_controller_factory() -> ControllerFactory:
+def lqr_controller_factory(configuration: Any = None) -> ControllerFactory:
     """Return the implemented trajectory-error LQR episode factory."""
 
     module = import_module(LQR_MODULE)
@@ -77,5 +79,7 @@ def lqr_controller_factory() -> ControllerFactory:
             f"LQR is not implemented: {LQR_MODULE} does not provide"
             f" {LQR_HOOK}(env)"
         )
-    hook: ControllerFactory = factory
-    return hook
+    if configuration is None:
+        hook: ControllerFactory = factory
+        return hook
+    return lambda env: factory(env, configuration)

@@ -24,14 +24,21 @@ silently solving different tasks.
   the tractor pose or trailer axle.
 - Episode events: success, collision, jackknife, workspace exit, and timeout
   are evaluated by the environment, independently of controller cost/reward.
-- Reset/evaluation: methods must use the same explicit reference path, initial
-  tractor pose, trailer heading, trailer variant, configuration fingerprints,
-  and seed for a paired comparison.
+- Reset/evaluation: methods must use the same resolved episode: explicit
+  reference path, initial tractor pose, trailer heading, steering angle,
+  resolved trailer length, configuration fingerprint, and seed.
 
 The environment accepts an explicit `ReferencePath` either at construction or
 through `reset(options={"reference_path": path})`. This path is independent of
 the randomized initial state, which is essential for measuring recovery from
 path errors.
+
+`evaluation.episodes.resolve_episode()` is the authority for paired tests. It
+draws geometry before the start pose in the canonical RNG order, plans the
+route once, and returns an immutable `ResolvedEpisode` with a stable content
+fingerprint. `ScenarioDockingEnv` replays that object without resampling and
+rejects a scenario or seed mismatch. `training.cli compare` resolves one set
+and reuses it for every selected controller and simulator backend.
 
 ## Runtime controller protocol
 
@@ -71,6 +78,11 @@ These controllers are first vertical-slice baselines. Their successful straight
 tracking checks do not establish robustness, optimality, or comparative
 performance.
 
+Their complete numerical settings are promoted to
+`configs/controllers/baseline_controllers_v1.yaml`. Formal comparisons must
+record that configuration's fingerprint; changing a weight, horizon, or solver
+tolerance defines a different controller condition.
+
 ## PPO integration status
 
 The merged PPO infrastructure now:
@@ -88,3 +100,9 @@ The merged PPO infrastructure now:
    versioned and available during evaluation.
 10. Keeps optional recording in the evaluation layer rather than inside the
     policy/controller implementation.
+11. Stores PPO rollout and optimizer settings in `TrainingConfig`; reward
+    weights remain scenario parameters so algorithm and task changes are
+    independently identifiable.
+12. Uses a versioned experiment suite for disjoint training, validation, and
+    held-out test ownership, with configurable curriculum gates using only the
+    validation split.

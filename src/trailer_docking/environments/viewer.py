@@ -32,7 +32,7 @@ SCENARIOS = {
     "compact": (
         REPOSITORY_ROOT / "configs/vehicles/compact_semitrailer_v1.yaml",
         REPOSITORY_ROOT / "configs/environments/nominal_dock_v1.yaml",
-        REPOSITORY_ROOT / "configs/environments/gymnasium_docking_v1.yaml",
+        REPOSITORY_ROOT / "configs/environments/gymnasium_docking_v2.yaml",
     ),
     "service-center": (
         REPOSITORY_ROOT / "configs/vehicles/full_size_semitrailer_v1.yaml",
