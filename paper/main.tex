@@ -41,11 +41,20 @@ compared across the two backends. The two-dimensional Gymnasium docking task,
 path-relative observation, safety events, reward decomposition, and interactive
 renderer are also implemented. A separately configured full-size interactive
 case demonstrates the same 2D stack in a $200\times100\,\mathrm{m}$ service
-yard. A PPO training framework that runs the task on either plant, repeats
-and tests training runs, and exports reloadable policies is implemented and
-software-tested. The NMPC baseline, tuned or evaluated policies, MuJoCo
-task-event parity, and comparative results are explicitly identified as
-planned work.
+yard. A deterministic trajectory-error LQR and a basic fixed-speed NMPC now
+complete straight-path closed-loop acceptance maneuvers through a shared
+controller interface. A PPO training framework runs the task on either plant,
+repeats and tests training runs, and exports reloadable policies. Its optimizer
+and reward settings are explicit, and a fingerprinted episode resolver supports
+paired controller/backend evaluation. Classical-controller settings and
+train/validation/test split ownership are versioned, formal comparisons can
+write immutable evidence packages, and a gated three-stage PPO curriculum is
+implemented. Three smooth predefined curve templates, deterministic
+per-episode template sampling, a curved-path curriculum, and a controlled
+multi-seed reward-study runner are also implemented. The framework is
+software-tested. Exploratory 2D PPO runs evaluate aligned-start reversing and
+small-perturbation recovery in an open bay. Tuned PPO, curved-path validation,
+MuJoCo task-event parity, and comparative results remain planned.
 \end{abstract}
 
 \begin{IEEEkeywords}

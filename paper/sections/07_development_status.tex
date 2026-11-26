@@ -19,10 +19,16 @@ marked implemented only when corresponding repository code and tests exist.
     2D kinematic propagation & \implemented & RK4, equation, limit, rigid-geometry, determinism, and convergence tests \\
     Paths, previews, collision, and goal logic & \implemented & Projection, geometry, event, and deterministic scenario tests \\
     Gymnasium environment & \implemented & API checker, seeded rollouts, event tests, rigid service-yard rendering, and complete scripted docking \\
-    Simple closed-loop tracker & \planned & Straight and curved reference tracking \\
-    NMPC & \planned & Solver, feasibility, and timing validation \\
+    Deterministic LQR tracker & \implemented & Straight-path perturbed-start closed-loop docking; curved/randomized validation remains \\
+    Basic NMPC & \implemented & 40-step fixed-speed straight-path docking; collision constraints and broader validation remain \\
+    Versioned controller configuration & \implemented & Strict fingerprinted LQR/NMPC weights, horizons, and solver settings \\
     PPO training framework & \implemented & Scenario overrides, repeated runs on either plant, tests, policy bundles, control interface; software tests only \\
-    PPO trained policy & \planned & Tuning, curriculum, and held-out evaluation evidence \\
+    Paired episode replay & \implemented & Frozen geometry, start state, path, seed, and fingerprint reused across controller/backend cells \\
+    Experiment suite and evidence writer & \implemented & Disjoint train/validation/test ownership and immutable comparison packages \\
+    Gated PPO curriculum & \implemented & Versioned stages, validation gates, and safe policy warm starts \\
+    Predefined curved-path training & \implemented & Three smooth templates, deterministic per-episode sampling, and curved curriculum; tiny software checks only \\
+    Controlled PPO reward study & \implemented & Reward-only conditions, shared seeds/physical validation episodes, immutable summaries; tiny software run only \\
+    PPO training evidence & \implemented & Exploratory open-bay runs; reliable docking and held-out evaluation remain pending \\
     MuJoCo vehicle, dock, and adapter & \implemented & Generated MJCF; neutral-pose, sign, timing, contact, and kinematic-agreement tests \\
     2D/MuJoCo simulator parity & \implemented & Direct forward/reverse plant trajectories; task-event equality remains planned \\
     Comparative experiments & \planned & Frozen held-out scenarios and saved results \\
@@ -30,10 +36,12 @@ marked implemented only when corresponding repository code and tests exist.
   \end{tabular}
 \end{table*}
 
-The PPO training framework exercises the observation/action loop end to end
-on both plants, but with untuned settings and without a registered experiment.
-The immediate gates are the NMPC baseline, which enters through the runner's
-controller hook, and tuning PPO on the two-dimensional task. The task
-definition already runs on MuJoCo; comparing its event boundaries with the
-two-dimensional plant under shared scenarios remains the event-level transfer
-gate.
+The PPO training framework exercises the observation/action loop end to end on
+both plants, while LQR and NMPC exercise the shared classical-controller
+contract in the compact 2D task. PPO optimization and task-reward settings are
+now explicit, validated, and recorded. Classical-controller settings, split
+ownership, formal evidence output, and curriculum gates are also versioned,
+and curved-path/reward-study inputs are controlled, but remain untuned. No comparative
+experiment is registered. The immediate gate is paired curved and randomized
+2D evaluation of PPO and NMPC. Comparing task-event boundaries between the 2D
+and MuJoCo plants under shared scenarios remains the transfer gate.

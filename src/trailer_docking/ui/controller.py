@@ -23,6 +23,8 @@ from math import cos, isfinite, sin
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from trailer_docking.core.obstacles import Obstacle
 from trailer_docking.core.state import Point2D, VehicleState
 from trailer_docking.evaluation.scenarios import (
@@ -32,10 +34,12 @@ from trailer_docking.evaluation.scenarios import (
     StartDistribution,
     assembled_start,
 )
+from trailer_docking.paths.planners import PLANNERS
 
 GROUPS = (
     "Dock",
     "Route",
+    "Reward",
     "Vehicle",
     "Limits",
     "Physics (3D only)",
@@ -54,6 +58,7 @@ _JOIN_TIMEOUT = 2.0
 
 # Marks a test of the model-based controller rather than a policy.
 _NMPC = object()
+_LQR = object()
 
 
 class ControllerError(Exception):
@@ -66,6 +71,19 @@ class ParameterError(ControllerError, ValueError):
 
 class BusyError(ControllerError, RuntimeError):
     """Raised when an action is refused because training or a test is active."""
+
+
+@dataclass(frozen=True, slots=True)
+class SavedPolicy:
+    """One PPO checkpoint found below the configured output root."""
+
+    experiment_id: str
+    name: str
+    path: Path
+    modified_time: float
+    backend: str | None = None
+    seed: int | None = None
+    status: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,13 +117,58 @@ PARAMETERS: tuple[ParameterSpec, ...] = (
         "Route planner",
         "Route",
         "choice",
-        choices=("", "entry", "astar"),
+        choices=("", *tuple(sorted(PLANNERS))),
+    ),
+    ParameterSpec(
+        "reference_planners",
+        "Paths sampled per episode",
+        "Randomization",
+        "text",
     ),
     ParameterSpec(
         "path_lateral_weight", "Reward: stay on route", "Route", "float", unit="-"
     ),
     ParameterSpec(
         "path_heading_weight", "Reward: align to route", "Route", "float", unit="-"
+    ),
+    ParameterSpec("reward_progress", "Progress", "Reward", "float", unit="-"),
+    ParameterSpec("reward_time", "Time penalty", "Reward", "float", unit="-"),
+    ParameterSpec(
+        "reward_lateral_improvement",
+        "Tail moves toward path",
+        "Reward",
+        "float",
+        unit="-",
+    ),
+    ParameterSpec(
+        "reward_lateral_deviation_multiplier",
+        "Tail deviation penalty multiplier",
+        "Reward",
+        "float",
+        unit="-",
+    ),
+    ParameterSpec(
+        "reward_heading_improvement",
+        "Heading improvement",
+        "Reward",
+        "float",
+        unit="-",
+    ),
+    ParameterSpec(
+        "reward_articulation", "Articulation penalty", "Reward", "float", unit="-"
+    ),
+    ParameterSpec(
+        "reward_steering_rate", "Steering-rate penalty", "Reward", "float", unit="-"
+    ),
+    ParameterSpec("reward_success", "Docking bonus", "Reward", "float", unit="-"),
+    ParameterSpec(
+        "reward_collision", "Collision penalty", "Reward", "float", unit="-"
+    ),
+    ParameterSpec(
+        "reward_jackknife", "Jackknife penalty", "Reward", "float", unit="-"
+    ),
+    ParameterSpec(
+        "reward_out_of_bounds", "Boundary penalty", "Reward", "float", unit="-"
     ),
     ParameterSpec(
         "trailer_variant",
@@ -190,11 +253,32 @@ PARAMETER_HELP: dict[str, str] = {
     " Blank = 6.0 m; the long trailer needs more.",
     "planner": "How each episode's route to the dock is planned.\n"
     "entry: straight in through a point just outside the opening (ignores"
-    " obstacles).\nastar: grid search around walls and obstacles.",
+    " obstacles).\nastar: grid search around walls and obstacles.\n"
+    "curve_gentle, curve_early, curve_late: predefined smooth curves.",
+    "reference_planners": "Optional comma-separated planner set sampled once"
+    " per episode, for example curve_gentle, curve_early, curve_late. Blank"
+    " uses the single Route planner above.",
     "path_lateral_weight": "Reward penalty for the trailer's sideways distance"
     " from the route. Larger = sticks to the route more. Blank = 0.5.",
     "path_heading_weight": "Reward penalty for the trailer pointing away from"
     " the route's direction. Blank = 0.2.",
+    "reward_progress": "Reward multiplier for progress toward the docking goal."
+    " Blank = 10.0.",
+    "reward_time": "Penalty on every control step. Blank = 0.01.",
+    "reward_lateral_improvement": "Reward per normalized reduction in the"
+    " trailer tail's absolute distance from the reference path. Blank = 5.0.",
+    "reward_lateral_deviation_multiplier": "Multiplier applied when the trailer"
+    " tail moves farther from the path. It must be at least 1; blank = 2.0.",
+    "reward_heading_improvement": "Reward per reduction in absolute trailer"
+    " heading error relative to the path. Blank = 1.0.",
+    "reward_articulation": "Squared articulation penalty. Blank = 0.15.",
+    "reward_steering_rate": "Squared normalized steering-rate penalty."
+    " Blank = 0.02.",
+    "reward_success": "Terminal reward for successful docking. Blank = 100.",
+    "reward_collision": "Terminal penalty magnitude for collision. Blank = 100.",
+    "reward_jackknife": "Terminal penalty magnitude for jackknifing. Blank = 100.",
+    "reward_out_of_bounds": "Terminal penalty magnitude for leaving the workspace."
+    " Blank = 50.",
     "trailer_variant": "A named trailer length from the vehicle file: short"
     " 2 m, nominal 4 m, long 5 m (hitch to axle).",
     "tractor_wheelbase": "Distance between the tractor's front and rear axles."
@@ -243,9 +327,29 @@ CONTROL_HELP: dict[str, str] = {
     " model; 3d is MuJoCo physics and much slower.",
     "runs": "How many times to repeat training, each with the next seed. The"
     " best run is exported.",
+    "purpose": "Short experiment label used in immutable result and artifact IDs.",
     "timesteps": "Training budget of each run, in control steps (10 per"
     " simulated second).",
     "training_seed": "Random seed of the first run; later runs use the next numbers.",
+    "max_episode_steps": "Maximum control steps in one training episode before"
+    " it is truncated.",
+    "checkpoint_interval": "Save a raw PPO checkpoint after this many training"
+    " steps. The final policy is also saved.",
+    "device": "PyTorch device. CPU is reproducible and portable; auto may choose"
+    " Apple MPS or CUDA when available.",
+    "learning_rate": "PPO optimizer step size.",
+    "n_steps": "Experience steps collected before each PPO policy update.",
+    "batch_size": "Samples per optimizer minibatch; cannot exceed rollout steps.",
+    "n_epochs": "Optimization passes over every collected rollout.",
+    "gamma": "Future-reward discount between zero and one.",
+    "gae_lambda": "Generalized-advantage bias/variance parameter between zero and one.",
+    "clip_range": "Positive PPO policy-ratio clipping range.",
+    "clip_range_vf": "Optional positive value-function clipping range; blank"
+    " disables it.",
+    "entropy_coefficient": "Non-negative exploration bonus coefficient.",
+    "value_coefficient": "Non-negative value-loss coefficient.",
+    "max_grad_norm": "Positive gradient-norm clipping limit.",
+    "target_kl": "Optional positive KL stopping target; blank disables it.",
     "evaluation_episodes": "After each run its policy is tested for this many"
     " episodes on the ticked simulators. 0 skips the tests.",
     "evaluate_2d": "Test each run's policy in the 2D simulator.",
@@ -266,6 +370,9 @@ CONTROL_HELP: dict[str, str] = {
     " start; useful as a reference.",
     "policy_nmpc": "The model-based controller, once it is implemented.",
     "policy_file": "A raw PPO checkpoint (.zip) from an artifacts folder.",
+    "evaluation_controller": "Choose a selected PPO checkpoint, loaded portable"
+    " model, classical controller, or explicit no-steering baseline.",
+    "refresh_models": "Rescan the artifacts directory for raw PPO checkpoints.",
     "run_test": "Build a fresh simulator and run the chosen policy in it.",
     "load_result": "Open an exported result. Its scenario replaces the current one.",
     "show_route": "Draw or hide the planned route in both displays.",
@@ -290,6 +397,7 @@ _OVERRIDE_KEYS = frozenset(item.name for item in fields(ScenarioOverrides))
 _START_KEYS = frozenset(item.name for item in fields(StartDistribution))
 _OBSTACLES_KEY = "obstacles"
 _PLANNER_KEY = "planner"
+_REFERENCE_PLANNERS_KEY = "reference_planners"
 _RANDOM_TRAILER_KEY = "random_trailer_hitch_to_axle"
 _NOISE_KEY = "observation_noise_std"
 _SPEC_BY_KEY = {spec.key: spec for spec in PARAMETERS}
@@ -366,11 +474,22 @@ def _parse_value(spec: ParameterSpec, text: str) -> Any:
 
 
 def _default_session_factory(
-    scenario: Scenario, config: Any, *, output_root: Path, live_3d: bool = False
+    scenario: Scenario,
+    config: Any,
+    *,
+    output_root: Path,
+    live_3d: bool = False,
+    initial_policy: Path | None = None,
 ) -> Any:
     from trailer_docking.training.campaign import TrainingCampaign
 
-    return TrainingCampaign(scenario, config, output_root=output_root, live_3d=live_3d)
+    return TrainingCampaign(
+        scenario,
+        config,
+        output_root=output_root,
+        live_3d=live_3d,
+        initial_policy=initial_policy,
+    )
 
 
 def _default_test_runner(scenario: Scenario, policy: Any, **options: Any) -> Any:
@@ -414,6 +533,7 @@ class AppController:
         scenario: Scenario | None = None,
         *,
         output_root: str | Path = ".",
+        initial_policy: Path | None = None,
         session_factory: Callable[..., Any] | None = None,
         test_runner: Callable[..., Any] | None = None,
         policy_loader: Callable[[Path], Any] | None = None,
@@ -425,6 +545,9 @@ class AppController:
         # A scenario that cannot be built is a start-up error, not a UI state.
         self._built = self._scenario.build()
         self._output_root = Path(output_root)
+        if initial_policy is not None and not initial_policy.is_file():
+            raise ValueError(f"initial policy not found: {initial_policy}")
+        self.initial_policy = initial_policy
         self._session_factory = session_factory or _default_session_factory
         self._test_runner = test_runner or _default_test_runner
         self._policy_loader = policy_loader or _default_policy_loader
@@ -469,6 +592,65 @@ class AppController:
     def output_root(self) -> Path:
         return self._output_root
 
+    def saved_policies(self) -> tuple[SavedPolicy, ...]:
+        """Return locally saved PPO checkpoints, newest first.
+
+        Training owns the directory layout.  Keeping discovery here prevents
+        the Tk view from guessing where models are stored and makes models
+        from an earlier application session available for evaluation.
+        """
+
+        root = self._output_root / "artifacts"
+        found: list[SavedPolicy] = []
+        if not root.is_dir():
+            return ()
+        for path in root.glob("*/checkpoints/*.zip"):
+            try:
+                modified = path.stat().st_mtime
+            except OSError:
+                continue
+            experiment_id = path.parent.parent.name
+            backend: str | None = None
+            seed: int | None = None
+            status: str | None = None
+            manifest = self._output_root / "results" / experiment_id / "manifest.yaml"
+            if manifest.is_file():
+                try:
+                    metadata = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+                    if isinstance(metadata, dict):
+                        status_value = metadata.get("status")
+                        status = status_value if isinstance(status_value, str) else None
+                        config = metadata.get("config")
+                        if isinstance(config, dict):
+                            backend_value = config.get("backend")
+                            backend = (
+                                backend_value
+                                if isinstance(backend_value, str)
+                                else None
+                            )
+                            seed_value = config.get("seed")
+                            seed = seed_value if isinstance(seed_value, int) else None
+                except (OSError, ValueError, yaml.YAMLError):
+                    pass
+            found.append(
+                SavedPolicy(
+                    experiment_id=experiment_id,
+                    name=path.name,
+                    path=path,
+                    modified_time=modified,
+                    backend=backend,
+                    seed=seed,
+                    status=status,
+                )
+            )
+        return tuple(
+            sorted(
+                found,
+                key=lambda item: (item.modified_time, item.path.as_posix()),
+                reverse=True,
+            )
+        )
+
     def parameter_values(self) -> dict[str, str]:
         """Return every parameter as the string shown in its entry field."""
 
@@ -477,6 +659,10 @@ class AppController:
         for spec in PARAMETERS:
             if spec.key == _PLANNER_KEY:
                 values[spec.key] = scenario.planner
+                continue
+            if spec.key == _REFERENCE_PLANNERS_KEY:
+                planners = scenario.randomization.reference_planners
+                values[spec.key] = "" if planners is None else ", ".join(planners)
                 continue
             if spec.key == _OBSTACLES_KEY:
                 values[spec.key] = format_obstacles(scenario.obstacles)
@@ -534,6 +720,11 @@ class AppController:
                     obstacles = parse_obstacles(str(text))
                 elif key == _PLANNER_KEY:
                     planner = parsed or DEFAULT_PLANNER
+                elif key == _REFERENCE_PLANNERS_KEY:
+                    names = tuple(
+                        item.strip() for item in str(text).split(",") if item.strip()
+                    )
+                    randomization[key] = names or None
                 elif key == _RANDOM_TRAILER_KEY:
                     randomization["trailer_hitch_to_axle"] = parsed
                 elif key == _NOISE_KEY:
@@ -679,6 +870,8 @@ class AppController:
         with self._lock:
             self._require_idle("start training", BusyError)
             options: dict[str, Any] = {"output_root": self._output_root}
+            if self.initial_policy is not None:
+                options["initial_policy"] = self.initial_policy
             if show_3d:
                 options["live_3d"] = True
             try:
@@ -756,15 +949,15 @@ class AppController:
         when there is one and the untrained straight-reverse policy
         otherwise.  ``baseline=True`` forces the untrained policy and
         ``use_bundle=True`` runs the policy of the loaded bundle.
-        ``method="nmpc"`` tests the model-based controller instead of a
-        policy.  ``backend`` is ``"2d"`` or ``"3d"``; ``show_3d`` renders 3D
+        ``method="nmpc"`` or ``method="lqr"`` tests a classical controller
+        instead of a policy. ``backend`` is ``"2d"`` or ``"3d"``; ``show_3d`` renders 3D
         episodes for :attr:`spectator_frame`.
         """
 
         if backend not in BACKENDS:
             raise ParameterError("simulator must be 2d or 3d")
-        if method not in ("ppo", "nmpc"):
-            raise ParameterError("method must be ppo or nmpc")
+        if method not in ("ppo", "nmpc", "lqr"):
+            raise ParameterError("method must be ppo, nmpc, or lqr")
         if sum((baseline, policy_path is not None, use_bundle)) > 1:
             raise ParameterError(
                 "choose one of a policy file, the loaded bundle, or the baseline"
@@ -779,6 +972,8 @@ class AppController:
             source: Any
             if method == "nmpc":
                 source = _NMPC
+            elif method == "lqr":
+                source = _LQR
             elif baseline:
                 source = None
             elif use_bundle:
@@ -800,6 +995,8 @@ class AppController:
                 description = "untrained straight-reverse baseline"
             elif source is _NMPC:
                 description = "NMPC controller"
+            elif source is _LQR:
+                description = "LQR controller"
             elif isinstance(source, Path):
                 description = str(source)
             else:
@@ -860,6 +1057,10 @@ class AppController:
                 from trailer_docking.training.methods import nmpc_controller_factory
 
                 options["controller_factory"] = nmpc_controller_factory()
+            elif source is _LQR:
+                from trailer_docking.training.methods import lqr_controller_factory
+
+                options["controller_factory"] = lqr_controller_factory()
             elif isinstance(source, Path):
                 policy = self._policy_loader(source)
             elif source is not None:

@@ -32,7 +32,7 @@ SCENARIOS = {
     "compact": (
         REPOSITORY_ROOT / "configs/vehicles/compact_semitrailer_v1.yaml",
         REPOSITORY_ROOT / "configs/environments/nominal_dock_v1.yaml",
-        REPOSITORY_ROOT / "configs/environments/gymnasium_docking_v1.yaml",
+        REPOSITORY_ROOT / "configs/environments/gymnasium_docking_v2.yaml",
     ),
     "service-center": (
         REPOSITORY_ROOT / "configs/vehicles/full_size_semitrailer_v1.yaml",
@@ -130,6 +130,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action_mode="teleop",
         render_mode="human",
     )
+    env.set_controller_label("MANUAL KEYBOARD")
     env.reset(seed=args.seed, options={"randomize": args.random_start})
     control = KeyboardControl(env.vehicle.limits, env.simulator.controller_period)
     figure = env.figure

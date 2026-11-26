@@ -53,7 +53,7 @@ DEFAULT_DOCK_PATH = (
     REPOSITORY_ROOT / "configs" / "environments" / "nominal_dock_v1.yaml"
 )
 DEFAULT_TASK_PATH = (
-    REPOSITORY_ROOT / "configs" / "environments" / "gymnasium_docking_v1.yaml"
+    REPOSITORY_ROOT / "configs" / "environments" / "gymnasium_docking_v2.yaml"
 )
 
 
@@ -102,6 +102,8 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         obstacles: Sequence[Obstacle] = (),
         render_mode: Literal["human", "rgb_array"] | None = None,
         task_settings: DockingTaskConfiguration | None = None,
+        reference_path: ReferencePath | None = None,
+        scale_goal_by_workspace: bool = False,
     ) -> None:
         super().__init__()
         if action_mode not in ("fixed_reverse", "teleop"):
@@ -120,6 +122,10 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         self.obstacles: tuple[Obstacle, ...] = tuple(obstacles)
         self.render_mode = render_mode
         self.settings = task_settings or load_docking_task_configuration(task_path)
+        if reference_path is not None and not isinstance(reference_path, ReferencePath):
+            raise TypeError("reference_path must be ReferencePath or None")
+        self.reference_path = reference_path
+        self._scale_goal_by_workspace = scale_goal_by_workspace
         action_size = 1 if action_mode == "fixed_reverse" else 2
         self.action_space = spaces.Box(
             low=-1.0, high=1.0, shape=(action_size,), dtype=np.float32
@@ -139,11 +145,14 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         self._x_bounds: Bounds1D
         self._y_bounds: Bounds1D
         self._previous_distance = 0.0
+        self._previous_lateral_distance = 0.0
+        self._previous_heading_distance = 0.0
         self._steps = 0
         self._episode_ended = False
         self._last_reward = 0.0
         self._reward_terms: dict[str, float] = {}
         self._renderer: DockingRenderer | None = None
+        self._controller_label: str | None = None
         self.reset()
 
     def _make_simulator(self) -> SimulatorBackend:
@@ -161,6 +170,22 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
     @property
     def episode_steps(self) -> int:
         return self._steps
+
+    @property
+    def controller_label(self) -> str | None:
+        """Human-readable control method shown by the renderer."""
+
+        return self._controller_label
+
+    def set_controller_label(self, label: str | None) -> None:
+        """Set display-only controller metadata without changing task state."""
+
+        if label is not None and not isinstance(label, str):
+            raise TypeError("controller label must be a string or None")
+        cleaned = None if label is None else label.strip()
+        self._controller_label = cleaned or None
+        if self._renderer is not None:
+            self._renderer.set_controller_label(self._controller_label)
 
     def _start_from_options(
         self, options: Mapping[str, Any]
@@ -234,6 +259,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             "docking_error_yaw": self.status.errors.trailer_yaw,
             "path_progress": self.tracking.progress,
             "distance_to_goal": self.tracking.distance_to_goal,
+            "reference_path_length": self.path.length,
             "reward_terms": dict(self._reward_terms),
             "applied_command": self.simulator.applied_command.to_dict(),
             "episode_steps": self._steps,
@@ -248,17 +274,28 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         """Reset deterministically; optional randomized starts use Gym's RNG."""
 
         super().reset(seed=seed)
-        pose, trailer_yaw, steering = self._start_from_options(options or {})
+        reset_options = options or {}
+        pose, trailer_yaw, steering = self._start_from_options(reset_options)
         state = self.simulator.reset(pose, trailer_yaw, steering_angle=steering)
-        self.path = self._build_path(state)
+        selected_path = reset_options.get("reference_path", self.reference_path)
+        if selected_path is not None and not isinstance(selected_path, ReferencePath):
+            raise ValueError("options['reference_path'] must be ReferencePath")
+        self.path = selected_path or self._build_path(state)
+        self._x_bounds, self._y_bounds = workspace_bounds(
+            pose, self.dock.geometry, self.settings, self.vehicle
+        )
+        goal_position_scale = None
+        if self._scale_goal_by_workspace:
+            goal_position_scale = (
+                max(abs(self._x_bounds.minimum), abs(self._x_bounds.maximum), 1.0),
+                max(abs(self._y_bounds.minimum), abs(self._y_bounds.maximum), 1.0),
+            )
         self.observation_builder = ObservationBuilder(
             self.vehicle,
             self.dock.geometry,
             self.path,
             self.settings.preview_distances,
-        )
-        self._x_bounds, self._y_bounds = workspace_bounds(
-            pose, self.dock.geometry, self.settings, self.vehicle
+            goal_position_scale=goal_position_scale,
         )
         self.tracking = self._tracking(state)
         self.status = evaluate_task(
@@ -270,6 +307,11 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
             self.obstacles,
         )
         self._previous_distance = self.tracking.distance_to_goal
+        lateral_scale = max(self.dock.geometry.interior_width, 1.0)
+        self._previous_lateral_distance = (
+            abs(self.tracking.lateral_error) / lateral_scale
+        )
+        self._previous_heading_distance = abs(self.tracking.trailer_heading_error)
         self._steps = 0
         self._episode_ended = False
         self._last_reward = 0.0
@@ -297,18 +339,37 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
 
     def _reward(self, state: VehicleState) -> float:
         progress = self._previous_distance - self.tracking.distance_to_goal
+        progress_reward = self.settings.reward_progress * progress
+        tracking_scale = self.settings.progress_tracking_scale
+        if progress_reward > 0.0 and tracking_scale is not None:
+            relative_error = self.tracking.lateral_error / tracking_scale
+            progress_reward /= 1.0 + relative_error**2
         lateral_scale = max(self.dock.geometry.interior_width, 1.0)
         heading = self.tracking.trailer_heading_error
+        lateral_distance = abs(self.tracking.lateral_error) / lateral_scale
+        lateral_improvement = self._previous_lateral_distance - lateral_distance
+        lateral_change_multiplier = (
+            1.0
+            if lateral_improvement >= 0.0
+            else self.settings.reward_lateral_deviation_multiplier
+        )
+        heading_distance = abs(heading)
+        heading_improvement = self._previous_heading_distance - heading_distance
         articulation = (
             state.articulation_angle / self.vehicle.limits.articulation_hard_abs_max
         )
         steering_rate = state.steering_rate / self.vehicle.limits.steering_rate_abs_max
         terms = {
-            "progress": self.settings.reward_progress * progress,
+            "progress": progress_reward,
             "time": -self.settings.reward_time,
             "lateral": -self.settings.reward_lateral_error
             * (self.tracking.lateral_error / lateral_scale) ** 2,
             "heading": -self.settings.reward_heading_error * heading**2,
+            "lateral_improvement": self.settings.reward_lateral_improvement
+            * lateral_change_multiplier
+            * lateral_improvement,
+            "heading_improvement": self.settings.reward_heading_improvement
+            * heading_improvement,
             "articulation": -self.settings.reward_articulation * articulation**2,
             "steering_rate": -self.settings.reward_steering_rate * steering_rate**2,
             "success": self.settings.reward_success if self.status.success else 0.0,
@@ -351,6 +412,10 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
         reward = self._reward(state)
         self._last_reward = reward
         self._previous_distance = self.tracking.distance_to_goal
+        self._previous_lateral_distance = abs(self.tracking.lateral_error) / max(
+            self.dock.geometry.interior_width, 1.0
+        )
+        self._previous_heading_distance = abs(self.tracking.trailer_heading_error)
         terminated = self.status.terminated
         truncated = not terminated and self._steps >= self.settings.max_episode_steps
         self._episode_ended = terminated or truncated
@@ -375,6 +440,7 @@ class TrailerDockingEnv(gym.Env[FloatArray, ActionArray]):
                 cast(Literal["human", "rgb_array"], self.render_mode),
                 self._x_bounds,
                 self._y_bounds,
+                self._controller_label,
             )
         return self._renderer.render(
             self.state,

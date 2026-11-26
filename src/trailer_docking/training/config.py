@@ -11,6 +11,9 @@ from trailer_docking.training.methods import validate_method
 BACKENDS = ("2d", "3d")
 """``"2d"`` is the kinematic simulator; ``"3d"`` is MuJoCo."""
 
+DEVICES = ("cpu", "auto", "cuda", "mps")
+"""Supported Stable-Baselines3/PyTorch device selectors."""
+
 
 def validate_backend(value: object, name: str = "backend") -> str:
     """Return *value* if it names a simulator backend, else raise."""
@@ -45,6 +48,17 @@ class TrainingConfig:
     learning_rate: float = 3e-4
     n_steps: int = 1024
     batch_size: int = 256
+    n_epochs: int = 10
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    clip_range: float = 0.2
+    clip_range_vf: float | None = None
+    normalize_advantage: bool = True
+    entropy_coefficient: float = 0.0
+    value_coefficient: float = 0.5
+    max_grad_norm: float = 0.5
+    target_kl: float | None = None
+    device: str = "cpu"
     max_episode_steps: int = 900
     checkpoint_interval: int = 20_000
     purpose: str = "docking"
@@ -61,6 +75,7 @@ class TrainingConfig:
             "total_timesteps",
             "n_steps",
             "batch_size",
+            "n_epochs",
             "max_episode_steps",
             "checkpoint_interval",
             "runs",
@@ -82,6 +97,46 @@ class TrainingConfig:
             or rate <= 0.0
         ):
             raise ValueError("learning_rate must be a positive finite number")
+        for name in ("gamma", "gae_lambda"):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(value)
+                or not 0.0 <= value <= 1.0
+            ):
+                raise ValueError(f"{name} must be finite and between 0 and 1")
+        for name in ("clip_range", "max_grad_norm"):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(value)
+                or value <= 0.0
+            ):
+                raise ValueError(f"{name} must be a positive finite number")
+        for name in ("entropy_coefficient", "value_coefficient"):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(value)
+                or value < 0.0
+            ):
+                raise ValueError(f"{name} must be finite and not negative")
+        for name in ("clip_range_vf", "target_kl"):
+            value = getattr(self, name)
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(value)
+                or value <= 0.0
+            ):
+                raise ValueError(f"{name} must be None or a positive finite number")
+        if not isinstance(self.normalize_advantage, bool):
+            raise ValueError("normalize_advantage must be a boolean")
+        if self.device not in DEVICES:
+            raise ValueError(f"device must be one of {', '.join(DEVICES)}")
         if not isinstance(self.purpose, str) or not self.purpose.strip():
             raise ValueError("purpose cannot be empty")
         validate_backend(self.backend)

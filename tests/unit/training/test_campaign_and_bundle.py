@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 import yaml
 
+from trailer_docking.controllers.ppo import PPOController
 from trailer_docking.evaluation.scenarios import Scenario, ScenarioOverrides
 from trailer_docking.training import cli
 from trailer_docking.training.bundle import (
@@ -30,6 +31,7 @@ from trailer_docking.training.evaluate import (
 )
 from trailer_docking.training.methods import (
     MethodUnavailableError,
+    lqr_controller_factory,
     nmpc_controller_factory,
     validate_method,
 )
@@ -460,21 +462,14 @@ def test_campaign_passes_live_3d_only_when_asked(
 # ------------------------------------------------------------ method switch
 
 
-def test_nmpc_is_reported_as_not_implemented_until_the_hook_exists(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with pytest.raises(MethodUnavailableError, match="not implemented yet"):
-        nmpc_controller_factory()
+def test_nmpc_factory_loads_the_implemented_controller_hook() -> None:
+    from trailer_docking.controllers.nmpc import make_docking_controller
 
-    import trailer_docking.controllers.nmpc as module
-
-    def make_docking_controller(env: Any) -> Any:
-        return lambda observation: np.zeros(1, np.float32)
-
-    monkeypatch.setattr(
-        module, "make_docking_controller", make_docking_controller, raising=False
-    )
     assert nmpc_controller_factory() is make_docking_controller
+
+    from trailer_docking.controllers.lqr import make_docking_controller as lqr_hook
+
+    assert lqr_controller_factory() is lqr_hook
 
 
 def test_a_controller_factory_is_rebuilt_from_the_environment_each_episode(
@@ -485,12 +480,15 @@ def test_a_controller_factory_is_rebuilt_from_the_environment_each_episode(
     def factory(env: Any) -> Any:
         # A model-based controller reads the shared state and reference path.
         seen.append((env.state.simulation_time, env.reference_path.length))
-        return lambda observation: [0.0]  # any shape-(1,) array-like
+        return PPOController(
+            lambda observation: np.zeros(1, np.float32), name="factory-test"
+        )
 
     results = run_docking_test(
         aligned_scenario, None, episodes=2, controller_factory=factory
     )
     assert [r.outcome for r in results] == ["success", "success"]
+    assert [r.controller for r in results] == ["factory-test", "factory-test"]
     assert len(seen) == 2 and all(time == 0.0 for time, _ in seen)
     with pytest.raises(ValueError, match="either a policy or"):
         run_docking_test(aligned_scenario, None)
@@ -530,17 +528,23 @@ def test_nmpc_campaign_skips_training_and_only_runs_the_controller(
     assert summary["best_run"]["evaluation"][1]["backend"] == "3d"
 
 
-def test_nmpc_campaign_fails_cleanly_while_the_controller_is_missing(
+def test_nmpc_campaign_fails_cleanly_when_controller_loading_fails(
     tmp_path: Path,
 ) -> None:
+    def unavailable() -> Any:
+        raise MethodUnavailableError("NMPC test failure")
+
     campaign = TrainingCampaign(
-        Scenario(), TrainingConfig(method="nmpc"), output_root=tmp_path
+        Scenario(),
+        TrainingConfig(method="nmpc"),
+        output_root=tmp_path,
+        controller_loader=unavailable,
     )
     campaign.start()
     campaign.join(30)
     progress = campaign.progress
     assert progress.status == "failed"
-    assert "NMPC is not implemented yet" in str(progress.error)
+    assert "NMPC test failure" in str(progress.error)
     results = tmp_path / "results" / str(progress.experiment_id)
     assert (
         yaml.safe_load((results / "manifest.yaml").read_text("utf-8"))["status"]
@@ -796,6 +800,10 @@ def test_cli_train_runs_a_campaign(tmp_path: Path, capsys: Any) -> None:
             "train",
             "--timesteps",
             "64",
+            "--max-episode-steps",
+            "2000",
+            "--purpose",
+            "cli-test",
             "--runs",
             "2",
             "--eval-episodes",
@@ -813,6 +821,10 @@ def test_cli_train_runs_a_campaign(tmp_path: Path, capsys: Any) -> None:
     assert "2d:" in output and "3d:" in output
     bundles = list(tmp_path.glob("artifacts/*/policy_bundle.dockpolicy.zip"))
     assert len(bundles) == 1
+    campaign_manifest = next(tmp_path.glob("results/*campaign/manifest.yaml"))
+    saved_config = yaml.safe_load(campaign_manifest.read_text("utf-8"))["config"]
+    assert saved_config["max_episode_steps"] == 2000
+    assert saved_config["purpose"] == "cli-test"
     assert "runs_finished" in next(
         tmp_path.glob("results/*campaign/summary.json")
     ).read_text("utf-8")

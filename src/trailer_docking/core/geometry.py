@@ -429,10 +429,13 @@ class DockGeometry:
     require_no_collision: bool
     require_articulation_below_hard_limit: bool
     require_complete_trailer_inside_bay: bool
+    walls_enabled: bool = True
 
     def __post_init__(self) -> None:
         if not self.specification_id.strip():
             raise GeometryValidationError("dock specification_id cannot be empty")
+        if not isinstance(self.walls_enabled, bool):
+            raise GeometryValidationError("dock walls_enabled must be boolean")
         _coerce_numbers(
             self,
             (

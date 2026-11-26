@@ -208,6 +208,7 @@ class TrainingSession:
         environment_factory: EnvironmentFactory | None = None,
         live_3d: bool = False,
         campaign_id: str | None = None,
+        initial_policy: str | Path | None = None,
     ) -> None:
         self.scenario = scenario
         self.config = config if config is not None else TrainingConfig()
@@ -218,6 +219,9 @@ class TrainingSession:
         self._spectator_frame: Any = None
         # The campaign this run belongs to, recorded in its manifest.
         self._campaign_id = campaign_id
+        self._initial_policy = (
+            None if initial_policy is None else Path(initial_policy)
+        )
         self._hyperparameters: dict[str, Any] | None = None
         self._lock = threading.Lock()
         self._stop_requested = threading.Event()
@@ -466,6 +470,15 @@ class TrainingSession:
             "checkpoint_path": self._relative(checkpoint),
             "checkpoint_sha256": file_sha256(checkpoint) if finished else None,
             "checkpoint_dir": self._relative(self._checkpoint_dir),
+            "initial_policy_path": (
+                None
+                if self._initial_policy is None
+                else self._initial_policy.as_posix()
+            ),
+            "initial_policy_sha256": file_sha256(self._initial_policy),
+            "warm_start_resets_optimizer_and_schedules": (
+                self._initial_policy is not None
+            ),
             "metrics_path": "metrics.csv" if finished else None,
             "note": REWARD_NOTE,
         }
@@ -515,10 +528,30 @@ class TrainingSession:
                 learning_rate=self.config.learning_rate,
                 n_steps=self.config.n_steps,
                 batch_size=self.config.batch_size,
+                n_epochs=self.config.n_epochs,
+                gamma=self.config.gamma,
+                gae_lambda=self.config.gae_lambda,
+                clip_range=self.config.clip_range,
+                clip_range_vf=self.config.clip_range_vf,
+                normalize_advantage=self.config.normalize_advantage,
+                ent_coef=self.config.entropy_coefficient,
+                vf_coef=self.config.value_coefficient,
+                max_grad_norm=self.config.max_grad_norm,
+                target_kl=self.config.target_kl,
                 seed=self.config.seed,
-                device="cpu",
+                device=self.config.device,
                 verbose=0,
             )
+            if self._initial_policy is not None:
+                from trailer_docking.training.evaluate import _policy_weights
+
+                if not self._initial_policy.is_file():
+                    raise FileNotFoundError(
+                        f"initial policy not found: {self._initial_policy}"
+                    )
+                model.policy.load_state_dict(
+                    _policy_weights(self._initial_policy.read_bytes())
+                )
             self._hyperparameters = {
                 "policy": "MlpPolicy",
                 "learning_rate": self.config.learning_rate,
@@ -531,7 +564,14 @@ class TrainingSession:
                 "ent_coef": model.ent_coef,
                 "vf_coef": model.vf_coef,
                 "max_grad_norm": model.max_grad_norm,
-                "device": "cpu",
+                "clip_range_vf": (
+                    None
+                    if model.clip_range_vf is None
+                    else _schedule_value(model.clip_range_vf)
+                ),
+                "normalize_advantage": model.normalize_advantage,
+                "target_kl": model.target_kl,
+                "device": str(model.device),
             }
             model.learn(
                 total_timesteps=self.config.total_timesteps,

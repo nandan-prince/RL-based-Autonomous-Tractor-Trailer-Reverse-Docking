@@ -338,11 +338,12 @@ PPO-only; NMPC is implemented separately and plugs in through one hook.
 - *Display.* The control UI is the only window needed: a top-down view for
   both simulators and an embedded offscreen MuJoCo rendering for 3D.
 
-Hyperparameters are Stable-Baselines3 defaults except rollout length 1024 and
-batch 256; the trajectory-state paper (Yan et al., 2024) does not report its
-values. Not implemented: curriculum, parallel environments, resume,
-TensorBoard. Evidence is software tests plus pipeline runs whose success rates
-are not results.
+At the time of this decision, hyperparameters were Stable-Baselines3 defaults
+except rollout length 1024 and batch 256; the trajectory-state paper (Yan et
+al., 2024) does not report its values. At that audit point curriculum, parallel
+environments, resume, and TensorBoard were not implemented. D-017 through
+D-019 record the later configuration and curriculum work. Evidence here is
+software tests plus pipeline runs whose success rates are not results.
 
 ### D-013 addendum — changes made after the adversarial audit (2026-11-13)
 
@@ -466,3 +467,184 @@ user asked for them in both simulators.
 
 Dynamic obstacles remain a stretch goal and are not implemented.
 
+## D-016 — Shared controller contract and straight-path vertical slices
+
+**Date:** 2026-11-19
+**Status:** implemented for the 2D compact baseline and integrated with the
+shared training/evaluation infrastructure
+
+LQR, NMPC, and PPO use one fixed-reverse Gymnasium action contract: a `(1,)`
+`float32` value in `[-1, 1]` representing normalized steering rate. The compact
+baseline retains its configured `-0.20 m/s` target and `0.10 s` controller
+period. Reference paths are ordered target-to-start, reverse progress decreases
+toward zero, and tracking is evaluated at the trailer rear-face docking point.
+An explicit path can be supplied independently of reset randomization, while
+scenario-selected planners remain the default when no explicit path is given.
+
+`ControllerContext` is the shared classical-controller adapter. LQR and NMPC
+may use its physical state, model, path, and tracking fields. The primary PPO
+policy is restricted to the normalized Gymnasium observation; privileged-state
+PPO would be a separately named experiment. All methods must be paired on the
+same path, reset state, vehicle/dock/task/scenario fingerprints, and seed.
+
+The deterministic controller numerically linearizes the verified RK4 plant
+about fixed-speed straight reverse motion and solves a discrete Riccati equation
+over docking-point lateral error, tractor/trailer heading errors, and steering
+angle. The first NMPC uses a 40-step nonlinear horizon, fixed reverse speed,
+steering-rate decisions, and steering/articulation constraints. It does not yet
+predict collision constraints. Both complete the same straight-path acceptance
+scenario from a `0.35 m` lateral and `3 degree` heading offset without collision
+or jackknife. This is an engineering integration check, not a controller
+comparison or performance result.
+
+### D-016 addendum — shared inference execution (2026-11-19)
+
+`PPOController` now adapts a deterministic saved policy to the same
+`Controller` protocol as LQR and NMPC while forwarding only the normalized
+observation. The shared evaluator, rather than method-specific wrappers,
+constructs `ControllerContext`, validates actions, measures inference time, and
+records controller identity and NMPC solve failures. Per-episode NMPC and LQR
+factories are created after reset so randomized vehicle geometry is reflected
+in their models. LQR is available from the common test CLI and UI; it remains a
+diagnostic baseline rather than a primary training method.
+
+## D-017 — Resolved episodes and parameterized learning conditions
+
+**Date:** 2026-11-19
+**Status:** implemented and software-tested; no comparative experiment has
+been registered
+
+A scenario describes distributions and is therefore insufficient by itself to
+prove that two methods saw the same task draw. Each paired evaluation now
+resolves geometry randomization, articulated start state, zero initial steering
+angle, and the planned reference path once. The immutable resolved episode has
+a SHA-256 content fingerprint. The environment replays it without resampling
+and refuses a different scenario fingerprint or seed. The comparison runner
+uses the same resolved objects across every controller/backend cell and adds
+their seed and fingerprint to each episode result.
+
+PPO settings that were previously Stable-Baselines3 defaults are now explicit
+`TrainingConfig` fields: learning rate, rollout length, minibatch size, epochs,
+discount, GAE factor, policy/value clipping, advantage normalization, entropy
+and value coefficients, gradient clipping, target KL, and compute device. The
+training CLI exposes these fields and the resolved values remain in the run
+manifest. The default network architecture and activation remain fixed; an
+architecture study would require a versioned policy-format change.
+
+All existing task reward terms are scenario overrides. Zero is allowed so a
+term can be removed in a named ablation. Reward changes alter the task and its
+scenario fingerprint; they must not be treated as repeat seeds of another
+condition. This work establishes experiment control, not tuned values or
+evidence that any setting improves docking.
+
+## D-018 — Versioned controller settings and split ownership
+
+**Date:** 2026-11-21
+**Status:** implemented and software-tested; no final comparison run
+
+The classical baselines no longer depend on unnamed Python defaults for an
+experimental run. `baseline_controllers_v1.yaml` resolves every LQR and NMPC
+weight, horizon, tolerance, and iteration limit under a content fingerprint.
+The default values are numerically unchanged from the accepted vertical
+slices. CLI tests, campaigns, and formal comparisons can select this file.
+
+`compact_docking_suite_v1.yaml` owns three training seeds, a 20-episode
+validation range, and a disjoint 100-episode held-out test range. The suite
+loader rejects overlap. Validation may guide tuning and policy selection; the
+test split is reserved for the final frozen condition. The formal comparison
+writer saves the full scenario, suite, controller configuration, policy
+checksum, serialized resolved episodes, per-episode metrics, summary, runtime,
+versions, Git state, and caveats under an immutable experiment ID. This makes
+the comparison reproducible but does not make an untuned run scientifically
+conclusive.
+
+## D-019 — Gated PPO curriculum and policy-only continuation
+
+**Date:** 2026-11-21
+**Status:** implemented and software-tested with a tiny run; the configured
+full curriculum has not been executed
+
+The first curriculum configuration progresses from aligned straight reverse to
+perturbed straight reverse and then randomized starts/trailer length. Each
+stage has an explicit budget, full scenario, and minimum validation success
+rate. A stage advances only after evaluation on the suite-owned validation
+range. Training and validation outputs retain child experiment IDs and episode
+fingerprints.
+
+Stage continuation uses the safe weights-only checkpoint loader. Policy
+weights transfer, but optimizer moments, rollout buffer, schedules, and
+timestep counters restart. This is deliberately called a policy warm start,
+not exact resume. Exact optimizer-state resume, parallel environments,
+TensorBoard, and curriculum visualization in the desktop UI remain
+unimplemented. The default budgets and gates are engineering starting values;
+they are not tuned hyperparameters or results.
+
+## D-020 — Predefined curve distributions and controlled PPO reward studies
+
+**Date:** 2026-11-21
+**Status:** implemented and software-tested with tiny runs; no configured full
+curriculum or reward study has been executed
+
+Phase 5 needs to move beyond aligned straight reversing without conflating
+path generation, reward tuning, and final evaluation. Three predefined cubic
+path templates (`curve_gentle`, `curve_early`, and `curve_late`) are therefore
+registered alongside the existing planners. They share dock-aligned endpoint
+tangents and differ only in fixed control-point fractions. A scenario may
+sample a finite template set once per episode. The selected planner and sampled
+polyline are saved in the resolved episode, so replay does not resample the
+curve. These templates are geometric references; they are not evidence of
+collision-free or jackknife-free articulated feasibility.
+
+`ppo_curved_curriculum_v1.yaml` uses a short aligned warm-up, one gentle-curve
+stage, and a mixed-template stage. Its budgets, start ranges, and gates are
+engineering starting values. A full run is required before deciding whether
+the straight warm-up is long enough or whether the curve ranges should expand.
+
+Reward tuning uses a separate controlled-study schema. Every condition is
+derived from one base scenario and may change only named reward coefficients.
+Training seed ownership, PPO settings, path distribution, and validation split
+remain fixed. The runner additionally verifies reward-independent physical
+episode fingerprints across conditions and saves per-cell metrics and child
+experiment provenance. The provided baseline, tracking-heavy, and
+articulation-aware rewards are hypotheses to test, not preferred or improved
+settings. Validation may guide selection; the held-out test split remains
+untouched until one condition is frozen.
+
+## D-021 — Minimal desktop workflow with explicit training inputs
+
+**Date:** 2026-11-22
+**Status:** implemented and software-tested; no training result is implied
+
+The desktop window is an operator interface for three tasks: configure and
+train one PPO campaign, select and evaluate a saved model, and edit advanced
+scenario settings. It no longer presents classical controllers as training
+methods or mixes missing policy sources with an implicit baseline.
+
+Every PPO value passed to Stable-Baselines3 and every task reward coefficient
+is visible and editable before training. Starting a run validates and applies
+the displayed rewards to the scenario, then constructs the same immutable
+`TrainingConfig` used by the CLI. Periodic and final checkpoints remain
+automatic; the model browser discovers checkpoints from previous application
+sessions, while a portable bundle remains the explicit shareable artifact.
+This improves experimental control and usability but does not validate any
+hyperparameter choice or controller performance.
+
+## D-022 — Version-2 dense trailer-tail tracking reward
+
+**Date:** 2026-11-22
+**Status:** implemented and software-tested; learning benefit remains untested
+
+The original `gymnasium-docking-v1` task remains unchanged for reproducibility.
+The current PPO task is `gymnasium-docking-v2`. It retains progress, absolute
+path error, articulation, control-effort, and terminal terms, and adds change
+terms for normalized trailer-tail distance and absolute trailer-heading error.
+Tail-distance reduction earns positive reward; an increase uses a configurable
+multiplier whose initial value is two. The previous error is initialized at
+reset, so an episode receives no artificial first-step improvement.
+
+The initial coefficients (tail improvement 5, deviation multiplier 2, heading
+improvement 1) are hypotheses motivated by denser credit assignment. They are
+not evidence of faster learning. The asymmetric term changes the optimization
+objective and can favor aggressive corrections, so articulation, steering,
+and absolute-error terms remain active. It must be evaluated against version 1
+with identical training seeds, budgets, scenarios, and validation episodes.

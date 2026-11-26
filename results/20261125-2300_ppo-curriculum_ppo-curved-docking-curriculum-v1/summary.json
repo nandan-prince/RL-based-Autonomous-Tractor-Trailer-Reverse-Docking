@@ -1,0 +1,56 @@
+{
+  "experiment_id": "20261125-2300_ppo-curriculum_ppo-curved-docking-curriculum-v1",
+  "status": "threshold_not_met",
+  "completed_stages": 0,
+  "stages": [
+    {
+      "stage": 0,
+      "name": "straight-warmup",
+      "training_experiment_id": "20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup",
+      "training_status": "finished",
+      "training_timesteps": 20480,
+      "checkpoint": "artifacts/20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup/checkpoints/policy_final.zip",
+      "gate": 0.7,
+      "validation": {
+        "episodes": 20,
+        "success_rate": 0.0,
+        "collision_rate": 1.0,
+        "jackknife_rate": 0.0,
+        "mean_total_reward": -65.70276977427737,
+        "mean_abs_lateral_error": 0.39154070113679845,
+        "mean_abs_longitudinal_error": 5.673041182740771,
+        "mean_abs_yaw_error": 0.19275742361927592,
+        "max_abs_articulation": 0.48798680640381364,
+        "mean_maneuver_time": 21.399999999999633,
+        "mean_path_length": 4.114593325843326,
+        "mean_steering_rate_rms": 0.02183488264866446,
+        "mean_policy_time_ms": 0.06915233194529921,
+        "solve_failures": 0,
+        "outcome_collision": 20
+      },
+      "episode_fingerprints": [
+        "7e97a72dedb7b13284e0bf1e2d7224541604bfe69b741b2f2ae8572f119fb7c0",
+        "526ac6123306c759d5b0a79219ceb62bcf6c9379bd45e1f382464f2ffdbbe889",
+        "22f50038bd966da4c287c33d513ff09e4c3e1b66f7fdc8ac2490dca6b1470f4d",
+        "7a44f4e76ddfcf6d7c6822daf20edf57c50fc8bcf3557431a0cc7c900ecced96",
+        "f792a667723fa968354879f2aff0ac5209d25b33e3723b49f10a9914c5c4151a",
+        "00d27c881a3516b517097f06f051ffe8faabf25f5d3dea81f11303402feafda6",
+        "a09e53c1d4af796d82045428bf7faa1967903e4838b2fd2ebd855b8a5c9fae29",
+        "a5df84fddfcd9b8aff3162b4db43ca7a0296dae746c0df98874583cf81b2b7c1",
+        "b3dd1bb46f32aaa6b46dfebaf07abec3276437bc13d4a755b8c9f40b8a3294bc",
+        "4402bb11af16ef2bb8d26d8908e8015534a8714b400265470945bf9daaa80dbf",
+        "119454662ed81db0958c52d690b45d883eda31f8a1072a33da34df29f5fbb070",
+        "23179a4be888986087d420f2f69a848443a75dc0907f9cbc27475cb018f2da99",
+        "f46ee5f8ce352a09d88d0714e00e275119e54a5b8744d46874fb37b4f1019486",
+        "5d23e08db69cb709ef21d1b23b9f17f110edb035884dcd288197b0f0f429d44f",
+        "fcec6178e6d209f070567ba5d8cc4d486082c9241713fc4d49e08c25c23f2fe1",
+        "c1520877c42b7e9d2968c6e9ca5a83e8b0d5a39cfb1caf7e36d4bcbc065801df",
+        "37e8a60c73a1526fb21055734ddfb0bede4b625f774dbd1f3443e67a49ede991",
+        "857fec7f7d7cf8cf8dcf3f56f70b4c4edbfcc00f8f330d5dced167ac0c8102a8",
+        "96e7c6a0ccd26771e0ac25b83c0da415dd2683a7d0c76401549816b7a30c3201",
+        "09fde84fe4102734e47556597d4605b880e795bfea9fdc89a8a33b0b7d23f262"
+      ],
+      "gate_passed": false
+    }
+  ]
+}

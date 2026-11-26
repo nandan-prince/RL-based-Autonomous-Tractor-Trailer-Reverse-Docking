@@ -33,7 +33,9 @@ from typing import Any
 
 import yaml
 
+from trailer_docking.controllers.configuration import ControllerConfigurations
 from trailer_docking.core.state import Point2D, VehicleState
+from trailer_docking.evaluation.episodes import resolve_episodes
 from trailer_docking.evaluation.scenarios import Scenario
 from trailer_docking.training.bundle import BUNDLE_SUFFIX, export_bundle
 from trailer_docking.training.config import TrainingConfig
@@ -77,6 +79,7 @@ def _default_session_factory(
     output_root: Path,
     live_3d: bool = False,
     campaign_id: str | None = None,
+    initial_policy: Path | None = None,
 ) -> Any:
     return TrainingSession(
         scenario,
@@ -84,6 +87,7 @@ def _default_session_factory(
         output_root=output_root,
         live_3d=live_3d,
         campaign_id=campaign_id,
+        initial_policy=initial_policy,
     )
 
 
@@ -138,15 +142,28 @@ class TrainingCampaign:
         test_runner: TestRunner | None = None,
         policy_loader: Callable[[Path], Any] | None = None,
         controller_loader: Callable[[], Any] | None = None,
+        controller_configurations: ControllerConfigurations | None = None,
         live_3d: bool = False,
+        initial_policy: str | Path | None = None,
     ) -> None:
         self.scenario = scenario
         self.config = config if config is not None else TrainingConfig()
+        self.initial_policy = None if initial_policy is None else Path(initial_policy)
+        if self.initial_policy is not None:
+            if self.config.method != "ppo":
+                raise ValueError("an initial policy requires PPO training")
+            if not self.initial_policy.is_file():
+                raise ValueError(f"initial policy not found: {self.initial_policy}")
         self.output_root = Path(output_root)
         self._session_factory = session_factory or _default_session_factory
         self._test_runner = test_runner or _default_test_runner
         self._policy_loader = policy_loader or _default_policy_loader
         self._controller_loader = controller_loader or nmpc_controller_factory
+        self._controller_configurations = (
+            ControllerConfigurations()
+            if controller_configurations is None and controller_loader is None
+            else controller_configurations
+        )
         self._lock = threading.Lock()
         self._stop_requested = threading.Event()
         self._thread: threading.Thread | None = None
@@ -379,6 +396,16 @@ class TrainingCampaign:
             "scenario": self.scenario.to_dict(),
             "scenario_fingerprint": self.scenario.fingerprint,
             "config": self.config.to_dict(),
+            "controller_configurations": (
+                None
+                if self._controller_configurations is None
+                else self._controller_configurations.to_dict()
+            ),
+            "controller_fingerprint": (
+                None
+                if self._controller_configurations is None
+                else self._controller_configurations.fingerprint
+            ),
             "simulator_backend": self.config.backend,
             # Needed whenever any phase ran in MuJoCo, including tests of a
             # policy trained in 2D: no YAML fingerprint covers these values.
@@ -387,6 +414,8 @@ class TrainingCampaign:
             "best_run_experiment_id": None if best is None else best["experiment_id"],
             "bundle_path": self._relative(bundle),
             "bundle_sha256": file_sha256(bundle),
+            "initial_policy_path": self._relative(self.initial_policy),
+            "initial_policy_sha256": file_sha256(self.initial_policy),
             "evaluation_files": sorted(
                 path.name for path in self._results_dir.glob("evaluation_*.csv")
             ),
@@ -428,6 +457,8 @@ class TrainingCampaign:
             runs=1,
         )
         options: dict[str, Any] = {"output_root": self.output_root}
+        if self.initial_policy is not None:
+            options["initial_policy"] = self.initial_policy
         if self._live_3d:
             options["live_3d"] = True
         with self._lock:
@@ -471,6 +502,11 @@ class TrainingCampaign:
         config = self.config
         if config.evaluation_episodes == 0:
             return []
+        resolved = resolve_episodes(
+            self.scenario,
+            episodes=config.evaluation_episodes,
+            seed=config.evaluation_seed,
+        )
         policy: Any = None
         controller: dict[str, Any] = {}
         if checkpoint is not None:
@@ -502,6 +538,7 @@ class TrainingCampaign:
                     backend=backend,
                     on_state=self._on_evaluation_state,
                     should_stop=self._stop_requested.is_set,
+                    resolved_episodes=resolved,
                     **options,
                     **controller,
                 )

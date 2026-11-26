@@ -5,10 +5,12 @@ pytest.importorskip("gymnasium")
 
 from trailer_docking.core.state import VehicleState
 from trailer_docking.evaluation.scenarios import Scenario
+from trailer_docking.evaluation.suites import EvaluationSplit, ExperimentSuite
 from trailer_docking.training import cli
 from trailer_docking.training.evaluate import (
     EpisodeResult,
     load_policy,
+    resolve_policy_path,
     run_docking_test,
     straight_reverse_policy,
     summarize,
@@ -61,6 +63,7 @@ def test_straight_reverse_docks_from_an_aligned_start(
     assert result.path_length == pytest.approx(0.02 * result.steps, rel=0.02)
     assert result.steering_rate_rms == pytest.approx(0.0, abs=1e-9)
     assert result.mean_policy_time_ms >= 0.0
+    assert result.controller == "ppo-policy"
     assert summarize(results) == {
         "episodes": 1,
         "success_rate": 1.0,
@@ -75,6 +78,7 @@ def test_straight_reverse_docks_from_an_aligned_start(
         "mean_path_length": result.path_length,
         "mean_steering_rate_rms": result.steering_rate_rms,
         "mean_policy_time_ms": result.mean_policy_time_ms,
+        "solve_failures": 0,
         "outcome_success": 1,
     }
 
@@ -156,6 +160,13 @@ def test_load_policy_missing_file(tmp_path) -> None:
         load_policy(tmp_path / "nope.zip")
 
 
+def test_resolve_policy_path_accepts_omitted_zip_suffix(tmp_path) -> None:
+    archive = tmp_path / "policy.zip"
+    archive.write_bytes(b"test")
+
+    assert resolve_policy_path(tmp_path / "policy") == archive
+
+
 def test_cli_test_subcommand(aligned_scenario: Scenario, tmp_path, capsys) -> None:
     path = aligned_scenario.save(tmp_path / "aligned.yaml")
     assert cli.main(["test", "--scenario", str(path), "--episodes", "1"]) == 0
@@ -163,6 +174,105 @@ def test_cli_test_subcommand(aligned_scenario: Scenario, tmp_path, capsys) -> No
     assert "episode 0: success" in output
     assert "success_rate: 1.000" in output
     assert "outcome_success: 1" in output
+    assert cli.main(
+        ["test", "--scenario", str(path), "--lqr", "--episodes", "1"]
+    ) == 0
+    assert "episode 0: success" in capsys.readouterr().out
+
+    assert cli.main(
+        [
+            "compare",
+            "--scenario",
+            str(path),
+            "--controllers",
+            "lqr",
+            "--episodes",
+            "1",
+            "--seed",
+            "7",
+        ]
+    ) == 0
+    comparison = capsys.readouterr().out
+    assert "[lqr | 2d]" in comparison
+    assert "episodes: " in comparison
+    assert "episode 0: success" in comparison
+
+
+def test_cli_exposes_ppo_hyperparameters() -> None:
+    arguments = cli._parser().parse_args(
+        [
+            "train",
+            "--learning-rate",
+            "0.001",
+            "--n-steps",
+            "128",
+            "--batch-size",
+            "64",
+            "--n-epochs",
+            "4",
+            "--gamma",
+            "0.98",
+            "--gae-lambda",
+            "0.9",
+            "--clip-range",
+            "0.15",
+            "--entropy-coefficient",
+            "0.02",
+            "--target-kl",
+            "0.03",
+            "--device",
+            "cpu",
+        ]
+    )
+    config = cli._training_config(arguments)
+    assert config.learning_rate == 0.001
+    assert config.n_steps == 128
+    assert config.batch_size == 64
+    assert config.n_epochs == 4
+    assert config.gamma == 0.98
+    assert config.gae_lambda == 0.9
+    assert config.clip_range == 0.15
+    assert config.entropy_coefficient == 0.02
+    assert config.target_kl == 0.03
+
+
+def test_cli_can_save_a_formal_paired_comparison(
+    aligned_scenario: Scenario, tmp_path, capsys
+) -> None:
+    scenario_path = aligned_scenario.save(tmp_path / "scenario.yaml")
+    suite_path = ExperimentSuite(
+        "cli-unit-suite-v1",
+        (0,),
+        EvaluationSplit(20, 1),
+        EvaluationSplit(30, 1),
+    ).save(tmp_path / "suite.yaml")
+    code = cli.main(
+        [
+            "compare",
+            "--scenario",
+            str(scenario_path),
+            "--controllers",
+            "lqr",
+            "--suite",
+            str(suite_path),
+            "--split",
+            "validation",
+            "--save-results",
+            "--purpose",
+            "cli-unit",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert code == 0
+    output = capsys.readouterr().out
+    assert "[lqr | 2d]" in output
+    assert "evidence:" in output
+    configurations = list((tmp_path / "configs" / "experiments").glob("*.yaml"))
+    results = [path for path in (tmp_path / "results").iterdir() if path.is_dir()]
+    assert len(configurations) == 1
+    assert len(results) == 1
+    assert (results[0] / "manifest.yaml").is_file()
 
 
 def test_cli_errors_return_2(aligned_scenario: Scenario, tmp_path, capsys) -> None:

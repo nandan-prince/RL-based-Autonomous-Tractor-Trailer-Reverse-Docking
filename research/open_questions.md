@@ -81,3 +81,22 @@ experiments, decide whether to introduce a new configuration schema or require
 the experiment runner to serialize the complete resolved tuning object into
 every manifest. Git revision alone is reproducible but makes controlled tuning
 studies and configuration comparison less explicit.
+
+## Q-009 — NMPC collision constraints and path curvature
+
+The initial NMPC vertical slice enforces steering, steering-rate, and
+articulation constraints but relies on the environment to detect collision. It
+has only been accepted on an explicit straight reference. Before calling it a
+docking baseline, add footprint/clearance constraints or a defensible smooth
+approximation, validate curved references, and define solver-failure handling
+for reported experiments.
+
+## Open-bay PPO warm-up
+
+Does removing dock-wall termination give PPO enough experience to stabilize
+reverse motion? Compare the walled and painted-bay runs with matched
+scenarios, reward weights, PPO settings, seeds, and budgets. Record docking
+success, distance traveled before termination, articulation, and the
+distribution of failure outcomes. Stable reversing and line tracking under
+small start perturbations remain separate milestones before tightening
+docking tolerances or restoring physical clearance constraints.

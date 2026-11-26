@@ -47,10 +47,22 @@ plant command per step. Its primary action is normalized steering rate at the
 fixed reverse-speed target. A separate two-action teleoperation mode adds speed
 authority for manual debugging without changing the research action contract.
 The reward combines progress with penalties for time, lateral and heading
-error, articulation, and steering rate, plus explicit terminal terms. Every
-component is returned in the diagnostic information and versioned in a strict
-task configuration. Success, collision, jackknife, workspace exit, and timeout
-are evaluated independently of reward.
+error, articulation, and steering rate, plus explicit terminal terms. The
+version-2 task additionally defines $d_t=|e_{y,t}|/w_{\mathrm{bay}}$ from the
+trailer rear docking point and adds a dense change term
+$w_{\Delta d}q_t(d_{t-1}-d_t)$, where $q_t=1$ when distance decreases and
+$q_t=2$ when it increases. A second change term rewards reduction in absolute
+trailer-heading error. Absolute tracking and safety terms remain active, so
+oscillation cannot earn a positive cycle merely by repeatedly approaching and
+leaving the path. Every component is returned in the diagnostic information
+and versioned in a strict task configuration. Success, collision, jackknife,
+workspace exit, and timeout are evaluated independently of reward. The new
+weights are engineering hypotheses and have not been shown to improve
+learning.
+
+An exploratory compact training configuration uses a painted bay with the
+dock walls disabled. It preserves the nominal docking pose and containment
+criteria, articulation threshold, and workspace bounds.
 
 The compact registered task remains the controller-comparison baseline. The
 full-size interactive task is selected explicitly by separate vehicle, dock,
@@ -61,17 +73,32 @@ building façade outside the active door remain collidable. Its hard jackknife
 event occurs at $60^\circ$, while the compact baseline terminates at
 $45^\circ$.
 
+\subsection{Deterministic LQR tracker}
+
+\implemented{} The first closed-loop baseline numerically linearizes the same
+RK4 kinematic plant used by the environment about straight motion at the
+configured reverse speed. Its error state contains trailer docking-point
+lateral error, tractor heading error, trailer heading error, and steering
+angle. A discrete Riccati iteration computes a feedback gain whose physical
+steering-rate output is normalized through the common Gymnasium action. This
+controller is an integration baseline for signs, path errors, actuation, and
+termination rather than a claimed solution for general curved docking.
+
 \subsection{NMPC baseline}
 
-\planned{} The runner already accepts a model-based controller through a
-single per-episode hook and evaluates it on the same scenarios, seeds, plants,
-and metrics as PPO without a training phase; the controller itself is not
-implemented. NMPC will predict the shared articulated-vehicle model and minimize
-tracking, articulation, steering effort, and steering-rate variation while
-enforcing dynamics, steering, steering-rate, and articulation constraints. The
-primary comparison will retain fixed reverse speed and steering-rate authority.
-Horizon, discretization, weights, warm start, solver tolerances, and numerical
-failure handling will be recorded in versioned experiment configurations.
+\implemented{} A first NMPC vertical slice predicts the nonlinear shared
+articulated-vehicle equations over 40 controller periods. It minimizes trailer
+docking-point position and heading errors plus tractor-heading, articulation,
+steering-angle, and steering-rate penalties. Steering rate is the only decision
+input and speed remains at the configured fixed reverse target. The CasADi/IPOPT
+problem enforces steering-angle, steering-rate, articulation, initial-state,
+and discrete-dynamics constraints, applies the first input, warm-starts the next
+solve, and reports solve failures. Collision is evaluated by the environment
+but is not yet a prediction constraint. Curved-path, randomized-start,
+obstacle, solver-failure, and timing validation remain planned before NMPC is
+used in the final formal comparison. Its costs, horizon, tolerances, and
+solver limits are now loaded from the same strict, fingerprinted controller
+configuration used by the shared evaluation runner.
 
 \subsection{Route planners}
 
@@ -117,6 +144,13 @@ can be added to the normalized observation. Both are disabled by default, and
 the noise is expressed in normalized observation units rather than as a
 sensor model.
 
+At evaluation, a thin PPO controller adapter receives the shared per-step
+controller context but forwards only its normalized observation to the policy.
+The evaluator uses that same context construction, action validation, timing,
+and metric path for PPO, LQR, and NMPC. Model-based controllers may use the
+physical state, reference, and vehicle model carried by the context; this
+information asymmetry is explicit rather than hidden in separate runners.
+
 A training campaign repeats a run with consecutive seeds on either plant,
 tests each final policy on a fixed set of start poses on the selected plants,
 and exports the run with the highest test success rate as a single bundle
@@ -132,19 +166,81 @@ proposal: success, collision, and jackknife rates, final position and heading
 errors, maximum articulation, maneuver time, path length, steering-rate
 root-mean-square, and controller computation time per step.
 
+For paired evaluation, a scenario distribution is resolved before any
+controller runs. The resolver draws randomized geometry, samples the
+articulated initial state, and constructs the reference path once. It stores
+these values with the seed and a content fingerprint in an immutable episode
+definition. Every PPO, LQR, or NMPC and 2D/MuJoCo evaluation cell replays that
+same definition; replay refuses a mismatched scenario fingerprint or seed.
+This prevents equal nominal seeds from concealing differences in random-number
+consumption between methods or simulators.
+
 The task environment can drive the MuJoCo plant through the same command and
 state contract; observation, reward, and terminal events are computed from the
 shared planar state in both cases. Agreement of episode events between the two
 plants has not been validated, so three-dimensional runs are engineering
 checks.
 
-\planned{} No hyperparameter, reward weight, or start range has been tuned;
-the source work does not report its PPO hyperparameters or preview spacing, so
-library defaults are used except for a rollout length of 1024 steps and a
-minibatch of 256. A straight-to-curved curriculum, parallel
-environments, and the observation ablations (global coordinates, removal of
+\implemented{} PPO rollout and optimization parameters are explicit validated
+run-configuration fields rather than implicit library settings. They include
+learning rate, rollout and minibatch size, training epochs, discount, GAE
+factor, clipping ranges, advantage normalization, entropy and value
+coefficients, gradient clipping, target KL, seed, and device. Every existing
+reward coefficient is an explicit scenario override and is therefore included
+in the scenario fingerprint; setting a coefficient to zero supports a named
+reward ablation. The policy network architecture remains fixed.
+
+\implemented{} LQR and NMPC costs and numerical settings are loaded from a
+strict versioned controller configuration. A separate experiment-suite
+configuration owns disjoint training, validation, and held-out test seed
+ranges. Formal paired comparison runs serialize these resolved inputs, policy
+checksums, every episode definition, per-episode metrics, aggregate summaries,
+software versions, runtime information, and Git state under an immutable
+experiment ID.
+
+\implemented{} The first PPO curriculum is configuration-driven. Its stages
+progress from aligned straight reverse through perturbed reverse to randomized
+initial states and trailer length. Each stage has a scenario, training budget,
+and minimum validation success rate; advancement occurs only after evaluation
+on the suite-owned validation split. The next stage loads policy tensors
+through the weights-only loader. Optimizer moments, rollout state, schedules,
+and timestep counters restart, so this is a policy warm start rather than exact
+optimizer resume.
+
+\implemented{} Three predefined curved references supplement the straight and
+piecewise-linear routes. Each is a sampled cubic path with dock-aligned
+endpoint tangents; fixed control-point fractions define gentle, early, and late
+lateral transitions. A scenario may sample a registered template once per
+episode. The selected name and complete path are stored in the resolved episode
+so every controller/backend cell can replay it. These curves are geometric
+tracking references and do not certify articulated reverse feasibility.
+
+\implemented{} A separate curved curriculum uses a short aligned warm-up,
+single-template gentle curves, and then a mixture of all three templates. A
+controlled reward-study runner trains every named reward condition over the
+same selected training seeds and validates on physically identical resolved
+episodes. Its schema permits only reward coefficients to vary; scenario,
+path distribution, PPO settings, and evaluation ownership remain shared.
+
+A separate open-bay recovery scenario varies the lateral start by up to
+$0.15\,\mathrm{m}$ and the common tractor--trailer start heading by up to
+$2^\circ$. Its straight reference is fixed to the dock centerline, with
+longitudinal extent covering the initial trailer rear point. This preserves
+the lateral start perturbation as a tracking error.
+
+\planned{} No hyperparameter, reward weight, curve distribution, or start range has been tuned;
+the source work does not report its PPO hyperparameters or preview spacing.
+The configured curriculum budgets and gates are therefore engineering starting
+values. Parallel environments, exact optimizer-state resume, curriculum
+visualization, and the observation ablations (global coordinates, removal of
 preview information) remain planned, and no trained policy has been evaluated
-as an experiment.
+as a formal experiment.
+
+The primary PPO policy consumes only the normalized Gymnasium observation;
+unlike LQR and NMPC it does not receive privileged physical-state or model
+fields from the shared controller context. A global-coordinate policy and
+removal of preview information are candidate observation ablations, not
+established experiments.
 
 \subsection{Safety supervision}
 

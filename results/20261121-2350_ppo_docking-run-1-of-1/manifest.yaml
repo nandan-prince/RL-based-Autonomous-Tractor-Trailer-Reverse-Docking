@@ -1,0 +1,137 @@
+experiment_id: 20261121-2350_ppo_docking-run-1-of-1
+campaign_id: 20261121-2350_ppo_docking-campaign
+purpose: docking run 1 of 1
+method: ppo
+status: finished
+error: null
+started: '2026-11-21T23:50:23-08:00'
+finished: '2026-11-21T23:50:37-08:00'
+scenario:
+  name: curved-docking-mixed-v1
+  vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+  dock_path: configs/environments/nominal_dock_v1.yaml
+  task_path: configs/environments/gymnasium_docking_v1.yaml
+  overrides:
+    trailer_variant: null
+    dock_interior_width: null
+    dock_interior_depth: null
+    tractor_wheelbase: null
+    tractor_body_width: null
+    trailer_hitch_to_axle: null
+    trailer_rear_overhang: null
+    trailer_body_width: null
+    steering_angle_max: null
+    steering_rate_max: null
+    reverse_speed: null
+    path_lateral_weight: null
+    path_heading_weight: null
+    reward_progress: null
+    reward_time: null
+    reward_articulation: null
+    reward_steering_rate: null
+    reward_success: null
+    reward_collision: null
+    reward_jackknife: null
+    reward_out_of_bounds: null
+    tractor_chassis_mass: null
+    trailer_body_mass: null
+    ground_friction: null
+  start:
+    standoff:
+    - 6.0
+    - 9.0
+    lateral:
+    - -1.2
+    - 1.2
+    trailer_yaw:
+    - -0.06
+    - 0.06
+    articulation:
+    - -0.04
+    - 0.04
+  randomization:
+    trailer_hitch_to_axle: null
+    observation_noise_std: 0.0
+    reference_planners:
+    - curve_gentle
+    - curve_early
+    - curve_late
+  planner: curve_gentle
+  obstacles: []
+scenario_fingerprint: cd21c41b9d866b3e30bd9773ad4e8f8eff04eb1c6892dc58a453a0090a4d77a6
+simulator_backend: 2d
+mujoco_tuning: null
+config:
+  total_timesteps: 10000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 900
+  checkpoint_interval: 20000
+  purpose: docking run 1 of 1
+  runs: 1
+  backend: 2d
+  evaluation_episodes: 20
+  evaluation_backends:
+  - 2d
+  evaluation_seed: 100000
+  method: ppo
+timesteps: 10240
+episodes: 41
+ppo_hyperparameters:
+  policy: MlpPolicy
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  clip_range_vf: null
+  normalize_advantage: true
+  target_kl: null
+  device: cpu
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/ui/app.py
+  - --scenario
+  - configs/scenarios/curved_docking_mixed_v1.yaml
+git:
+  commit: e54247a30fb0b000e1342466a3c07521c60752da
+  dirty: true
+  diff_sha256: 95e52bc64409430c3bb042bd10d6a5ac0cf217b68043d61203c0acc4210b1477
+checkpoint_path: artifacts/20261121-2350_ppo_docking-run-1-of-1/checkpoints/policy_final.zip
+checkpoint_sha256: a62a255effb9a21c77b5c3e134b5ca50aec8f5dfa835bbfc074a012dcfb471a3
+checkpoint_dir: artifacts/20261121-2350_ppo_docking-run-1-of-1/checkpoints
+initial_policy_path: null
+initial_policy_sha256: null
+warm_start_resets_optimizer_and_schedules: false
+metrics_path: metrics.csv
+note: Pipeline run on the Gymnasium docking task. The reward weights and start distribution
+  are untuned, config.max_episode_steps overrides the task step limit, and 3D episode
+  events are not validated against 2D. Do not interpret returns or success rates from
+  this run as research results unless it is registered as an experiment.

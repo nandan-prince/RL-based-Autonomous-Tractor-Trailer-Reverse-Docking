@@ -1,0 +1,13 @@
+name: straight-open-dock-v1
+vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+dock_path: configs/environments/open_dock_training_v1.yaml
+task_path: configs/environments/gymnasium_docking_v1.yaml
+overrides: {}
+start:
+  standoff: [4.0, 4.0]
+  lateral: [0.0, 0.0]
+  trailer_yaw: [0.0, 0.0]
+  articulation: [0.0, 0.0]
+randomization: {}
+planner: entry
+obstacles: []

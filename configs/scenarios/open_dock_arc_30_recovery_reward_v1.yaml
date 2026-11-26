@@ -1,0 +1,16 @@
+name: open-dock-arc-30-recovery-reward-v1
+vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+dock_path: configs/environments/open_dock_training_v1.yaml
+task_path: configs/environments/gymnasium_open_arc_gated_progress_v1.yaml
+observation_mode: path_guided
+overrides:
+  reward_lateral_improvement: 5.0
+  reward_lateral_deviation_multiplier: 2.0
+start:
+  standoff: [9.0, 10.0]
+  lateral: [1.339745962, 1.473720558]
+  trailer_yaw: [0.506145483, 0.541052068]
+  articulation: [0.0, 0.0]
+randomization:
+  mirror_starts: false
+planner: arc_30

@@ -9,6 +9,16 @@ jackknife thresholds, goal evaluation, scenario construction, and normalized
 observations. Integration tests verify direct low-speed 2D/MuJoCo trajectory
 parity and the complete Gymnasium API and 2D task behavior.
 
+Controller tests verify the shared one-element normalized steering-rate
+contract, explicit reference-path reset behavior, LQR closed-loop stability,
+valid NMPC optimization output, and end-to-end docking from the same perturbed
+straight-path start. These are vertical-slice acceptance checks rather than a
+comparative experiment.
+
+Rendering tests verify that the active controller is named in every live/RGB
+view. Evaluation tests also encode a small H.264 MP4, validate frame shape and
+terminal-frame hold behavior, and reject invalid video settings.
+
 The current vehicle-core suite verifies strict schema handling, invalid-input
 rejection, golden neutral geometry, coordinate-transform round trips, footprint
 invariants, trailer variants, off-axle geometry, serialization, configuration
@@ -56,12 +66,40 @@ debugging but is not a substitute for numeric assertions.
 The training-framework suites cover scenario overrides and their rejection
 rules (`tests/unit/evaluation/`), the task on both simulators with domain
 randomization (`tests/integration/test_backends_and_randomization.py`),
+the executable PPO/LQR/NMPC by 2D/3D capability matrix
+(`tests/integration/test_control_capability_matrix.py`),
 campaigns, the PPO/NMPC method switch, policy bundles, and safe policy loading
 (`tests/unit/training/`), and the control-UI logic (`tests/unit/ui/`). The
 Tkinter window is built for real in `tests/unit/ui/test_ui_window.py` (tooltips
 and the obstacle editor); those tests skip where no display exists, as on CI.
 
 `tests/unit/paths/test_planners.py` covers the swappable route planners and the
-route-following reward weights, and `tests/integration/test_obstacles.py`
-covers static obstacles in the 2D task, the MuJoCo scene, the A* planner, and
-the UI's obstacle field.
+route-following reward weights, including the predefined smooth-curve family.
+`tests/unit/training/test_reward_study.py` covers reward-only conditions,
+shared physical validation inputs, and a real tiny PPO study.
+`tests/integration/test_obstacles.py` covers static obstacles in the 2D task,
+the MuJoCo scene, the A* planner, and the UI's obstacle field.
+
+## Teammate acceptance sequence
+
+After installing `.[dev,mujoco,viz,train,control]`, run these from the
+repository root:
+
+```bash
+# Fast shared contracts and reward behavior.
+.venv/bin/pytest tests/unit/core tests/unit/paths \
+  tests/integration/gymnasium -q
+
+# PPO/LQR/NMPC execution in both plants, including tiny PPO training.
+.venv/bin/pytest tests/integration/test_control_capability_matrix.py -q
+
+# MuJoCo model, adapter, contacts, timing, and plant parity.
+.venv/bin/pytest tests/integration/mujoco \
+  tests/integration/test_kinematic_mujoco_parity.py -q
+```
+
+On a desktop machine, also run `tests/unit/ui/test_ui_window.py`; it opens real
+Tk windows and may skip or fail in a headless shell. A passing smoke test
+establishes wiring and invariants, not controller performance. Do not commit
+exploratory `results/<id>/` directories unless they are deliberately
+registered evidence with notes and an immutable experiment configuration.

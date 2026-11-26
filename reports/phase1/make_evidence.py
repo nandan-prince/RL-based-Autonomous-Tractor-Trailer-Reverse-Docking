@@ -1,13 +1,15 @@
-"""Regenerate the figures, animations, and numbers cited in the Phase 1 report.
+"""Regenerate the open-loop plant figures cited in the Phase 1 report.
 
-Run from a checkout of ``main`` (revision 437c2bc or later) with the
-``dev``, ``mujoco`` and ``viz`` extras installed::
+Run from the repository root with the ``dev``, ``mujoco`` and ``viz`` extras
+installed::
 
     python reports/phase1/make_evidence.py
 
 It only calls the package's public simulators and Gymnasium environment; it
-contains no dynamics, reward, or success logic of its own.  Every rollout uses
-a fixed open-loop command, so nothing here is a controller result.
+contains no dynamics, reward, or success logic of its own. Every rollout uses
+a fixed open-loop command, so nothing here is a controller result. The current
+LQR/NMPC report artifacts are generated separately by
+``make_controller_evidence.py``.
 """
 
 from __future__ import annotations

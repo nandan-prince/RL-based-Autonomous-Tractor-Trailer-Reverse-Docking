@@ -118,3 +118,11 @@ MuJoCo-only gains, damping, armature, contact width, and solver choices are
 versioned in code rather than in the version-1 YAML schema. Consequently, a
 reported MuJoCo experiment must also record the source revision and resolved
 tuning values; the vehicle fingerprint alone is insufficient provenance.
+
+The controller interface similarly freezes a one-element normalized
+steering-rate action, fixed reverse-speed authority, path ordering, tracking
+point, and paired reset inputs. An explicit reference path can be supplied
+independently of the initial state, preventing randomized resets from changing
+the route that a controller is evaluated against. Model-based controllers use
+the shared physical state and path; the primary PPO policy is restricted to the
+normalized Gymnasium observation.

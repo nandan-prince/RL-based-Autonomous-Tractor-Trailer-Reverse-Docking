@@ -679,9 +679,13 @@ class DockingTaskConfiguration:
     max_episode_steps: int = 600
     preview_distances: tuple[float, ...] = (0.5, 1.0, 2.0)
     reward_progress: float = 10.0
+    progress_tracking_scale: float | None = None
     reward_time: float = 0.01
     reward_lateral_error: float = 0.5
     reward_heading_error: float = 0.2
+    reward_lateral_improvement: float = 0.0
+    reward_lateral_deviation_multiplier: float = 2.0
+    reward_heading_improvement: float = 0.0
     reward_articulation: float = 0.15
     reward_steering_rate: float = 0.02
     reward_success: float = 100.0
@@ -706,6 +710,9 @@ class DockingTaskConfiguration:
             "reward_time",
             "reward_lateral_error",
             "reward_heading_error",
+            "reward_lateral_improvement",
+            "reward_lateral_deviation_multiplier",
+            "reward_heading_improvement",
             "reward_articulation",
             "reward_steering_rate",
             "reward_success",
@@ -718,6 +725,17 @@ class DockingTaskConfiguration:
             invalid = not isfinite(value) or value < 0.0
             if invalid or (name in positive and value == 0.0):
                 raise ConfigurationError(f"{name} has an invalid value")
+        if self.reward_lateral_deviation_multiplier < 1.0:
+            raise ConfigurationError(
+                "reward_lateral_deviation_multiplier must be at least 1"
+            )
+        if self.progress_tracking_scale is not None and (
+            not isfinite(self.progress_tracking_scale)
+            or self.progress_tracking_scale <= 0.0
+        ):
+            raise ConfigurationError(
+                "progress_tracking_scale must be finite and positive"
+            )
         if not isfinite(self.workspace_rear_padding) or self.workspace_rear_padding < 0:
             raise ConfigurationError("workspace_rear_padding has an invalid value")
         if self.workspace_outward_limit is not None and (
@@ -1084,15 +1102,18 @@ def load_dock_configuration(path: str | Path) -> DockConfiguration:
     frame = _mapping(data["dock_frame"], "dock_frame")
     _exact_keys(frame, {"origin", "outward_axis", "left_axis", "up_axis"}, "dock_frame")
     bay = _mapping(data["bay"], "bay")
+    bay_fields = {
+        "interior_width",
+        "interior_depth",
+        "wall_thickness",
+        "wall_height",
+        "collision_margin",
+    }
+    if "walls_enabled" in bay:
+        bay_fields.add("walls_enabled")
     _exact_keys(
         bay,
-        {
-            "interior_width",
-            "interior_depth",
-            "wall_thickness",
-            "wall_height",
-            "collision_margin",
-        },
+        bay_fields,
         "bay",
     )
     target = _mapping(data["target"], "target")
@@ -1118,6 +1139,7 @@ def load_dock_configuration(path: str | Path) -> DockConfiguration:
             interior_depth=_number(bay["interior_depth"], "bay.interior_depth"),
             wall_thickness=_number(bay["wall_thickness"], "bay.wall_thickness"),
             wall_height=_number(bay["wall_height"], "bay.wall_height"),
+            walls_enabled=_boolean(bay.get("walls_enabled", True), "bay.walls_enabled"),
             collision_margin=_number(bay["collision_margin"], "bay.collision_margin"),
             target_position=Point2D(target_x, target_y),
             target_trailer_yaw=wrap_angle(
@@ -1206,12 +1228,22 @@ def load_docking_task_configuration(path: str | Path) -> DockingTaskConfiguratio
         "jackknife",
         "out_of_bounds",
     }
+    improvement_fields = {
+        "lateral_improvement",
+        "lateral_deviation_multiplier",
+        "heading_improvement",
+    }
+    specification_id = _text(data["specification_id"], "specification_id")
+    if specification_id == "gymnasium-docking-v2":
+        reward_fields.update(improvement_fields)
+    if "progress_tracking_scale" in reward:
+        reward_fields.add("progress_tracking_scale")
     _exact_keys(reward, reward_fields, "reward")
     previews = _numbers(
         observation["preview_distances"], "observation.preview_distances"
     )
     return DockingTaskConfiguration(
-        specification_id=_text(data["specification_id"], "specification_id"),
+        specification_id=specification_id,
         schema_version=_integer(data["schema_version"], "schema_version"),
         start_standoff=_number(scenario["start_standoff"], "scenario.start_standoff"),
         workspace_lateral_half_width=_number(
@@ -1235,9 +1267,32 @@ def load_docking_task_configuration(path: str | Path) -> DockingTaskConfiguratio
         max_episode_steps=_integer(episode["max_steps"], "episode.max_steps"),
         preview_distances=previews,
         reward_progress=_number(reward["progress"], "reward.progress"),
+        progress_tracking_scale=(
+            _number(reward["progress_tracking_scale"], "reward.progress_tracking_scale")
+            if "progress_tracking_scale" in reward
+            else None
+        ),
         reward_time=_number(reward["time"], "reward.time"),
         reward_lateral_error=_number(reward["lateral_error"], "reward.lateral_error"),
         reward_heading_error=_number(reward["heading_error"], "reward.heading_error"),
+        reward_lateral_improvement=(
+            _number(reward["lateral_improvement"], "reward.lateral_improvement")
+            if "lateral_improvement" in reward
+            else 0.0
+        ),
+        reward_lateral_deviation_multiplier=(
+            _number(
+                reward["lateral_deviation_multiplier"],
+                "reward.lateral_deviation_multiplier",
+            )
+            if "lateral_deviation_multiplier" in reward
+            else 2.0
+        ),
+        reward_heading_improvement=(
+            _number(reward["heading_improvement"], "reward.heading_improvement")
+            if "heading_improvement" in reward
+            else 0.0
+        ),
         reward_articulation=_number(reward["articulation"], "reward.articulation"),
         reward_steering_rate=_number(reward["steering_rate"], "reward.steering_rate"),
         reward_success=_number(reward["success"], "reward.success"),

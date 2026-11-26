@@ -1,0 +1,292 @@
+experiment_id: 20261125-2300_ppo-curriculum_ppo-curved-docking-curriculum-v1
+kind: ppo-curriculum
+status: threshold_not_met
+error: null
+updated: '2026-11-25T23:01:03-08:00'
+configuration:
+  specification_id: ppo-curved-docking-curriculum-v1
+  schema_version: 1
+  training:
+    total_timesteps: 20000
+    seed: 0
+    learning_rate: 0.0003
+    n_steps: 1024
+    batch_size: 256
+    n_epochs: 10
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_range: 0.2
+    clip_range_vf: null
+    normalize_advantage: true
+    entropy_coefficient: 0.0
+    value_coefficient: 0.5
+    max_grad_norm: 0.5
+    target_kl: null
+    device: cpu
+    max_episode_steps: 900
+    checkpoint_interval: 20000
+    purpose: curved-curriculum
+    runs: 1
+    backend: 2d
+    evaluation_episodes: 0
+    evaluation_backends:
+    - 2d
+    evaluation_seed: 100000
+    method: ppo
+  suite:
+    specification_id: compact-docking-suite-v1
+    schema_version: 1
+    training_seeds:
+    - 0
+    - 1
+    - 2
+    validation:
+      seed: 100000
+      episodes: 20
+    test:
+      seed: 200000
+      episodes: 100
+  stages:
+  - name: straight-warmup
+    timesteps: 20000
+    minimum_validation_success: 0.7
+    scenario:
+      name: curved-curriculum-straight-warmup
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides:
+        trailer_variant: null
+        dock_interior_width: null
+        dock_interior_depth: null
+        tractor_wheelbase: null
+        tractor_body_width: null
+        trailer_hitch_to_axle: null
+        trailer_rear_overhang: null
+        trailer_body_width: null
+        steering_angle_max: null
+        steering_rate_max: null
+        reverse_speed: null
+        path_lateral_weight: null
+        path_heading_weight: null
+        reward_progress: null
+        reward_time: null
+        reward_lateral_improvement: null
+        reward_lateral_deviation_multiplier: null
+        reward_heading_improvement: null
+        reward_articulation: null
+        reward_steering_rate: null
+        reward_success: null
+        reward_collision: null
+        reward_jackknife: null
+        reward_out_of_bounds: null
+        tractor_chassis_mass: null
+        trailer_body_mass: null
+        ground_friction: null
+      start:
+        standoff:
+        - 4.0
+        - 4.0
+        lateral:
+        - 0.0
+        - 0.0
+        trailer_yaw:
+        - 0.0
+        - 0.0
+        articulation:
+        - 0.0
+        - 0.0
+      randomization:
+        trailer_hitch_to_axle: null
+        observation_noise_std: 0.0
+        reference_planners: null
+      planner: entry
+      obstacles: []
+  - name: gentle-curves
+    timesteps: 120000
+    minimum_validation_success: 0.55
+    scenario:
+      name: curved-curriculum-gentle
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides:
+        trailer_variant: null
+        dock_interior_width: null
+        dock_interior_depth: null
+        tractor_wheelbase: null
+        tractor_body_width: null
+        trailer_hitch_to_axle: null
+        trailer_rear_overhang: null
+        trailer_body_width: null
+        steering_angle_max: null
+        steering_rate_max: null
+        reverse_speed: null
+        path_lateral_weight: null
+        path_heading_weight: null
+        reward_progress: null
+        reward_time: null
+        reward_lateral_improvement: null
+        reward_lateral_deviation_multiplier: null
+        reward_heading_improvement: null
+        reward_articulation: null
+        reward_steering_rate: null
+        reward_success: null
+        reward_collision: null
+        reward_jackknife: null
+        reward_out_of_bounds: null
+        tractor_chassis_mass: null
+        trailer_body_mass: null
+        ground_friction: null
+      start:
+        standoff:
+        - 5.0
+        - 7.0
+        lateral:
+        - -0.8
+        - 0.8
+        trailer_yaw:
+        - -0.03
+        - 0.03
+        articulation:
+        - -0.02
+        - 0.02
+      randomization:
+        trailer_hitch_to_axle: null
+        observation_noise_std: 0.0
+        reference_planners:
+        - curve_gentle
+      planner: curve_gentle
+      obstacles: []
+  - name: mixed-predefined-curves
+    timesteps: 300000
+    minimum_validation_success: 0.5
+    scenario:
+      name: curved-curriculum-mixed
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides:
+        trailer_variant: null
+        dock_interior_width: null
+        dock_interior_depth: null
+        tractor_wheelbase: null
+        tractor_body_width: null
+        trailer_hitch_to_axle: null
+        trailer_rear_overhang: null
+        trailer_body_width: null
+        steering_angle_max: null
+        steering_rate_max: null
+        reverse_speed: null
+        path_lateral_weight: null
+        path_heading_weight: null
+        reward_progress: null
+        reward_time: null
+        reward_lateral_improvement: null
+        reward_lateral_deviation_multiplier: null
+        reward_heading_improvement: null
+        reward_articulation: null
+        reward_steering_rate: null
+        reward_success: null
+        reward_collision: null
+        reward_jackknife: null
+        reward_out_of_bounds: null
+        tractor_chassis_mass: null
+        trailer_body_mass: null
+        ground_friction: null
+      start:
+        standoff:
+        - 6.0
+        - 9.0
+        lateral:
+        - -1.2
+        - 1.2
+        trailer_yaw:
+        - -0.06
+        - 0.06
+        articulation:
+        - -0.04
+        - 0.04
+      randomization:
+        trailer_hitch_to_axle: null
+        observation_noise_std: 0.0
+        reference_planners:
+        - curve_gentle
+        - curve_early
+        - curve_late
+      planner: curve_gentle
+      obstacles: []
+configuration_fingerprint: 66ecf0a1a7e8d5535dd6208352caab65cf66fc22490247adfb9819898a32ad6d
+start_stage: 0
+initial_policy_path: null
+initial_policy_sha256: null
+final_checkpoint: artifacts/20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup/checkpoints/policy_final.zip
+final_checkpoint_sha256: e7c88483a675711b2caaf84956b0fd3b3cf7357970804706de72a15f62da4daf
+stage_runs:
+- stage: 0
+  name: straight-warmup
+  training_experiment_id: 20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup
+  training_status: finished
+  training_timesteps: 20480
+  checkpoint: artifacts/20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup/checkpoints/policy_final.zip
+  gate: 0.7
+  validation:
+    episodes: 20
+    success_rate: 0.0
+    collision_rate: 1.0
+    jackknife_rate: 0.0
+    mean_total_reward: -65.70276977427737
+    mean_abs_lateral_error: 0.39154070113679845
+    mean_abs_longitudinal_error: 5.673041182740771
+    mean_abs_yaw_error: 0.19275742361927592
+    max_abs_articulation: 0.48798680640381364
+    mean_maneuver_time: 21.399999999999633
+    mean_path_length: 4.114593325843326
+    mean_steering_rate_rms: 0.02183488264866446
+    mean_policy_time_ms: 0.06915233194529921
+    solve_failures: 0
+    outcome_collision: 20
+  episode_fingerprints:
+  - 7e97a72dedb7b13284e0bf1e2d7224541604bfe69b741b2f2ae8572f119fb7c0
+  - 526ac6123306c759d5b0a79219ceb62bcf6c9379bd45e1f382464f2ffdbbe889
+  - 22f50038bd966da4c287c33d513ff09e4c3e1b66f7fdc8ac2490dca6b1470f4d
+  - 7a44f4e76ddfcf6d7c6822daf20edf57c50fc8bcf3557431a0cc7c900ecced96
+  - f792a667723fa968354879f2aff0ac5209d25b33e3723b49f10a9914c5c4151a
+  - 00d27c881a3516b517097f06f051ffe8faabf25f5d3dea81f11303402feafda6
+  - a09e53c1d4af796d82045428bf7faa1967903e4838b2fd2ebd855b8a5c9fae29
+  - a5df84fddfcd9b8aff3162b4db43ca7a0296dae746c0df98874583cf81b2b7c1
+  - b3dd1bb46f32aaa6b46dfebaf07abec3276437bc13d4a755b8c9f40b8a3294bc
+  - 4402bb11af16ef2bb8d26d8908e8015534a8714b400265470945bf9daaa80dbf
+  - 119454662ed81db0958c52d690b45d883eda31f8a1072a33da34df29f5fbb070
+  - 23179a4be888986087d420f2f69a848443a75dc0907f9cbc27475cb018f2da99
+  - f46ee5f8ce352a09d88d0714e00e275119e54a5b8744d46874fb37b4f1019486
+  - 5d23e08db69cb709ef21d1b23b9f17f110edb035884dcd288197b0f0f429d44f
+  - fcec6178e6d209f070567ba5d8cc4d486082c9241713fc4d49e08c25c23f2fe1
+  - c1520877c42b7e9d2968c6e9ca5a83e8b0d5a39cfb1caf7e36d4bcbc065801df
+  - 37e8a60c73a1526fb21055734ddfb0bede4b625f774dbd1f3443e67a49ede991
+  - 857fec7f7d7cf8cf8dcf3f56f70b4c4edbfcc00f8f330d5dced167ac0c8102a8
+  - 96e7c6a0ccd26771e0ac25b83c0da415dd2683a7d0c76401549816b7a30c3201
+  - 09fde84fe4102734e47556597d4605b880e795bfea9fdc89a8a33b0b7d23f262
+  gate_passed: false
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/training/cli.py
+  - curriculum
+  - --config
+  - configs/training/ppo_curved_curriculum_v1.yaml
+git:
+  commit: 209861e93257aeef916daba12ce9d2c338a93c58
+  dirty: true
+  diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+note: Stages warm-start policy weights only; optimizer and learning-rate schedule
+  state restart at every stage. Validation seeds may guide advancement and must not
+  be reported as held-out test results.

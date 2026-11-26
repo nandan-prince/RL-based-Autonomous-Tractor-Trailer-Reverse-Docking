@@ -1,0 +1,180 @@
+experiment_id: 20261125-2346_ppo-curriculum_ppo-open-dock-recovery-v1
+kind: ppo-curriculum
+status: threshold_not_met
+error: null
+updated: '2026-11-25T23:47:27-08:00'
+configuration:
+  specification_id: ppo-open-dock-recovery-v1
+  schema_version: 1
+  training:
+    total_timesteps: 100000
+    seed: 0
+    learning_rate: 0.0003
+    n_steps: 1024
+    batch_size: 256
+    n_epochs: 10
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_range: 0.2
+    clip_range_vf: null
+    normalize_advantage: true
+    entropy_coefficient: 0.0
+    value_coefficient: 0.5
+    max_grad_norm: 0.5
+    target_kl: null
+    device: cpu
+    max_episode_steps: 900
+    checkpoint_interval: 20000
+    purpose: open-dock-recovery
+    runs: 1
+    backend: 2d
+    evaluation_episodes: 0
+    evaluation_backends:
+    - 2d
+    evaluation_seed: 100000
+    method: ppo
+  suite:
+    specification_id: compact-docking-suite-v1
+    schema_version: 1
+    training_seeds:
+    - 0
+    - 1
+    - 2
+    validation:
+      seed: 100000
+      episodes: 20
+    test:
+      seed: 200000
+      episodes: 100
+  stages:
+  - name: centerline-recovery
+    timesteps: 100000
+    minimum_validation_success: 0.7
+    scenario:
+      name: open-dock-centerline-recovery-v1
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/open_dock_training_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides:
+        trailer_variant: null
+        dock_interior_width: null
+        dock_interior_depth: null
+        tractor_wheelbase: null
+        tractor_body_width: null
+        trailer_hitch_to_axle: null
+        trailer_rear_overhang: null
+        trailer_body_width: null
+        steering_angle_max: null
+        steering_rate_max: null
+        reverse_speed: null
+        path_lateral_weight: null
+        path_heading_weight: null
+        reward_progress: null
+        reward_time: null
+        reward_lateral_improvement: null
+        reward_lateral_deviation_multiplier: null
+        reward_heading_improvement: null
+        reward_articulation: null
+        reward_steering_rate: null
+        reward_success: null
+        reward_collision: null
+        reward_jackknife: null
+        reward_out_of_bounds: null
+        tractor_chassis_mass: null
+        trailer_body_mass: null
+        ground_friction: null
+      start:
+        standoff:
+        - 4.0
+        - 4.0
+        lateral:
+        - -0.15
+        - 0.15
+        trailer_yaw:
+        - -0.034906585
+        - 0.034906585
+        articulation:
+        - 0.0
+        - 0.0
+      randomization:
+        trailer_hitch_to_axle: null
+        observation_noise_std: 0.0
+        reference_planners: null
+      planner: centerline
+      obstacles: []
+configuration_fingerprint: 27060d356eddee438a5e183b3b809e95556cd0bf0969bce229cfbaec9e66b161
+start_stage: 0
+initial_policy_path: artifacts/20261125-2331_ppo_ppo-ui-run-1-of-1/checkpoints/policy_final.zip
+initial_policy_sha256: d38c48ef9c2b7274f7ea540ba7da1bb8438300d160282fc2eaa7ac29dc87c353
+final_checkpoint: artifacts/20261125-2346_ppo_ppo-open-dock-recovery-v1-stage-1-centerline-recovery/checkpoints/policy_final.zip
+final_checkpoint_sha256: a77c4e209fb5c4b21b956f502e81955fb77512b44784ae7c9e55503453553603
+stage_runs:
+- stage: 0
+  name: centerline-recovery
+  training_experiment_id: 20261125-2346_ppo_ppo-open-dock-recovery-v1-stage-1-centerline-recovery
+  training_status: finished
+  training_timesteps: 100352
+  checkpoint: artifacts/20261125-2346_ppo_ppo-open-dock-recovery-v1-stage-1-centerline-recovery/checkpoints/policy_final.zip
+  gate: 0.7
+  validation:
+    episodes: 20
+    success_rate: 0.0
+    collision_rate: 0.0
+    jackknife_rate: 0.0
+    mean_total_reward: -763.9113213673169
+    mean_abs_lateral_error: 4.557960312057782
+    mean_abs_longitudinal_error: 0.5852299936268367
+    mean_abs_yaw_error: 0.46721203118224447
+    max_abs_articulation: 0.690916681093798
+    mean_maneuver_time: 58.65500000000357
+    mean_path_length: 11.207102176856248
+    mean_steering_rate_rms: 0.06703362820339082
+    mean_policy_time_ms: 0.07002494023832134
+    solve_failures: 0
+    outcome_out_of_bounds: 20
+  episode_fingerprints:
+  - bc667153d394699e49a480cacba592119d8161c6c4d9d3b1ab01129fc9a17779
+  - 23f3b4f41de8fb8853d54b19877d05fb6f6f63215d661c47adf1c4e38a2de90d
+  - 622dfbba71624a83fa971e8abce20354737547cf236b57d4937e4330ca76f132
+  - a09d4e46d74d7c01a2d1b1f72de2fd5745d410536a51fd396772ee057931170c
+  - 087303654f770400491a4ec797ffb01b53df5535ec2ad4a3539ae293260677a1
+  - 096dbeb5f95b1bda0e52be855b5d0f720319ead35d0b939a3435a2892aaef711
+  - e5ffae300bf40b24faa44f154ed42a05c5be51a2cc2a80cef39b869b84a21a49
+  - d8a3023961599bc43bccb07290787738b8655e2fbe1f79669fb1cde52a9abae9
+  - 14841553e39377c7dcaecbcbe2355237a0fef7b43dd50bd35ab00d7b6efebb90
+  - 8ad2136d2f3f8454f7a9944e8d6a955d33bfdfe0808474c2288f6d99096d96d2
+  - 5dd21ebe7b97443aa3c839c8ea1b43e7907d27d090ef7d0ec211418b849d8876
+  - e4dbb6c663873e7c5b7e778e97b4c7d266fd37b01f93abd5f84f5e3858e99913
+  - f826558ebf47a2f6df2f061a72c3fe35dc6fb73f9bea942366e2f5cc0d8681e9
+  - cab44416ace138537d28642803238667327806998847673339e570edc21c08c5
+  - cc3ff709a4147876423afee201890582887ade6c356cc8ecf454d05039cc03ae
+  - 1adbe837befbdfcd40166bb9d4f201660ed205ab827845b057bafbf565193185
+  - 6a5e530128f49bccafc01b92f20e88688aa1692062d7a8fd51395ecbda75aa9a
+  - 12afccd1220cd1a5c673ebb13ea656691ab0eccdfbb64e344ef0c4249cb916f7
+  - 6606bdd5f42a89dfa903ecdb80d30b28beef8e18a1869c6dde9ea4b1b17498de
+  - 7255093d6b0e4e4860cf541487376e2bc5c778afaf4b73d15583a9dee82acca0
+  gate_passed: false
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/training/cli.py
+  - curriculum
+  - --config
+  - configs/training/ppo_open_dock_recovery_v1.yaml
+  - --initial-policy
+  - artifacts/20261125-2331_ppo_ppo-ui-run-1-of-1/checkpoints/policy_final.zip
+git:
+  commit: 209861e93257aeef916daba12ce9d2c338a93c58
+  dirty: true
+  diff_sha256: 084197a8ebcdabf874759f97800b2f8230a68b8a9bdd8b57a32f6f2220d0c66f
+note: Stages warm-start policy weights only; optimizer and learning-rate schedule
+  state restart at every stage. Validation seeds may guide advancement and must not
+  be reported as held-out test results.

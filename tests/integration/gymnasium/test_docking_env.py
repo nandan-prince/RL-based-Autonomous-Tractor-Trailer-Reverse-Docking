@@ -11,6 +11,7 @@ from trailer_docking.environments import (  # registers TrailerDocking-v0
     TrailerDockingEnv,
 )
 from trailer_docking.environments.task import aligned_pose_for_docking_point
+from trailer_docking.paths import straight_reference
 
 
 def test_gymnasium_checker_and_registration() -> None:
@@ -66,6 +67,104 @@ def test_seeded_randomized_reset_is_reproducible() -> None:
     assert first.path == second.path
     first.close()
     second.close()
+
+
+def test_explicit_reference_path_is_independent_of_initial_state() -> None:
+    env = TrailerDockingEnv()
+    goal = env.dock.geometry.target_position
+    start_x = env.dock.geometry.interior_depth + env.settings.start_standoff
+    fixed = straight_reference(goal, Point2D(start_x, 0.0))
+    pose = aligned_pose_for_docking_point(env.vehicle, Point2D(start_x, 0.4), 0.0)
+    _, info = env.reset(
+        options={
+            "tractor_pose": pose,
+            "trailer_yaw": 0.0,
+            "reference_path": fixed,
+        }
+    )
+    assert env.path is fixed
+    assert env.tracking.lateral_error == pytest.approx(0.4)
+    assert info["reference_path_length"] == pytest.approx(fixed.length)
+    with pytest.raises(ValueError, match="reference_path"):
+        env.reset(options={"reference_path": "not-a-path"})
+    env.close()
+
+
+def test_tail_improvement_reward_and_double_deviation_penalty() -> None:
+    """Moving the trailer tail toward the line pays; mirror drift costs twice."""
+
+    def accumulated(action: float) -> float:
+        env = TrailerDockingEnv()
+        goal = env.dock.geometry.target_position
+        start = Point2D(10.0, 0.0)
+        path = straight_reference(goal, start)
+        pose = aligned_pose_for_docking_point(env.vehicle, Point2D(start.x, 0.4), 0.0)
+        env.reset(
+            options={
+                "tractor_pose": pose,
+                "trailer_yaw": 0.0,
+                "reference_path": path,
+            }
+        )
+        total = 0.0
+        for _ in range(50):
+            _, _, terminated, truncated, info = env.step(
+                np.array([action], dtype=np.float32)
+            )
+            total += info["reward_terms"]["lateral_improvement"]
+            if terminated or truncated:
+                break
+        env.close()
+        return total
+
+    toward = accumulated(1.0)
+    away = accumulated(-1.0)
+    assert toward > 0.0
+    assert away < 0.0
+    assert away == pytest.approx(-2.0 * toward)
+
+
+@pytest.mark.parametrize(
+    ("lateral", "speed", "multiplier"),
+    [(0.0, -1.0, 1.0), (0.3, -1.0, 0.5), (0.3, 1.0, 1.0)],
+)
+def test_arc_progress_gate_only_discounts_positive_off_path_progress(
+    lateral: float, speed: float, multiplier: float
+) -> None:
+    configs = (
+        "configs/environments/gymnasium_open_arc_v1.yaml",
+        "configs/environments/gymnasium_open_arc_gated_progress_v1.yaml",
+    )
+    baseline, gated = (
+        TrailerDockingEnv(task_path=config, action_mode="teleop") for config in configs
+    )
+    try:
+        path = straight_reference(
+            baseline.dock.geometry.target_position, Point2D(12, 0)
+        )
+        pose = aligned_pose_for_docking_point(
+            baseline.vehicle, Point2D(10, lateral), 0.0
+        )
+        options = {"tractor_pose": pose, "trailer_yaw": 0.0, "reference_path": path}
+        for env in (baseline, gated):
+            env.reset(options=options)
+        action = np.array([0.0, speed], dtype=np.float32)
+        expected_obs, _, expected_end, expected_timeout, expected = baseline.step(
+            action
+        )
+        obs, _, end, timeout, actual = gated.step(action)
+        np.testing.assert_array_equal(obs, expected_obs)
+        assert (end, timeout) == (expected_end, expected_timeout)
+        assert gated.state == baseline.state
+        expected_terms = dict(expected["reward_terms"])
+        actual_terms = dict(actual["reward_terms"])
+        progress = expected_terms.pop("progress")
+        assert progress * speed < 0
+        assert actual_terms.pop("progress") == pytest.approx(progress * multiplier)
+        assert actual_terms == expected_terms
+    finally:
+        baseline.close()
+        gated.close()
 
 
 def test_success_collision_jackknife_and_timeout_events(
@@ -179,9 +278,13 @@ def test_rgb_array_render_returns_image() -> None:
 
     matplotlib.use("Agg", force=True)
     env = TrailerDockingEnv(render_mode="rgb_array")
+    env.set_controller_label("LQR TRAJECTORY TRACKER")
     env.reset()
     image = env.render()
     assert image is not None
     assert image.dtype == np.uint8
     assert image.ndim == 3 and image.shape[2] == 3
+    assert "AUTONOMOUS CONTROLLER: LQR TRAJECTORY TRACKER" in (
+        env.figure.axes[0].get_title()
+    )
     env.close()

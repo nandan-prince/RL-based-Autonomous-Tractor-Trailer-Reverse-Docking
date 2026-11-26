@@ -1,0 +1,15 @@
+name: open-dock-arc-30-one-direction-v1
+vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+dock_path: configs/environments/open_dock_training_v1.yaml
+task_path: configs/environments/gymnasium_open_arc_v1.yaml
+observation_mode: path_guided
+start:
+  standoff: [9.0, 10.0]
+  # R * (1 - cos(30 degrees)) for radii of 10 to 11 m.
+  lateral: [1.339745962, 1.473720558]
+  # 29 to 31 degrees, or tangent heading plus or minus one degree.
+  trailer_yaw: [0.506145483, 0.541052068]
+  articulation: [0.0, 0.0]
+randomization:
+  mirror_starts: false
+planner: arc_30

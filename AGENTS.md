@@ -220,15 +220,30 @@ kinematic simulator is implemented with RK4 integration, rigid state
 reconstruction, shared command supervision, and direct low-speed trajectory
 parity tests against MuJoCo. The 2D Gymnasium task is implemented with paths,
 preview observations, collision/jackknife/docking events, versioned rewards,
-deterministic resets, and interactive rendering. Controllers remain
-unimplemented; applying and verifying the same task events in MuJoCo remains
-pending.
+deterministic resets, and interactive rendering. A straight-path
+trajectory-error LQR and basic fixed-speed NMPC controller now run through a
+shared normalized steering-rate interface and closed-loop runner. The PPO
+training, evaluation, and bundle infrastructure is also implemented, but no
+tuned PPO policy or formal controller comparison is registered. Broader
+controller validation and MuJoCo task-event parity remain pending.
+Fingerprint-based resolved episodes now freeze randomized geometry, start
+state, and reference path for paired controller/backend replay. PPO optimizer
+settings and all task reward terms are explicit configuration values; they are
+controllable infrastructure, not tuned or validated experimental choices.
+Versioned LQR/NMPC settings, disjoint train/validation/test suites, immutable
+comparison evidence packages, and a gated PPO policy-warm-start curriculum are
+implemented. Smooth predefined curve templates, deterministic mixed-path
+sampling, and controlled multi-seed reward-study infrastructure are also
+implemented. No completed curriculum, reward study, or held-out comparison
+should be inferred from the existence of that infrastructure.
 
 1. Implement typed state, command, geometry, limits, and configuration objects from the frozen version-1 specification.
 2. Maintain the implemented and quantitatively validated 2D kinematic model: straight reverse, constant steering, articulation behavior, angle wrapping, rigid geometry, determinism, and timestep convergence.
 3. Maintain the implemented reference paths, path-relative errors/previews, vehicle footprints, dock geometry, collision checks, jackknife checks, and goal evaluation.
 4. Maintain the implemented Gymnasium environment with deterministic reset/step tests, explicit reward decomposition, and diagnostic `info` fields.
-5. Implement a simple deterministic tracker to validate the closed loop, then implement NMPC and PPO with instrumentation and saved configurations.
+5. Maintain the implemented straight-path LQR and basic NMPC vertical slices
+   and PPO training infrastructure; integrate and evaluate all methods through
+   the frozen action/task contract, then extend them to broader scenarios.
 6. Maintain the implemented version-1 MuJoCo vehicle and dock; preserve its
    verified semantic sites, hitch joint, Ackermann mapping, wheels,
    drive/braking, collision/contact behavior, timing, and neutral-pose

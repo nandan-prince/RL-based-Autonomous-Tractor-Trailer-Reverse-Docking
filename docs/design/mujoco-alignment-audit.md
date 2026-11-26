@@ -90,7 +90,7 @@ From the repository root:
 .venv/bin/python -m trailer_docking.simulators.mujoco.builder
 ```
 
-In the current working tree and dependency set, all 266 tests passed. The
+In the current working tree and dependency set, all 274 tests passed. The
 conformance report passed, and both committed MJCF files matched regenerated
 output. Coverage is branch-aware and now includes the non-interactive MuJoCo
 adapter, Ackermann mapping, and builder; interactive viewer loops remain

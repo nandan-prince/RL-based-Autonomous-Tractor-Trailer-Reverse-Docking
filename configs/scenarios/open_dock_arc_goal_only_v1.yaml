@@ -1,0 +1,13 @@
+name: open-dock-arc-goal-only-v1
+vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+dock_path: configs/environments/open_dock_training_v1.yaml
+task_path: configs/environments/gymnasium_open_arc_v1.yaml
+observation_mode: goal_only
+start:
+  standoff: [14.0, 15.0]
+  lateral: [10.0, 11.0]
+  trailer_yaw: [1.553343034, 1.588249619]
+  articulation: [0.0, 0.0]
+randomization:
+  mirror_starts: true
+planner: quarter_arc

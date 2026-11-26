@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from trailer_docking.environments import TrailerDockingEnv
+from trailer_docking.evaluation.episodes import resolve_episode
 from trailer_docking.evaluation.scenarios import (
     DomainRandomization,
     Scenario,
@@ -145,6 +146,36 @@ def test_observation_noise_is_seeded_bounded_and_off_by_default() -> None:
     assert env.state == clean_env.state
     clean_env.close()
     env.close()
+
+
+def test_resolved_episode_has_identical_start_and_path_in_both_backends() -> None:
+    scenario = Scenario(
+        randomization=DomainRandomization(trailer_hitch_to_axle=(3.0, 4.2))
+    )
+    episode = resolve_episode(scenario, 23)
+    environments = [
+        ScenarioDockingEnv(scenario, backend=backend, max_episode_steps=2)
+        for backend in ("2d", "3d")
+    ]
+    try:
+        for env in environments:
+            _, info = env.reset(
+                seed=episode.seed, options={"resolved_episode": episode}
+            )
+            assert info["episode_fingerprint"] == episode.episode_fingerprint
+            assert env.reference_path == episode.reference_path
+            assert env.built.vehicle.trailer.hitch_to_axle == pytest.approx(
+                episode.trailer_hitch_to_axle
+            )
+            assert env.state.tractor_pose.x == pytest.approx(episode.tractor_pose.x)
+            assert env.state.tractor_pose.y == pytest.approx(episode.tractor_pose.y)
+            assert env.state.tractor_pose.yaw == pytest.approx(
+                episode.tractor_pose.yaw
+            )
+            assert env.state.trailer_pose.yaw == pytest.approx(episode.trailer_yaw)
+    finally:
+        for env in environments:
+            env.close()
 
 
 def test_3d_frames_are_delivered_only_for_the_3d_backend(

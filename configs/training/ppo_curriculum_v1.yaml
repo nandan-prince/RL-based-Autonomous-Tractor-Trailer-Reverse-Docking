@@ -1,0 +1,98 @@
+specification_id: ppo-reverse-docking-curriculum-v1
+schema_version: 1
+
+# These are engineering starting values, not tuned or validated optima.
+training:
+  total_timesteps: 50000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 900
+  checkpoint_interval: 20000
+  purpose: curriculum
+  runs: 1
+  backend: 2d
+  evaluation_episodes: 0
+  evaluation_backends: [2d]
+  evaluation_seed: 100000
+  method: ppo
+
+suite:
+  specification_id: compact-docking-suite-v1
+  schema_version: 1
+  training_seeds: [0, 1, 2]
+  validation:
+    seed: 100000
+    episodes: 20
+  test:
+    seed: 200000
+    episodes: 100
+
+stages:
+  - name: aligned-straight
+    timesteps: 50000
+    minimum_validation_success: 0.80
+    scenario:
+      name: curriculum-aligned-straight
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides: {}
+      start:
+        standoff: [4.0, 4.0]
+        lateral: [0.0, 0.0]
+        trailer_yaw: [0.0, 0.0]
+        articulation: [0.0, 0.0]
+      randomization: {}
+      planner: entry
+      obstacles: []
+
+  - name: perturbed-straight
+    timesteps: 150000
+    minimum_validation_success: 0.70
+    scenario:
+      name: curriculum-perturbed-straight
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides: {}
+      start:
+        standoff: [5.0, 7.0]
+        lateral: [-0.35, 0.35]
+        trailer_yaw: [-0.05, 0.05]
+        articulation: [-0.03, 0.03]
+      randomization: {}
+      planner: entry
+      obstacles: []
+
+  - name: randomized-docking
+    timesteps: 300000
+    minimum_validation_success: 0.60
+    scenario:
+      name: curriculum-randomized-docking
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/nominal_dock_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides: {}
+      start:
+        standoff: [6.0, 9.0]
+        lateral: [-0.4, 0.4]
+        trailer_yaw: [-0.1, 0.1]
+        articulation: [-0.05, 0.05]
+      randomization:
+        trailer_hitch_to_axle: [3.0, 4.0]
+        observation_noise_std: 0.0
+      planner: entry
+      obstacles: []

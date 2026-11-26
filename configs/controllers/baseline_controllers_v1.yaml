@@ -1,0 +1,24 @@
+specification_id: baseline-controllers-v1
+schema_version: 1
+
+lqr:
+  lateral_weight: 4.0
+  tractor_heading_weight: 0.8
+  trailer_heading_weight: 6.0
+  steering_angle_weight: 0.3
+  steering_rate_weight: 0.4
+  linearization_epsilon: 1.0e-5
+  riccati_tolerance: 1.0e-11
+  riccati_max_iterations: 10000
+
+nmpc:
+  horizon_steps: 40
+  position_weight: 20.0
+  trailer_heading_weight: 15.0
+  tractor_heading_weight: 0.5
+  articulation_weight: 0.8
+  steering_angle_weight: 0.15
+  steering_rate_weight: 0.03
+  terminal_weight: 5.0
+  solver_tolerance: 1.0e-6
+  solver_max_iterations: 200

@@ -10,9 +10,20 @@ The current manuscript records the proposal, literature basis, frozen vehicle
 and environment contract, controller comparison, experimental protocol, and
 implemented vehicle core, 2D kinematic plant and Gymnasium task, MuJoCo plant,
 direct low-speed plant-trajectory parity, and the separately configured
-full-size interactive service-center demonstration. NMPC, PPO, MuJoCo
-task-event parity, and controller results remain explicitly labeled as planned
-until their code and evidence exist.
+full-size interactive service-center demonstration. A trajectory-error LQR and
+basic straight-path NMPC now provide closed-loop vertical slices through the
+same controller interface. The PPO training/evaluation infrastructure,
+parameterized optimization and reward settings, and fingerprinted paired
+episode replay are implemented and software-tested. Versioned classical
+controller settings, disjoint experiment splits, formal evidence output, and a
+gated policy-warm-start curriculum are also implemented. Smooth predefined
+curves, a curved curriculum, and a controlled reward-study runner are
+software-tested. The current version-2 PPO task adds dense trailer-tail and
+heading-improvement reward terms; their learning benefit remains untested and
+version 1 is retained for reproducibility. A full curriculum or reward-study
+run, tuned PPO policy,
+broader NMPC validation, MuJoCo task-event parity, and comparative controller
+results remain explicitly labeled as planned until their evidence exists.
 
 ## Overleaf
 

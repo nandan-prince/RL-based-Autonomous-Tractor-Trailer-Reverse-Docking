@@ -1,0 +1,75 @@
+{
+  "experiment_id": "20261126-1348_ppo_arc30-recovery-campaign",
+  "status": "finished",
+  "runs_requested": 1,
+  "runs_recorded": 1,
+  "runs_finished": 1,
+  "best_run": {
+    "run": 1,
+    "seed": 0,
+    "experiment_id": "20261126-1348_ppo_arc30-recovery-run-1-of-1",
+    "status": "finished",
+    "error": null,
+    "timesteps": 60416,
+    "episodes": 52,
+    "checkpoint_path": "artifacts/20261126-1348_ppo_arc30-recovery-run-1-of-1/checkpoints/policy_final.zip",
+    "evaluation": [
+      {
+        "episodes": 20,
+        "success_rate": 0.0,
+        "collision_rate": 0.0,
+        "jackknife_rate": 0.0,
+        "mean_total_reward": -59602.758967681715,
+        "mean_abs_lateral_error": 24.994354068067093,
+        "mean_abs_longitudinal_error": 0.5335508697934488,
+        "mean_abs_yaw_error": 1.6066454747415087,
+        "max_abs_articulation": 0.5333916509119987,
+        "mean_maneuver_time": 186.33500000002152,
+        "mean_path_length": 35.81123386184588,
+        "mean_steering_rate_rms": 0.2060171259641855,
+        "mean_policy_time_ms": 0.30917757953320757,
+        "solve_failures": 0,
+        "outcome_out_of_bounds": 20,
+        "backend": "2d",
+        "seed": 100000,
+        "complete": true
+      }
+    ],
+    "evaluation_error": null
+  },
+  "runs": [
+    {
+      "run": 1,
+      "seed": 0,
+      "experiment_id": "20261126-1348_ppo_arc30-recovery-run-1-of-1",
+      "status": "finished",
+      "error": null,
+      "timesteps": 60416,
+      "episodes": 52,
+      "checkpoint_path": "artifacts/20261126-1348_ppo_arc30-recovery-run-1-of-1/checkpoints/policy_final.zip",
+      "evaluation": [
+        {
+          "episodes": 20,
+          "success_rate": 0.0,
+          "collision_rate": 0.0,
+          "jackknife_rate": 0.0,
+          "mean_total_reward": -59602.758967681715,
+          "mean_abs_lateral_error": 24.994354068067093,
+          "mean_abs_longitudinal_error": 0.5335508697934488,
+          "mean_abs_yaw_error": 1.6066454747415087,
+          "max_abs_articulation": 0.5333916509119987,
+          "mean_maneuver_time": 186.33500000002152,
+          "mean_path_length": 35.81123386184588,
+          "mean_steering_rate_rms": 0.2060171259641855,
+          "mean_policy_time_ms": 0.30917757953320757,
+          "solve_failures": 0,
+          "outcome_out_of_bounds": 20,
+          "backend": "2d",
+          "seed": 100000,
+          "complete": true
+        }
+      ],
+      "evaluation_error": null
+    }
+  ]
+}

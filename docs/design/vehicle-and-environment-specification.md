@@ -19,7 +19,9 @@ the schema or controller interfaces.
 **Implementation status:** the typed vehicle core, kinematic propagation,
 reference paths, collision/jackknife/goal rules, normalized observation,
 Gymnasium API, reward decomposition, deterministic resets, and interactive 2D
-rendering are implemented and tested. Controllers remain the next milestone.
+rendering are implemented and tested. Straight-path LQR and basic NMPC
+vertical slices and the PPO training infrastructure are implemented; broader
+paired controller evaluation remains the next milestone.
 
 Run the executable contract check from the repository root with:
 

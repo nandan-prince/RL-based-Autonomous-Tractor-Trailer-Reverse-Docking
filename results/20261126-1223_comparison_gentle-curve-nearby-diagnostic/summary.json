@@ -1,0 +1,47 @@
+{
+  "experiment_id": "20261126-1223_comparison_gentle-curve-nearby-diagnostic",
+  "status": "complete",
+  "split": "validation",
+  "episodes_per_cell": 20,
+  "cells": [
+    {
+      "method": "ppo",
+      "backend": "2d",
+      "episodes": 20,
+      "success_rate": 0.75,
+      "collision_rate": 0.0,
+      "jackknife_rate": 0.0,
+      "mean_total_reward": 189.9788983108838,
+      "mean_abs_lateral_error": 0.05078190228202177,
+      "mean_abs_longitudinal_error": 0.6219150229695088,
+      "mean_abs_yaw_error": 0.029486205023697542,
+      "max_abs_articulation": 0.15122955995443554,
+      "mean_maneuver_time": 71.77500000000285,
+      "mean_path_length": 14.285396734588454,
+      "mean_steering_rate_rms": 0.005519230162217537,
+      "mean_policy_time_ms": 0.07103259725367288,
+      "solve_failures": 0,
+      "outcome_out_of_bounds": 5,
+      "outcome_success": 15
+    },
+    {
+      "method": "lqr",
+      "backend": "2d",
+      "episodes": 20,
+      "success_rate": 1.0,
+      "collision_rate": 0.0,
+      "jackknife_rate": 0.0,
+      "mean_total_reward": 229.58848232844593,
+      "mean_abs_lateral_error": 0.025095791299390224,
+      "mean_abs_longitudinal_error": 0.08865979649947238,
+      "mean_abs_yaw_error": 0.019128259518719347,
+      "max_abs_articulation": 0.06932432999400928,
+      "mean_maneuver_time": 68.66000000000349,
+      "mean_path_length": 13.674409121486633,
+      "mean_steering_rate_rms": 0.010155405777365071,
+      "mean_policy_time_ms": 0.030798971127684194,
+      "solve_failures": 0,
+      "outcome_success": 20
+    }
+  ]
+}

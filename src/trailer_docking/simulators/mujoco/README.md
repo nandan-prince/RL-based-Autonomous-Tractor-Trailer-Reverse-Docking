@@ -21,9 +21,12 @@ The backend conforms to the common simulator protocol in
 `simulators/base.py`, and `tests/integration/test_kinematic_mujoco_parity.py`
 compares it directly with the project's 2D simulator on shared command
 sequences. The Gymnasium task can run on it (`TrailerDockingEnv(backend="3d")`).
-Still open: agreement of episode events (collision, jackknife, success) with
-the 2D backend under shared scenarios, and any controller or policy transfer
-result. Do not describe a transfer result as complete until those exist.
+PPO can train on this backend, and saved PPO, LQR, and NMPC controllers can all
+execute through it from the shared UI/evaluator. These are integration
+capabilities, not transfer results. Still open: agreement of episode events
+(collision, jackknife, success) with the 2D backend under shared scenarios and
+controlled controller-performance evidence. Do not describe transfer as
+complete until those exist.
 
 The requirement-by-requirement evidence is summarized in the repository's
 [MuJoCo alignment audit](../../../../docs/design/mujoco-alignment-audit.md).
@@ -44,6 +47,22 @@ simulator = MujocoSimulator(vehicle, dock)  # dock=None gives a flat yard
 state = simulator.reset()  # or reset(tractor_pose, trailer_yaw)
 state = simulator.step(VehicleCommand(steering_rate=0.1, target_speed=-0.2))
 ```
+
+To exercise the current task/controller integration from the repository root:
+
+```bash
+# Desktop workflow: select Models & Evaluate, then choose 3D.
+.venv/bin/python -m trailer_docking.ui.app \
+  --scenario configs/scenarios/curved_docking_mixed_v2.yaml
+
+# Headless classical-controller smoke checks.
+.venv/bin/python -m trailer_docking.training.cli compare \
+  --controllers lqr,nmpc --backends 3d --episodes 1 --seed 100000
+```
+
+For training, leave live 3D rendering off unless visual debugging is required.
+First establish the policy in 2D; a short 3D run only proves integration, not
+that a policy has learned or transferred.
 
 `reset` takes the same arguments as `VehicleGeometry.assembled_state`. `step`
 advances exactly one controller period. `applied_command`, `steering_target`,

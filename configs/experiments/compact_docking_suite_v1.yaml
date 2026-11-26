@@ -1,0 +1,16 @@
+specification_id: compact-docking-suite-v1
+schema_version: 1
+
+# Training and tuning may use only these run seeds. Episode starts within a
+# run remain controlled by the scenario and recorded training configuration.
+training_seeds: [0, 1, 2]
+
+# Validation may guide controller/reward/hyperparameter choices.
+validation:
+  seed: 100000
+  episodes: 20
+
+# Test is held back for the final reported comparison.
+test:
+  seed: 200000
+  episodes: 100

@@ -18,9 +18,14 @@ Use IDs of the form `YYYYMMDD-HHMM_<method>_<short-purpose>`, optionally with a
 repeat or seed suffix. A rerun with changed inputs receives a new ID rather
 than overwriting the old record.
 
-Future runners should write outputs beneath `results/<experiment_id>/` with a
+The implemented `training.cli compare --save-results` command writes outputs
+beneath `results/<experiment_id>/` with a
 copy of the resolved configuration, manifest, per-episode metrics, aggregate
 metrics, and logs. Large trajectories, videos, checkpoints, and TensorBoard
 data belong in ignored artifact storage; report-ready tables and figures must
 retain the originating experiment ID. Never add measured values to the paper
 unless the corresponding evidence is preserved.
+
+`compact_docking_suite_v1.yaml` owns the first disjoint train/validation/test
+seed ranges. Validation can guide development; the test split is reserved for
+the final frozen comparison and must not be repeatedly inspected while tuning.

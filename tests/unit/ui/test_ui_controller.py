@@ -31,6 +31,27 @@ from trailer_docking.ui.controller import (
     ParameterError,
 )
 
+
+def test_saved_policy_discovery_is_newest_first(tmp_path: Path) -> None:
+    controller = AppController(output_root=tmp_path)
+    older = tmp_path / "artifacts" / "run-a" / "checkpoints" / "policy_10.zip"
+    newer = tmp_path / "artifacts" / "run-b" / "checkpoints" / "policy_final.zip"
+    older.parent.mkdir(parents=True)
+    newer.parent.mkdir(parents=True)
+    older.write_bytes(b"old")
+    newer.write_bytes(b"new")
+    older.touch()
+    newer.touch()
+    older_time = older.stat().st_mtime - 10.0
+    os.utime(older, (older_time, older_time))
+
+    policies = controller.saved_policies()
+
+    assert [(item.experiment_id, item.name) for item in policies] == [
+        ("run-b", "policy_final.zip"),
+        ("run-a", "policy_10.zip"),
+    ]
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -197,7 +218,11 @@ def test_parameters_cover_every_scenario_field() -> None:
     override_keys = {item.name for item in fields(ScenarioOverrides)}
     start_keys = {item.name for item in fields(StartDistribution)}
     assert len(keys) == len(set(keys))
-    random_keys = {"random_trailer_hitch_to_axle", "observation_noise_std"}
+    random_keys = {
+        "random_trailer_hitch_to_axle",
+        "observation_noise_std",
+        "reference_planners",
+    }
     extra = {"planner", "obstacles"}
     assert set(keys) == override_keys | start_keys | random_keys | extra
     for spec in PARAMETERS:
@@ -219,10 +244,32 @@ def test_parameter_values_round_trip() -> None:
     assert values["trailer_variant"] == ""
     assert values["standoff"] == "6.0, 9.0"
     assert values["lateral"] == "-0.4, 0.4"
+    assert values["reference_planners"] == ""
     before = controller.scenario
     controller.apply_parameters(values)
     assert controller.scenario == before
     assert controller.parameter_values() == values
+
+
+def test_predefined_path_set_round_trips_through_ui_parameters() -> None:
+    controller = make_controller()
+    controller.apply_parameters(
+        {
+            "planner": "curve_gentle",
+            "reference_planners": "curve_gentle, curve_early, curve_late",
+        }
+    )
+    assert controller.scenario.planner == "curve_gentle"
+    assert controller.scenario.randomization.reference_planners == (
+        "curve_gentle",
+        "curve_early",
+        "curve_late",
+    )
+    assert controller.parameter_values()["reference_planners"] == (
+        "curve_gentle, curve_early, curve_late"
+    )
+    with pytest.raises(ParameterError, match="planner must be one of"):
+        controller.apply_parameters({"reference_planners": "curve_gentle, nope"})
 
 
 def test_apply_updates_built_scenario_and_blank_restores_base() -> None:

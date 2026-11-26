@@ -290,17 +290,11 @@ def test_training_starts_a_campaign_with_the_chosen_settings(tmp_path: Path) -> 
             controller.make_training_config(**changes)
 
 
-def test_default_factory_builds_a_real_campaign(tmp_path: Path) -> None:
-    controller = AppController(output_root=tmp_path)
-    controller.start_training(
-        controller.make_training_config(method="nmpc", evaluation_episodes=1)
-    )
-    wait_until(lambda: not controller.training_active)
-    progress = controller.training_progress
-    # NMPC plugs in through one hook; until it exists the run says so.
-    assert progress.status == "failed"
-    assert "NMPC is not implemented yet" in progress.error
-    assert any("NMPC is not implemented" in line for line in controller.status_lines())
+def test_default_nmpc_factory_is_available() -> None:
+    from trailer_docking.controllers.nmpc import make_docking_controller
+    from trailer_docking.training.methods import nmpc_controller_factory
+
+    assert nmpc_controller_factory() is make_docking_controller
 
 
 # ------------------------------------------------------------------- tests
@@ -326,7 +320,6 @@ def test_tests_run_on_the_chosen_simulator(tmp_path: Path) -> None:
 
     for options in (
         {"backend": "4d"},
-        {"method": "lqr"},
         {"baseline": True, "use_bundle": True},
         {"policy_path": "x.zip", "use_bundle": True},
         {"use_bundle": True},
@@ -335,26 +328,22 @@ def test_tests_run_on_the_chosen_simulator(tmp_path: Path) -> None:
             controller.start_test(**options)
 
 
-def test_nmpc_test_uses_the_controller_hook(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_nmpc_test_uses_the_controller_hook(tmp_path: Path) -> None:
     controller, runner, _ = make(tmp_path)
     run_test(controller, method="nmpc")
-    assert controller.test_status == "failed"
-    assert "NMPC is not implemented yet" in str(controller.test_error)
-    assert runner.calls == []
-
-    import trailer_docking.controllers.nmpc as module
-
-    def hook(env: Any) -> Any:
-        return lambda observation: [0.0]
-
-    monkeypatch.setattr(module, "make_docking_controller", hook, raising=False)
-    run_test(controller, method="nmpc", backend="3d")
     assert controller.test_status == "finished"
     assert runner.calls[0]["policy"] is None
-    assert runner.calls[0]["controller_factory"] is hook
-    assert controller.test_policy == "NMPC controller [3d]"
+    from trailer_docking.controllers.nmpc import make_docking_controller
+
+    assert runner.calls[0]["controller_factory"] is make_docking_controller
+    assert controller.test_policy == "NMPC controller [2d]"
+
+    run_test(controller, method="lqr")
+    from trailer_docking.controllers.lqr import make_docking_controller as lqr_factory
+
+    assert controller.test_status == "finished"
+    assert runner.calls[1]["controller_factory"] is lqr_factory
+    assert controller.test_policy == "LQR controller [2d]"
 
 
 # ----------------------------------------------------------------- bundles

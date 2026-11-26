@@ -66,6 +66,15 @@ def test_gymnasium_task_configuration_values(
     assert len(task_config.source_fingerprint) == 64
 
 
+def test_version_two_task_adds_dense_tracking_improvement_rewards() -> None:
+    path = Path("configs/environments/gymnasium_docking_v2.yaml")
+    task = load_docking_task_configuration(path)
+    assert task.specification_id == "gymnasium-docking-v2"
+    assert task.reward_lateral_improvement == pytest.approx(5.0)
+    assert task.reward_lateral_deviation_multiplier == pytest.approx(2.0)
+    assert task.reward_heading_improvement == pytest.approx(1.0)
+
+
 def test_task_configuration_strictly_rejects_unknown_fields(
     tmp_path: Path, task_config: DockingTaskConfiguration
 ) -> None:

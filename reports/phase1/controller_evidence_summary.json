@@ -1,0 +1,75 @@
+{
+  "provenance": {
+    "git_revision": "7d6dd38",
+    "platform": "macOS-15.2-arm64-arm-64bit",
+    "python": "3.11.0",
+    "packages": {
+      "casadi": "3.8.2",
+      "gymnasium": "1.4.0",
+      "imageio": "2.38.1",
+      "matplotlib": "3.11.2",
+      "numpy": "2.4.6"
+    }
+  },
+  "scenario_definition": {
+    "reference": "explicit straight path independent of reset pose",
+    "lateral_offset_m": 0.35,
+    "aligned_tractor_and_trailer_heading_offset_deg": 3.0,
+    "action": "normalized steering rate",
+    "speed": "fixed configured reverse target"
+  },
+  "rollouts": {
+    "lqr_compact": {
+      "steps": 487,
+      "simulated_time_s": 48.7,
+      "total_reward": 188.61103930060602,
+      "termination_reason": "success",
+      "success": true,
+      "collision": false,
+      "jackknifed": false,
+      "final_lateral_error_m": -0.0003952318208744949,
+      "final_heading_error_rad": 0.0003047726098634732,
+      "maximum_articulation_rad": 0.11507096533564387,
+      "controller_compute_seconds": 0.014285622630268335,
+      "mean_controller_compute_ms": 0.02933392737221424,
+      "solve_failures": 0,
+      "configuration": {
+        "vehicle_specification": "compact-semitrailer-v1",
+        "vehicle_fingerprint": "e58b186063cc82f62f387406fa587d50cb541f54e7a33a2324d2e707b600f873",
+        "dock_specification": "nominal-dock-v1",
+        "dock_fingerprint": "42dfde136ca2e71ad79f034c988e7e8250020d6685708470b67667f3ef297405",
+        "task_specification": "gymnasium-docking-v1",
+        "task_fingerprint": "12d9934fd586d9984ece9e50435998dc93f1c400f9d9be2319a57dd83fbadc48"
+      }
+    },
+    "nmpc_compact": {
+      "steps": 491,
+      "simulated_time_s": 49.1,
+      "total_reward": 186.49514336857126,
+      "termination_reason": "success",
+      "success": true,
+      "collision": false,
+      "jackknifed": false,
+      "final_lateral_error_m": 0.012802077158055298,
+      "final_heading_error_rad": -0.0006702221408679406,
+      "maximum_articulation_rad": 0.223265291134513,
+      "controller_compute_seconds": 1.2011940954253078,
+      "mean_controller_compute_ms": 2.446423819603478,
+      "solve_failures": 0,
+      "configuration": {
+        "vehicle_specification": "compact-semitrailer-v1",
+        "vehicle_fingerprint": "e58b186063cc82f62f387406fa587d50cb541f54e7a33a2324d2e707b600f873",
+        "dock_specification": "nominal-dock-v1",
+        "dock_fingerprint": "42dfde136ca2e71ad79f034c988e7e8250020d6685708470b67667f3ef297405",
+        "task_specification": "gymnasium-docking-v1",
+        "task_fingerprint": "12d9934fd586d9984ece9e50435998dc93f1c400f9d9be2319a57dd83fbadc48"
+      }
+    }
+  },
+  "figure_provenance": {
+    "source": "labelled MP4 controller demonstrations",
+    "video_directory": "artifacts/controller_videos",
+    "frame_stride": 2,
+    "selected_frames": "start, maximum-articulation step, terminal success"
+  }
+}

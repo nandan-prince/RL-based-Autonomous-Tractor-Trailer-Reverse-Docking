@@ -1,5 +1,6 @@
 """Planar collision, bay containment, and workspace tests."""
 
+from trailer_docking.core.config import load_dock_configuration
 from trailer_docking.core.geometry import Bounds1D
 from trailer_docking.core.state import Point2D, Pose2D
 from trailer_docking.safety.collision import (
@@ -64,3 +65,13 @@ def test_complete_footprints_must_fit_workspace(vehicle_config) -> None:
     assert not vehicle_inside_workspace(
         state, vehicle_config.geometry, Bounds1D(0.1, 10), Bounds1D(-2, 2)
     )
+
+
+def test_open_training_dock_allows_wall_crossings(vehicle_config) -> None:
+    dock = load_dock_configuration("configs/environments/open_dock_training_v1.yaml")
+    for pose in (Pose2D(5.0, 0.0, 0.0), Pose2D(8.0, 0.3, 0.0)):
+        state = vehicle_config.geometry.assembled_state(pose, 0.0)
+        assert not vehicle_dock_collision(
+            state, vehicle_config.geometry, dock.geometry
+        ).collided
+        assert not trailer_inside_bay(state, vehicle_config.geometry, dock.geometry)

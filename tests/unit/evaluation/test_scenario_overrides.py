@@ -15,12 +15,12 @@ from trailer_docking.evaluation.scenarios import (
 )
 
 
-def test_default_scenario_is_the_frozen_baseline() -> None:
+def test_default_scenario_uses_current_versioned_task() -> None:
     built = Scenario().build()
     assert built.vehicle.specification_id == "compact-semitrailer-v1"
     assert built.vehicle.trailer.variant == "nominal"
     assert built.vehicle.tractor.wheelbase == pytest.approx(1.90)
-    assert built.task.specification_id == "gymnasium-docking-v1"
+    assert built.task.specification_id == "gymnasium-docking-v2"
     assert built.vehicle.command.nominal_target_speed == pytest.approx(-0.2)
 
 
@@ -81,6 +81,51 @@ def test_limit_overrides_set_limits_and_the_fixed_reverse_target() -> None:
     assert vehicle.command.nominal_target_speed == pytest.approx(-0.15)
 
 
+def test_all_reward_terms_are_explicit_scenario_parameters() -> None:
+    scenario = Scenario(
+        overrides=ScenarioOverrides(
+            path_lateral_weight=0.0,
+            path_heading_weight=0.0,
+            reward_progress=12.0,
+            reward_time=0.02,
+            reward_lateral_improvement=6.0,
+            reward_lateral_deviation_multiplier=3.0,
+            reward_heading_improvement=1.5,
+            reward_articulation=0.3,
+            reward_steering_rate=0.04,
+            reward_success=150.0,
+            reward_collision=90.0,
+            reward_jackknife=80.0,
+            reward_out_of_bounds=40.0,
+        )
+    )
+    task = scenario.build().task
+    assert task.reward_lateral_error == 0.0
+    assert task.reward_heading_error == 0.0
+    assert task.reward_progress == 12.0
+    assert task.reward_time == 0.02
+    assert task.reward_lateral_improvement == 6.0
+    assert task.reward_lateral_deviation_multiplier == 3.0
+    assert task.reward_heading_improvement == 1.5
+    assert task.reward_articulation == 0.3
+    assert task.reward_steering_rate == 0.04
+    assert task.reward_success == 150.0
+    assert task.reward_collision == 90.0
+    assert task.reward_jackknife == 80.0
+    assert task.reward_out_of_bounds == 40.0
+
+
+def test_reward_overrides_reject_negative_values() -> None:
+    with pytest.raises(ConfigurationError, match="not negative"):
+        ScenarioOverrides(reward_progress=-0.1)
+    with pytest.raises(ConfigurationError, match="at least 1"):
+        Scenario(
+            overrides=ScenarioOverrides(
+                reward_lateral_deviation_multiplier=0.5
+            )
+        ).build()
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
@@ -101,6 +146,10 @@ def test_invalid_overrides_are_rejected(overrides: dict) -> None:
 def test_randomization_validation() -> None:
     assert DomainRandomization().trailer_hitch_to_axle is None
     assert DomainRandomization().observation_noise_std == 0.0
+    planners = DomainRandomization(
+        reference_planners=("curve_gentle", "curve_late")
+    )
+    assert planners.reference_planners == ("curve_gentle", "curve_late")
     chosen = DomainRandomization(trailer_hitch_to_axle=[3, 5])  # type: ignore[arg-type]
     assert chosen.trailer_hitch_to_axle == (3.0, 5.0)
     for bounds in ((5.0, 3.0), (0.0, 3.0), (1.0,), (1.0, float("nan")), "ab"):
@@ -109,6 +158,9 @@ def test_randomization_validation() -> None:
     for noise in (-0.1, float("nan"), True, "x"):
         with pytest.raises(ConfigurationError):
             DomainRandomization(observation_noise_std=noise)  # type: ignore[arg-type]
+    for choices in ((), ("entry", "entry"), ("unknown",), "entry"):
+        with pytest.raises(ConfigurationError):
+            DomainRandomization(reference_planners=choices)  # type: ignore[arg-type]
 
 
 def test_scenario_round_trip_and_fingerprint(tmp_path: Path) -> None:
@@ -121,7 +173,7 @@ def test_scenario_round_trip_and_fingerprint(tmp_path: Path) -> None:
     loaded = Scenario.load(path)
     assert loaded == scenario
     assert loaded.fingerprint == scenario.fingerprint
-    assert loaded.to_dict()["task_path"].endswith("gymnasium_docking_v1.yaml")
+    assert loaded.to_dict()["task_path"].endswith("gymnasium_docking_v2.yaml")
     # Every part of the problem changes the fingerprint.
     base = Scenario(name="custom")
     assert base.fingerprint != scenario.fingerprint
@@ -129,6 +181,18 @@ def test_scenario_round_trip_and_fingerprint(tmp_path: Path) -> None:
         name="custom", randomization=DomainRandomization(observation_noise_std=0.02)
     )
     assert len({base.fingerprint, noisy.fingerprint, scenario.fingerprint}) == 3
+
+
+def test_standalone_mixed_curve_scenario_loads() -> None:
+    path = Path("configs/scenarios/curved_docking_mixed_v1.yaml")
+    scenario = Scenario.load(path)
+
+    assert scenario.randomization.reference_planners == (
+        "curve_gentle",
+        "curve_early",
+        "curve_late",
+    )
+    scenario.build()
 
 
 def test_combined_overrides_are_validated_together() -> None:

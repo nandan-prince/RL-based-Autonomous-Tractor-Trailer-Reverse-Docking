@@ -19,8 +19,13 @@ planner only has to be registered here.
     The final leg into the bay is always the straight centreline, because the
     bay is narrower than the grown walls allow a grid search to enter.
 
-Neither planner checks that an articulated vehicle can actually follow the
-route in reverse: both are geometric.  A feasibility-checked planner
+``curve_gentle``, ``curve_early``, ``curve_late``
+    Predefined sampled cubic references with dock-aligned endpoint tangents
+    and fixed transition locations. They adapt their endpoints to the resolved
+    start and goal but do not optimize online.
+
+No planner checks that an articulated vehicle can actually follow the route
+in reverse: all are geometric. A feasibility-checked planner
 (Reeds-Shepp, Hybrid A*) can be registered under a new name.
 """
 
@@ -28,7 +33,7 @@ from __future__ import annotations
 
 import heapq
 from collections.abc import Callable, Sequence
-from math import ceil, hypot
+from math import ceil, copysign, cos, hypot, pi, sin
 
 from trailer_docking.core.geometry import DockGeometry, VehicleGeometry
 from trailer_docking.core.obstacles import Obstacle
@@ -37,6 +42,8 @@ from trailer_docking.paths.generators import (
     ENTRY_STANDOFF,
     docking_reference,
     manual_reference,
+    smooth_docking_reference,
+    straight_reference,
 )
 from trailer_docking.paths.reference import ReferencePath
 from trailer_docking.safety.collision import dock_wall_polygons
@@ -211,6 +218,72 @@ def entry_reference(
     return docking_reference(vehicle, dock, state)
 
 
+def centerline_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """Use the dock centerline so reset offsets remain tracking errors."""
+
+    goal = dock.target_position
+    tail = vehicle.trailer.rear_face(state.trailer_pose)
+    outward_x = max(tail.x, goal.x + dock.interior_depth)
+    return straight_reference(goal, Point2D(outward_x, goal.y))
+
+
+def _arc_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    sweep: float,
+    segments: int,
+) -> ReferencePath:
+    """Join the dock centerline tangentially after a circular reverse."""
+
+    goal = dock.target_position
+    tail = vehicle.trailer.rear_face(state.trailer_pose)
+    offset = tail.y - goal.y
+    if abs(offset) < 1e-9:
+        return docking_reference(vehicle, dock, state)
+    # Keep the existing quarter-arc points bit-for-bit stable for saved replays.
+    radius = abs(offset) if sweep == pi / 2 else abs(offset) / (1.0 - cos(sweep))
+    join_x = tail.x - radius * sin(sweep)
+    if join_x <= dock.interior_depth:
+        raise PlanningError("the arc needs a straight approach outside the bay")
+    sign = copysign(1.0, offset)
+    arc = tuple(
+        Point2D(
+            join_x + radius * sin(index * sweep / segments),
+            goal.y + sign * radius * (1.0 - cos(index * sweep / segments)),
+        )
+        for index in range(segments)
+    )
+    return manual_reference((goal, *arc, tail))
+
+
+def quarter_arc_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """90-degree approach followed by a tangent straight final leg."""
+
+    return _arc_reference(vehicle, dock, state, pi / 2, 64)
+
+
+def arc_30_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """30-degree approach with approximately the same sampling as the quarter arc."""
+
+    return _arc_reference(vehicle, dock, state, pi / 6, 22)
+
+
 def astar_reference(
     vehicle: VehicleGeometry,
     dock: DockGeometry,
@@ -242,13 +315,75 @@ def astar_reference(
     return manual_reference(tuple(distinct))
 
 
+def _smooth_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    goal_fraction: float,
+    start_fraction: float,
+) -> ReferencePath:
+    goal = dock.target_position
+    start = vehicle.trailer.rear_face(state.trailer_pose)
+    return smooth_docking_reference(
+        goal,
+        start,
+        goal_control_fraction=goal_fraction,
+        start_control_fraction=start_fraction,
+    )
+
+
+def curve_gentle_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """Symmetric smooth docking curve used as the first curved-path task."""
+
+    return _smooth_reference(vehicle, dock, state, 0.35, 0.35)
+
+
+def curve_early_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """Curve whose lateral transition occurs earlier near the dock."""
+
+    return _smooth_reference(vehicle, dock, state, 0.20, 0.50)
+
+
+def curve_late_reference(
+    vehicle: VehicleGeometry,
+    dock: DockGeometry,
+    state: VehicleState,
+    obstacles: Sequence[Obstacle] = (),
+) -> ReferencePath:
+    """Curve whose lateral transition occurs later near the start."""
+
+    return _smooth_reference(vehicle, dock, state, 0.50, 0.20)
+
+
 PLANNERS: dict[str, Planner] = {
     "entry": entry_reference,
+    "centerline": centerline_reference,
+    "quarter_arc": quarter_arc_reference,
+    "arc_30": arc_30_reference,
     "astar": astar_reference,
+    "curve_gentle": curve_gentle_reference,
+    "curve_early": curve_early_reference,
+    "curve_late": curve_late_reference,
 }
 PLANNER_LABELS: dict[str, str] = {
     "entry": "straight in through an entry point",
+    "centerline": "fixed dock centerline for tracking recovery",
+    "quarter_arc": "quarter-circle approach with a straight final leg",
+    "arc_30": "30-degree arc with a straight final leg",
     "astar": "A* grid search around the walls",
+    "curve_gentle": "smooth symmetric predefined curve",
+    "curve_early": "smooth predefined curve with an early transition",
+    "curve_late": "smooth predefined curve with a late transition",
 }
 
 

@@ -19,6 +19,17 @@ def test_defaults_match_the_contract() -> None:
         "learning_rate": 3e-4,
         "n_steps": 1024,
         "batch_size": 256,
+        "n_epochs": 10,
+        "gamma": 0.99,
+        "gae_lambda": 0.95,
+        "clip_range": 0.2,
+        "clip_range_vf": None,
+        "normalize_advantage": True,
+        "entropy_coefficient": 0.0,
+        "value_coefficient": 0.5,
+        "max_grad_norm": 0.5,
+        "target_kl": None,
+        "device": "cpu",
         "max_episode_steps": 900,
         "checkpoint_interval": 20_000,
         "purpose": "docking",
@@ -40,6 +51,7 @@ def test_defaults_match_the_contract() -> None:
         "total_timesteps",
         "n_steps",
         "batch_size",
+        "n_epochs",
         "max_episode_steps",
         "checkpoint_interval",
         "runs",
@@ -55,6 +67,33 @@ def test_counts_must_be_positive(field: str, value: int) -> None:
 def test_learning_rate_must_be_positive_and_finite(rate: float) -> None:
     with pytest.raises(ValueError, match="learning_rate"):
         TrainingConfig(learning_rate=rate)
+
+
+@pytest.mark.parametrize("field", ["gamma", "gae_lambda"])
+@pytest.mark.parametrize("value", [-0.1, 1.1, float("nan"), float("inf")])
+def test_discount_parameters_are_probabilities(field: str, value: float) -> None:
+    with pytest.raises(ValueError, match=field):
+        TrainingConfig(**{field: value})
+
+
+@pytest.mark.parametrize("field", ["clip_range", "max_grad_norm"])
+@pytest.mark.parametrize("value", [0.0, -1.0, float("nan")])
+def test_positive_ppo_parameters(field: str, value: float) -> None:
+    with pytest.raises(ValueError, match=field):
+        TrainingConfig(**{field: value})
+
+
+def test_optional_ppo_parameters_and_device_are_validated() -> None:
+    with pytest.raises(ValueError, match="target_kl"):
+        TrainingConfig(target_kl=0.0)
+    with pytest.raises(ValueError, match="clip_range_vf"):
+        TrainingConfig(clip_range_vf=-0.1)
+    with pytest.raises(ValueError, match="entropy_coefficient"):
+        TrainingConfig(entropy_coefficient=-0.1)
+    with pytest.raises(ValueError, match="normalize_advantage"):
+        TrainingConfig(normalize_advantage=1)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="device"):
+        TrainingConfig(device="quantum")
 
 
 def test_seed_and_purpose_are_validated() -> None:

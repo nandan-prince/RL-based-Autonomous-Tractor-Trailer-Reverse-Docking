@@ -1,0 +1,54 @@
+experiment_id: 20261126-1223_comparison_gentle-curve-nearby-diagnostic
+kind: paired-controller-comparison
+status: complete
+finished: '2026-11-26T12:23:52-08:00'
+configuration_path: configs/experiments/20261126-1223_comparison_gentle-curve-nearby-diagnostic.yaml
+scenario_fingerprint: 90e1101735a3d75149a2c68bec5c0f5a3648f6c4d95bcfe321025abfb05f6354
+suite_fingerprint: 32e09de91010494023e27cf907196620674ecc83505792b30e3238eae87ed07a
+controller_fingerprint: ec7b83b2964665aa43ecab50716879e771b9b1a503fad8b46eef41137bacd44b
+episode_fingerprints:
+- e472f66db911fa8c47d4df9541f32e7c0b19ae33d37ef28a637f1de34d946efc
+- b2eba083bfe6ca6d848230e4d233b538a64ace240ae3ab6d4769fe3bc24aa970
+- 7fedca1f04f2e30945d5a26f06395fcf22c534d5c64df0c5cf509a39befb0e6a
+- d0ea334b20e4a4567d22a8cb3d9016ddcacbd0b8e7de5e6eee9034b3f287dc0d
+- bcb73f840dee17ae1f15b6a6d2373f1c211b2548525be1099a82c30d81b36c8f
+- 82ac53e7557e4b6e54715a066f1e62b87d38b24dd3b2de21dfb67abf4ef53a87
+- 291c084fc5c3e29fd8baa82203deb5e67616cee4858cb6762a6d4f02b802c710
+- db435f7146be3387e187825b77c1bf655db4a07a4a50ddd2ef13436ab4a86409
+- 3c974803100a1f0bd13aa7aa8adaf5fbfc8da5dc2d1afd6c6968d50473bac27d
+- 6d71c823cdd09fb1f360b9a13fe00f11b6dc8fe4ec1996822ae06327c0b4e8b5
+- 818e0fe807356ae81e56bb5482f2d8ef9d20ef6819bcae8271c7637b69874ddc
+- a2fecc8bf3659c991a5e9b3da210fe7a6d502785c2e6c66a76822ca0cb312a6a
+- 9139a4945627a31786f385237c8e086712d5a3d1fc8dc84da874b680a5bb6389
+- 7d4f20dd7e1a7d847fec15909a56f2a49d25e007c84dd6bf7020ae1b4a99dd5c
+- d61ae9961af2b46f25b65a86fe93b698820b48cea75c9ce75f9328efc52c7106
+- 24e939aa0fbe473bd99010a69163f57d5cb2dc4407559b0669bf96287d7e7590
+- b56fc26bffb6cda716d32fe7829e4a62690c5e20c23267648e053311e46c5267
+- 04f1146d1a2fb5fd91cb93f005d5d73c10884d4183da2cc68136ec48f9c88e86
+- 362ed0dc8d57da23fe61b796b8b94e9cb3a4526d201e623c10885930184d43da
+- 793a185aff0349962aa7156e47b553bd5fbe2cf062b40d787af11e2b12f01c13
+methods:
+- ppo
+- lqr
+backends:
+- 2d
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - '-'
+git:
+  commit: 209861e93257aeef916daba12ce9d2c338a93c58
+  dirty: true
+  diff_sha256: f1ac6384502f2d8bd78e8039d45866f90149da5c52d839b6c0ec84bbabe57e41
+mujoco_tuning: null
+metrics_path: metrics.csv
+summary_path: summary.json
+notes_path: notes.md

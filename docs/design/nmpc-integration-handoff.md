@@ -4,29 +4,29 @@
 assistant working with him). Read this before writing
 `src/trailer_docking/controllers/nmpc.py`.
 
-**Status on 2026-11-13:** the runner, command line, and control UI can already
-select NMPC. The controller itself does not exist yet, so selecting it reports
-"NMPC is not implemented yet". Nothing else needs to change for it to work:
-provide one function and it runs everywhere PPO runs.
+**Status on 2026-11-19:** the basic fixed-speed NMPC and its integration hook
+are implemented. The runner, command line, and control UI select it through the
+same per-episode factory described below. Curved/randomized validation,
+collision constraints, solver timing studies, and formal comparison remain.
 
-## What you provide
+## Implemented integration hook
 
-One function in `src/trailer_docking/controllers/nmpc.py`:
+The integration is one function in `src/trailer_docking/controllers/nmpc.py`:
 
 ```python
-def make_docking_controller(env) -> Callable[[np.ndarray], np.ndarray]:
+def make_docking_controller(env) -> Controller:
     ...
 ```
 
 - It is called **once at the start of every episode**, immediately after the
   environment has been reset. Build or reset the solver here (warm start,
   horizon, reference for this episode).
-- It returns a callable that is called **once per control step** with the
-  21-element policy observation. NMPC may ignore the observation and read the
-  shared state from `env` instead.
-- The callable returns **one normalized steering-rate action**: shape `(1,)`,
-  value in `[-1, 1]`. Any array-like of one number is accepted. The
-  environment multiplies it by `limits.steering_rate_abs_max`.
+- It returns an object implementing the shared `Controller` protocol. The
+  evaluator calls `reset()` once and `act(ControllerContext)` every control
+  step.
+- `act()` returns one normalized steering-rate action: shape `(1,)`, value in
+  `[-1, 1]`. The evaluator validates it before the environment multiplies it
+  by `limits.steering_rate_abs_max`.
 
 NMPC is not trained. It solves its optimization online at every step, so
 there is no training phase: with NMPC selected, **Start** simply runs the
@@ -47,10 +47,10 @@ episodes.
 | Path-relative tracking the task computed | `env.task_env.tracking` |
 | Which simulator is running | `env.backend` (`"2d"` kinematic or `"3d"` MuJoCo) |
 
-Read these each step; do not cache `env.state`, because a new object is
-produced every step. With trailer-length randomization enabled the vehicle is
-rebuilt at each reset, which is why the hook runs per episode: read
-`env.built.vehicle` inside it, not at import time.
+The factory reads episode-level configuration such as `env.built.vehicle`.
+The evaluator supplies the current state, path, tracking values, and observation
+through `ControllerContext` every step. With trailer-length randomization the
+vehicle is rebuilt at reset, which is why the factory runs per episode.
 
 ## The plant contract you are controlling
 
@@ -79,12 +79,17 @@ the same for PPO, so the comparison stays fair:
 Command line:
 
 ```bash
-# 20 episodes in 2D, then the same seeds in 3D
+# 20 independent smoke-test episodes in each backend
 .venv/bin/python -m trailer_docking.training.cli test --nmpc --episodes 20
 .venv/bin/python -m trailer_docking.training.cli test --nmpc --episodes 20 --backend 3d
 
+# one paired set, resolved once and replayed in both backends
+.venv/bin/python -m trailer_docking.training.cli compare \
+    --controllers lqr,nmpc --backends 2d,3d --episodes 20 --seed 100000
+
 # full evaluation run with saved records (no training happens)
 .venv/bin/python -m trailer_docking.training.cli train --method nmpc \
+    --controller-config configs/controllers/baseline_controllers_v1.yaml \
     --eval-episodes 100 --eval-backends 2d,3d
 ```
 
@@ -96,44 +101,38 @@ ranges, limits) apply to NMPC exactly as they do to PPO.
 A run with `--method nmpc` writes `results/<id>/manifest.yaml` and
 `summary.json` with success, collision and jackknife rates, final errors,
 maximum articulation, maneuver time, path length, steering-rate RMS, and mean
-controller time per step. Controller time is measured around your callable, so
+controller time per step. Controller time is measured around `Controller.act`, so
 it is the online compute cost the proposal lists as a metric.
 
-For a like-for-like comparison, test PPO and NMPC with the same scenario file
-and the same `--seed`; episode `i` uses seed `seed + i` in both.
+The baseline horizon, costs, solver tolerance, and iteration limit now come
+from `configs/controllers/baseline_controllers_v1.yaml`; campaigns record the
+resolved mapping and fingerprint. Do not change Python defaults for an
+experiment-specific tuning choice---create a new named configuration file.
+
+For a like-for-like comparison, use `training.cli compare`. It resolves each
+seed into an explicit geometry, articulated start, and reference path once,
+then replays the same fingerprinted episode objects for every method/backend
+cell. Equal seed numbers alone are not the experimental pairing contract.
 
 ## Minimal skeleton
 
 ```python
 """CasADi/IPOPT nonlinear model-predictive controller."""
 
-import numpy as np
-
-
 def make_docking_controller(env):
-    vehicle = env.built.vehicle
-    path = env.reference_path
-    rate_limit = vehicle.limits.steering_rate_abs_max
-    solver = ...  # build or warm-start the NLP for this episode
-
-    def act(observation):
-        state = env.state
-        steering_rate = ...  # solve, in rad/s
-        return np.array([np.clip(steering_rate / rate_limit, -1.0, 1.0)], np.float32)
-
-    return act
+    return BasicNMPCController(env.built.vehicle)
 ```
 
 ## Tests that already cover the seam
 
-`tests/unit/training/test_campaign_and_bundle.py`:
+`tests/unit/training/test_campaign_and_bundle.py` and the controller integration
+tests verify that:
 
-- `test_nmpc_is_reported_as_not_implemented_until_the_hook_exists` will need
-  its first assertion removed once the hook exists; that is expected.
-- `test_a_controller_factory_is_rebuilt_from_the_environment_each_episode`
-  shows the calling convention with a stand-in controller.
-- `test_nmpc_campaign_skips_training_and_only_runs_the_controller` shows what
-  an NMPC run records.
+- the real hook is discoverable;
+- a controller factory is rebuilt after every episode reset;
+- NMPC campaigns skip training and only evaluate;
+- basic NMPC produces valid actions and completes the straight-path acceptance
+  maneuver.
 
 Add NMPC's own tests (solver feasibility, constraint handling, timing) next to
 the controller.
@@ -266,22 +265,20 @@ the controller has real code, and add `casadi` to the mypy
 The fastest feedback loop is a script that builds the environment directly:
 
 ```python
-import numpy as np
-from trailer_docking.controllers.nmpc import make_docking_controller
 from trailer_docking.evaluation.scenarios import Scenario, StartDistribution
-from trailer_docking.training.environment import ScenarioDockingEnv
+from trailer_docking.training.evaluate import run_docking_test
+from trailer_docking.training.methods import nmpc_controller_factory
 
-scenario = Scenario(start=StartDistribution((4, 4), (0.3, 0.3), (0.05, 0.05), (0, 0)))
-env = ScenarioDockingEnv(scenario, max_episode_steps=900)
-observation, info = env.reset(seed=0)
-act = make_docking_controller(env)
-done = False
-while not done:
-    observation, reward, terminated, truncated, info = env.step(
-        np.asarray(act(observation), np.float32).reshape(1)
-    )
-    done = terminated or truncated
-print(info["termination_reason"], info["docking_error_lateral"], info["docking_error_yaw"])
+scenario = Scenario(
+    start=StartDistribution((4, 4), (0.3, 0.3), (0.05, 0.05), (0, 0))
+)
+results = run_docking_test(
+    scenario,
+    None,
+    seed=0,
+    controller_factory=nmpc_controller_factory(),
+)
+print(results[0])
 ```
 
 `info` carries every reward term, the collision contacts, the articulation
