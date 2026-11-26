@@ -1,9 +1,95 @@
 \section{Results}
 
-No controller-training or comparative experimental results exist yet.
+Exploratory PPO results are available for the aligned 2D open-bay condition
+(campaign \texttt{20261125-2331\_ppo\_ppo-ui-campaign}). Seed 0 completed
+200,704 environment steps with 10 successes in 416 sampled training episodes.
+Deterministic evaluation repeated the aligned start 20 times and exited the
+workspace each time. The final replay crossed the target longitudinal
+position with $0.088\,\mathrm{m}$ lateral error and $5.41^\circ$ heading
+error, and missed the nominal heading and full-trailer containment criteria.
+Peak articulation declined from $45.36^\circ$ at the 20,000-step checkpoint to
+$8.38^\circ$ at the final checkpoint. This is exploratory evidence of more
+stable reversing from the aligned start. A formal method comparison remains
+pending.
 
-The current evidence is limited to engineering validation of the shared core
-and simulator plants. The combined repository suite contains 454 passing tests
+On the single-direction quarter-arc pilot
+(\path{20261126-1304_ppo_arc-one-direction-campaign}), guided PPO
+completed 400,384 steps with zero docks in 625 training episodes.
+Most training failures were jackknifes (542 episodes). The final policy
+exited the workspace on all 20 validation starts, with mean arc coverage
+of 14.8\% before exceeding a $0.5\,\mathrm{m}$ lateral-error threshold
+or terminating. The 140,000-step checkpoint covered 19.1\% under the
+same metric. LQR docked on all 20 matched starts within the 2,000-step
+cap. This exploratory run does not isolate the effect
+of removing mirrored starts because the earlier mirrored pilots used
+a shorter episode limit and smaller training budget.
+
+The shorter one-sided arc campaign
+\path{20261126-1316_ppo_ppo-ui-campaign} recorded zero docks in 421
+training episodes. At the selected 120,000-step checkpoint, all 20
+validation replays completed the arc within $0.5\,\mathrm{m}$ of the
+reference, with mean absolute arc error of $0.027\,\mathrm{m}$. All
+20 subsequently exited the workspace after missing the docking pose.
+The final checkpoint averaged 80.8\% corridor coverage and also failed
+to dock in all 20 validation replays.
+
+The exploratory gated-progress fine-tune
+\path{20261126-1327_ppo_ppo-ui-campaign} used the selected short-arc
+checkpoint as initialization and completed 200,704 additional steps
+at a learning rate of $3\times10^{-4}$. It recorded zero docks in 152
+training episodes. All 20 final validation replays exited the workspace.
+Mean straight-approach lateral error increased from $0.95\,\mathrm{m}$
+at initialization to $12.85\,\mathrm{m}$ in the final policy. The
+screened 140,000-step fine-tuned checkpoint reached $1.70\,\mathrm{m}$.
+An ungated run with matched fine-tuning settings is required to isolate
+the effect of the gate.
+
+The recovery-reward arm
+\path{20261126-1348_ppo_arc30-recovery-campaign} ran for 60,416 steps and
+recorded zero docks in 52 sampled training episodes. The selected
+20,000-step fine-tuned checkpoint had $0.93\,\mathrm{m}$ mean absolute
+straight-approach error, compared with $0.95\,\mathrm{m}$ at initialization
+and $5.78\,\mathrm{m}$ in the final policy. Each checkpoint exited the
+workspace on all 20 validation starts. None returned to within
+$0.3\,\mathrm{m}$ of the reference after exceeding $0.5\,\mathrm{m}$ on
+the straight approach. The matched gated-only control
+\path{20261126-1358_ppo_arc30-recovery-control-campaign} also docked
+zero times in 20 validation trials. Its mean straight-approach error
+was $2.26\,\mathrm{m}$ at 20,000 steps and $3.72\,\mathrm{m}$ for the
+final policy, versus $0.93$ and $5.78\,\mathrm{m}$ with the recovery
+term. Neither condition recovered into the specified lateral corridor
+on the straight leg at the checked checkpoints.
+
+A weights-only warm start from the final aligned policy was trained on
+small lateral and heading offsets against a straight centerline in the
+same open bay. The validation result for
+\path{20261125-2346_ppo-curriculum_ppo-open-dock-recovery-v1} was zero
+docks and 20 workspace exits after 100,352 additional training steps.
+The training episodes comprised 126 workspace exits and 48 jackknifes.
+A paired diagnostic replay found that the mean absolute terminal lateral
+error grew from $0.31\,\mathrm{m}$ for the initialization policy to
+$4.56\,\mathrm{m}$ after recovery training. This outcome applies to the
+single training seed and the validation scenario specified in the manifest.
+A longer run under the same physical recovery condition
+(\path{20261125-2359_ppo_ppo-ui-campaign}) finished with two docks in 347
+sampled training episodes and jackknifed in all 20 deterministic validation
+episodes after 200,704 training steps.
+
+In the fixed gentle-curve campaign
+\path{20261126-1213_ppo_ppo-ui-campaign}, PPO docked in 36 of 255 sampled
+training episodes over 200,704 environment steps. The 100,000-step
+checkpoint docked in 687 deterministic steps with $0.082\,\mathrm{m}$
+mean absolute lateral path error on approach. The final checkpoint timed
+out in all 20 repetitions of that fixed start. In the exploratory paired
+comparison \path{20261126-1223_comparison_gentle-curve-nearby-diagnostic},
+the selected PPO checkpoint docked in 15 of 20 nearby starts, while LQR
+docked in 20 of 20. The PPO checkpoint was selected post hoc using replays
+on the training curve. This provides local robustness evidence for one
+training seed. The held-out comparison and path-guidance ablation remain
+pending.
+
+Engineering validation covers the shared core and simulator plants. The
+recorded combined repository suite contains 454 passing tests
 and four platform-dependent skips, including the 2D kinematic and MuJoCo
 checks, controller vertical slices, and PPO training infrastructure, with
 branch-aware coverage of $91.04\%$. Lint and strict

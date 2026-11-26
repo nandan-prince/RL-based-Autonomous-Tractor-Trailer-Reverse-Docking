@@ -1,0 +1,2 @@
+episode,seed,outcome,success,steps,total_reward,final_longitudinal_error,final_lateral_error,final_yaw_error,max_abs_articulation,maneuver_time,path_length,steering_rate_rms,controller,solve_failures,episode_seed,episode_fingerprint,mean_policy_time_ms
+0,100000,jackknife,False,159,-79.96281236779721,9.122810135229859,0.9941517364072102,-0.18860721577692824,0.7903807578118962,15.89999999999975,2.9447489421773323,0.03540522182714526,ppo-policy,0,100000,d847dcd969c1ca56ec9b930f78802ef76a599baa387d8721b342c131506d020e,0.27837502622227156

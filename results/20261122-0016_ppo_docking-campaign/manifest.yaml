@@ -1,0 +1,159 @@
+experiment_id: 20261122-0016_ppo_docking-campaign
+kind: campaign
+purpose: docking
+method: ppo
+status: finished
+error: null
+started: '2026-11-22T00:16:18-08:00'
+finished: '2026-11-22T00:16:46-08:00'
+scenario:
+  name: curved-docking-mixed-v1
+  vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+  dock_path: configs/environments/nominal_dock_v1.yaml
+  task_path: configs/environments/gymnasium_docking_v1.yaml
+  overrides:
+    trailer_variant: null
+    dock_interior_width: null
+    dock_interior_depth: null
+    tractor_wheelbase: null
+    tractor_body_width: null
+    trailer_hitch_to_axle: null
+    trailer_rear_overhang: null
+    trailer_body_width: null
+    steering_angle_max: null
+    steering_rate_max: null
+    reverse_speed: null
+    path_lateral_weight: null
+    path_heading_weight: null
+    reward_progress: null
+    reward_time: null
+    reward_articulation: null
+    reward_steering_rate: null
+    reward_success: null
+    reward_collision: null
+    reward_jackknife: null
+    reward_out_of_bounds: null
+    tractor_chassis_mass: null
+    trailer_body_mass: null
+    ground_friction: null
+  start:
+    standoff:
+    - 6.0
+    - 9.0
+    lateral:
+    - -1.2
+    - 1.2
+    trailer_yaw:
+    - -0.06
+    - 0.06
+    articulation:
+    - -0.04
+    - 0.04
+  randomization:
+    trailer_hitch_to_axle: null
+    observation_noise_std: 0.0
+    reference_planners:
+    - curve_gentle
+    - curve_early
+    - curve_late
+  planner: curve_gentle
+  obstacles: []
+scenario_fingerprint: cd21c41b9d866b3e30bd9773ad4e8f8eff04eb1c6892dc58a453a0090a4d77a6
+config:
+  total_timesteps: 5000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 900
+  checkpoint_interval: 20000
+  purpose: docking
+  runs: 1
+  backend: 3d
+  evaluation_episodes: 1
+  evaluation_backends:
+  - 2d
+  evaluation_seed: 100000
+  method: ppo
+controller_configurations:
+  specification_id: baseline-controllers-v1
+  schema_version: 1
+  lqr:
+    lateral_weight: 4.0
+    tractor_heading_weight: 0.8
+    trailer_heading_weight: 6.0
+    steering_angle_weight: 0.3
+    steering_rate_weight: 0.4
+    linearization_epsilon: 1.0e-05
+    riccati_tolerance: 1.0e-11
+    riccati_max_iterations: 10000
+  nmpc:
+    horizon_steps: 40
+    position_weight: 20.0
+    trailer_heading_weight: 15.0
+    tractor_heading_weight: 0.5
+    articulation_weight: 0.8
+    steering_angle_weight: 0.15
+    steering_rate_weight: 0.03
+    terminal_weight: 5.0
+    solver_tolerance: 1.0e-06
+    solver_max_iterations: 200
+controller_fingerprint: ec7b83b2964665aa43ecab50716879e771b9b1a503fad8b46eef41137bacd44b
+simulator_backend: 3d
+mujoco_tuning:
+  steer_link_mass: 2.0
+  steer_link_inertia: 0.05
+  steering_kp: 20000.0
+  steering_damping: 120.0
+  steering_armature: 1.0
+  steering_range_margin: 0.0
+  drive_kv: 1500.0
+  wheel_spin_damping: 0.05
+  wheel_armature: 0.05
+  wheel_contact_width: 0.02
+  hitch_damping: 5.0
+  friction_cone: elliptic
+  impedance_ratio: 10.0
+  integrator: implicitfast
+  rear_differential: true
+  scene_start_standoff: 4.0
+run_experiment_ids:
+- 20261122-0016_ppo_docking-run-1-of-1
+best_run_experiment_id: 20261122-0016_ppo_docking-run-1-of-1
+bundle_path: artifacts/20261122-0016_ppo_docking-campaign/policy_bundle.dockpolicy.zip
+bundle_sha256: c403e5c31d6660eb30cd016fdfbf99faf0a319fbb5b2231c1e11bb7ec1d8fe19
+evaluation_files:
+- evaluation_run1_2d.csv
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/ui/app.py
+  - --scenario
+  - configs/scenarios/curved_docking_mixed_v1.yaml
+git:
+  commit: e54247a30fb0b000e1342466a3c07521c60752da
+  dirty: true
+  diff_sha256: 311099ff55f96295605a7b3a9436dfaf004fea2991ddb50c8d082ea1bb8e0750
+note: Pipeline run on the Gymnasium docking task. The reward weights and start distribution
+  are untuned, config.max_episode_steps overrides the task step limit, and 3D episode
+  events are not validated against 2D. Do not interpret returns or success rates from
+  this run as research results unless it is registered as an experiment.

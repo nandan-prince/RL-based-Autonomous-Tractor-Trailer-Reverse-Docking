@@ -60,6 +60,10 @@ workspace exit, and timeout are evaluated independently of reward. The new
 weights are engineering hypotheses and have not been shown to improve
 learning.
 
+An exploratory compact training configuration uses a painted bay with the
+dock walls disabled. It preserves the nominal docking pose and containment
+criteria, articulation threshold, and workspace bounds.
+
 The compact registered task remains the controller-comparison baseline. The
 full-size interactive task is selected explicitly by separate vehicle, dock,
 and task configurations. In that demonstration, the colored active loading
@@ -217,6 +221,12 @@ controlled reward-study runner trains every named reward condition over the
 same selected training seeds and validates on physically identical resolved
 episodes. Its schema permits only reward coefficients to vary; scenario,
 path distribution, PPO settings, and evaluation ownership remain shared.
+
+A separate open-bay recovery scenario varies the lateral start by up to
+$0.15\,\mathrm{m}$ and the common tractor--trailer start heading by up to
+$2^\circ$. Its straight reference is fixed to the dock centerline, with
+longitudinal extent covering the initial trailer rear point. This preserves
+the lateral start perturbation as a tracking error.
 
 \planned{} No hyperparameter, reward weight, curve distribution, or start range has been tuned;
 the source work does not report its PPO hyperparameters or preview spacing.

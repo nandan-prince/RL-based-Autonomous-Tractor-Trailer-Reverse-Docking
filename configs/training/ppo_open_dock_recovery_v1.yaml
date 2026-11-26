@@ -1,0 +1,43 @@
+specification_id: ppo-open-dock-recovery-v1
+schema_version: 1
+
+training:
+  total_timesteps: 100000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  checkpoint_interval: 20000
+  max_episode_steps: 900
+  backend: 2d
+  purpose: open-dock-recovery
+
+suite:
+  specification_id: compact-docking-suite-v1
+  schema_version: 1
+  training_seeds: [0, 1, 2]
+  validation: {seed: 100000, episodes: 20}
+  test: {seed: 200000, episodes: 100}
+
+stages:
+  - name: centerline-recovery
+    timesteps: 100000
+    minimum_validation_success: 0.70
+    scenario:
+      name: open-dock-centerline-recovery-v1
+      vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+      dock_path: configs/environments/open_dock_training_v1.yaml
+      task_path: configs/environments/gymnasium_docking_v1.yaml
+      overrides: {}
+      start:
+        standoff: [4.0, 4.0]
+        lateral: [-0.15, 0.15]
+        trailer_yaw: [-0.034906585, 0.034906585]
+        articulation: [0.0, 0.0]
+      randomization: {}
+      planner: centerline
+      obstacles: []

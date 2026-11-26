@@ -25,10 +25,10 @@ marked implemented only when corresponding repository code and tests exist.
     PPO training framework & \implemented & Scenario overrides, repeated runs on either plant, tests, policy bundles, control interface; software tests only \\
     Paired episode replay & \implemented & Frozen geometry, start state, path, seed, and fingerprint reused across controller/backend cells \\
     Experiment suite and evidence writer & \implemented & Disjoint train/validation/test ownership and immutable comparison packages \\
-    Gated PPO curriculum & \implemented & Three configured stages, validation gates, and safe policy warm starts; tiny software run only \\
+    Gated PPO curriculum & \implemented & Versioned stages, validation gates, and safe policy warm starts \\
     Predefined curved-path training & \implemented & Three smooth templates, deterministic per-episode sampling, and curved curriculum; tiny software checks only \\
     Controlled PPO reward study & \implemented & Reward-only conditions, shared seeds/physical validation episodes, immutable summaries; tiny software run only \\
-    PPO trained policy & \planned & Full curriculum, tuning, and held-out evaluation evidence \\
+    PPO training evidence & \implemented & Exploratory open-bay runs; reliable docking and held-out evaluation remain pending \\
     MuJoCo vehicle, dock, and adapter & \implemented & Generated MJCF; neutral-pose, sign, timing, contact, and kinematic-agreement tests \\
     2D/MuJoCo simulator parity & \implemented & Direct forward/reverse plant trajectories; task-event equality remains planned \\
     Comparative experiments & \planned & Frozen held-out scenarios and saved results \\

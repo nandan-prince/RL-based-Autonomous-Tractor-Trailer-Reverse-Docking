@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import tkinter as tk
 from collections.abc import Callable, Sequence
-from math import degrees, radians
+from math import degrees, isfinite, radians
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any
@@ -275,7 +275,15 @@ def _optional_number(
 class DockingApp:
     """The main window; a thin view over an :class:`AppController`."""
 
-    def __init__(self, root: tk.Tk, controller: AppController) -> None:
+    def __init__(
+        self,
+        root: tk.Tk,
+        controller: AppController,
+        *,
+        timesteps: int = 200_000,
+        learning_rate: float | None = None,
+        purpose: str = "ppo-ui",
+    ) -> None:
         self.root = root
         self.controller = controller
         self._closed = False
@@ -310,7 +318,9 @@ class DockingApp:
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(6, 0))
 
         self._build_scenario_tab(notebook)
-        self._build_training_tab(notebook)
+        self._build_training_tab(
+            notebook, timesteps=timesteps, learning_rate=learning_rate, purpose=purpose
+        )
         self._build_test_tab(notebook)
         # Scenario construction initializes variables shared by the training
         # reward editor, but the user-facing order follows the three normal
@@ -616,7 +626,14 @@ class DockingApp:
             )
         return ttk.Entry(parent, textvariable=variable, width=16)
 
-    def _build_training_tab(self, notebook: ttk.Notebook) -> None:
+    def _build_training_tab(
+        self,
+        notebook: ttk.Notebook,
+        *,
+        timesteps: int,
+        learning_rate: float | None,
+        purpose: str,
+    ) -> None:
         tab = ttk.Frame(notebook, padding=8)
         self._training_tab = tab
         notebook.add(tab, text="1  Train PPO")
@@ -626,6 +643,13 @@ class DockingApp:
             foreground="#444444",
             wraplength=330,
         ).pack(anchor=tk.W, pady=(0, 6))
+
+        if self.controller.initial_policy is not None:
+            ttk.Label(
+                tab,
+                text=f"Warm start: {self.controller.initial_policy.name}",
+                wraplength=330,
+            ).pack(anchor=tk.W, pady=(0, 6))
 
         settings = ttk.Notebook(tab)
         settings.pack(fill=tk.X)
@@ -641,10 +665,12 @@ class DockingApp:
         self._method = tk.StringVar(value="ppo")
         self._training_backend = tk.StringVar(value=BACKENDS[0])
         self._runs = tk.StringVar(value="1")
-        self._timesteps = tk.StringVar(value="200000")
+        self._timesteps = tk.StringVar(value=str(timesteps))
         self._training_seed = tk.StringVar(value="0")
-        self._purpose = tk.StringVar(value="ppo-ui")
-        self._max_episode_steps = tk.StringVar(value="900")
+        self._purpose = tk.StringVar(value=purpose)
+        self._max_episode_steps = tk.StringVar(
+            value=str(max(900, self.controller.built.task.max_episode_steps))
+        )
         self._checkpoint_interval = tk.StringVar(value="20000")
         self._device = tk.StringVar(value="cpu")
         self._evaluation_episodes = tk.StringVar(value="20")
@@ -728,7 +754,12 @@ class DockingApp:
         self._ppo_vars: dict[str, tk.StringVar] = {}
         self._normalize_advantage = tk.BooleanVar(value=True)
         for row, (key, label, default) in enumerate(PPO_FIELDS):
-            variable = tk.StringVar(value=default)
+            value = (
+                str(learning_rate)
+                if key == "learning_rate" and learning_rate is not None
+                else default
+            )
+            variable = tk.StringVar(value=value)
             self._ppo_vars[key] = variable
             ttk.Label(ppo, text=label).grid(row=row, column=0, sticky=tk.W, padx=(0, 6))
             entry = ttk.Entry(ppo, textvariable=variable, width=14)
@@ -750,9 +781,7 @@ class DockingApp:
             ttk.Label(rewards, text=spec.label).grid(
                 row=row, column=0, sticky=tk.W, padx=(0, 6)
             )
-            entry = ttk.Entry(
-                rewards, textvariable=self._parameter_vars[key], width=14
-            )
+            entry = ttk.Entry(rewards, textvariable=self._parameter_vars[key], width=14)
             entry.grid(row=row, column=1, sticky=tk.EW, pady=1)
             self._reward_entries.append(entry)
         ttk.Label(
@@ -962,7 +991,16 @@ class DockingApp:
         self._canvas.mpl_connect("button_press_event", self._on_view_click)
         self._shown_state = None
         self._shown_route = ()
-        self._view.update(self.controller.preview_state(), note="start-pose preview")
+        preview = self.controller.preview_state()
+        if self.controller.scenario.randomization.mirror_starts:
+            from trailer_docking.environments.task import workspace_bounds
+
+            self._view.set_view_bounds(
+                *workspace_bounds(
+                    preview.tractor_pose, built.dock.geometry, built.task, built.vehicle
+                )
+            )
+        self._view.update(preview, note="start-pose preview")
         self._view.clear_trail()
         self._idle_route = self.controller.preview_route()
         self._canvas.draw_idle()
@@ -1136,9 +1174,7 @@ class DockingApp:
         """Rebuild the model browser from checkpoints already on disk."""
 
         selected_path = (
-            self._policy_file.get().strip()
-            if hasattr(self, "_policy_file")
-            else ""
+            self._policy_file.get().strip() if hasattr(self, "_policy_file") else ""
         )
         self._model_tree.delete(*self._model_tree.get_children())
         self._saved_policy_paths.clear()
@@ -1189,10 +1225,7 @@ class DockingApp:
             # environment. Apply exactly the fields shown on the training tab
             # before creating the immutable training configuration.
             self.controller.apply_parameters(
-                {
-                    key: self._parameter_vars[key].get()
-                    for key in TRAINING_REWARD_KEYS
-                }
+                {key: self._parameter_vars[key].get() for key in TRAINING_REWARD_KEYS}
             )
             backends = tuple(
                 name
@@ -1217,9 +1250,7 @@ class DockingApp:
                 learning_rate=_number(
                     ppo["learning_rate"].get(), "Learning rate", minimum=0.0
                 ),
-                n_steps=_whole_number(
-                    ppo["n_steps"].get(), "Rollout steps", minimum=1
-                ),
+                n_steps=_whole_number(ppo["n_steps"].get(), "Rollout steps", minimum=1),
                 batch_size=_whole_number(
                     ppo["batch_size"].get(), "Batch size", minimum=1
                 ),
@@ -1227,9 +1258,7 @@ class DockingApp:
                     ppo["n_epochs"].get(), "Epochs per rollout", minimum=1
                 ),
                 gamma=_number(ppo["gamma"].get(), "Discount", minimum=0.0),
-                gae_lambda=_number(
-                    ppo["gae_lambda"].get(), "GAE lambda", minimum=0.0
-                ),
+                gae_lambda=_number(ppo["gae_lambda"].get(), "GAE lambda", minimum=0.0),
                 clip_range=_number(
                     ppo["clip_range"].get(), "Policy clip range", minimum=0.0
                 ),
@@ -1479,6 +1508,20 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         "--scenario", type=Path, default=None, help="scenario YAML to open"
     )
     parser.add_argument(
+        "--initial-policy",
+        type=Path,
+        help="PPO checkpoint for a weights-only warm start",
+    )
+    parser.add_argument(
+        "--timesteps", type=int, default=200_000, help="prefill the training budget"
+    )
+    parser.add_argument(
+        "--learning-rate", type=float, help="prefill the PPO learning rate"
+    )
+    parser.add_argument(
+        "--purpose", default="ppo-ui", help="prefill the experiment name"
+    )
+    parser.add_argument(
         "--output-root",
         type=Path,
         default=Path("."),
@@ -1491,7 +1534,16 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
         metavar="SECONDS",
         help="open the window, close it after SECONDS, and exit with status 0",
     )
-    return parser.parse_args(argv)
+    arguments = parser.parse_args(argv)
+    if arguments.timesteps <= 0:
+        parser.error("--timesteps must be positive")
+    if arguments.learning_rate is not None and (
+        not isfinite(arguments.learning_rate) or arguments.learning_rate <= 0
+    ):
+        parser.error("--learning-rate must be finite and positive")
+    if not arguments.purpose.strip():
+        parser.error("--purpose cannot be empty")
+    return arguments
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1504,14 +1556,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             if arguments.scenario is not None
             else Scenario()
         )
-        controller = AppController(scenario, output_root=arguments.output_root)
+        controller = AppController(
+            scenario,
+            output_root=arguments.output_root,
+            initial_policy=arguments.initial_policy,
+        )
     except (ConfigurationError, ValueError) as error:
         # Geometry validation errors are ValueErrors but not ConfigurationErrors.
         print(f"error: {error}")
         return 2
 
     root = tk.Tk()
-    app = DockingApp(root, controller)
+    app = DockingApp(
+        root,
+        controller,
+        timesteps=arguments.timesteps,
+        learning_rate=arguments.learning_rate,
+        purpose=arguments.purpose,
+    )
     if arguments.smoke_test is not None:
         root.after(int(max(arguments.smoke_test, 0.0) * 1000), app.close)
     root.mainloop()

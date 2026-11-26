@@ -1,0 +1,138 @@
+experiment_id: 20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup
+campaign_id: 20261125-2300_ppo-curriculum_ppo-curved-docking-curriculum-v1
+purpose: ppo-curved-docking-curriculum-v1 stage 1 straight-warmup
+method: ppo
+status: finished
+error: null
+started: '2026-11-25T23:00:50-08:00'
+finished: '2026-11-25T23:01:01-08:00'
+scenario:
+  name: curved-curriculum-straight-warmup
+  vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+  dock_path: configs/environments/nominal_dock_v1.yaml
+  task_path: configs/environments/gymnasium_docking_v1.yaml
+  overrides:
+    trailer_variant: null
+    dock_interior_width: null
+    dock_interior_depth: null
+    tractor_wheelbase: null
+    tractor_body_width: null
+    trailer_hitch_to_axle: null
+    trailer_rear_overhang: null
+    trailer_body_width: null
+    steering_angle_max: null
+    steering_rate_max: null
+    reverse_speed: null
+    path_lateral_weight: null
+    path_heading_weight: null
+    reward_progress: null
+    reward_time: null
+    reward_lateral_improvement: null
+    reward_lateral_deviation_multiplier: null
+    reward_heading_improvement: null
+    reward_articulation: null
+    reward_steering_rate: null
+    reward_success: null
+    reward_collision: null
+    reward_jackknife: null
+    reward_out_of_bounds: null
+    tractor_chassis_mass: null
+    trailer_body_mass: null
+    ground_friction: null
+  start:
+    standoff:
+    - 4.0
+    - 4.0
+    lateral:
+    - 0.0
+    - 0.0
+    trailer_yaw:
+    - 0.0
+    - 0.0
+    articulation:
+    - 0.0
+    - 0.0
+  randomization:
+    trailer_hitch_to_axle: null
+    observation_noise_std: 0.0
+    reference_planners: null
+  planner: entry
+  obstacles: []
+scenario_fingerprint: f7d3a9179f0f9644519f8373921d2b70669b5ff7727419d7775ab11775846421
+simulator_backend: 2d
+mujoco_tuning: null
+config:
+  total_timesteps: 20000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 900
+  checkpoint_interval: 20000
+  purpose: ppo-curved-docking-curriculum-v1 stage 1 straight-warmup
+  runs: 1
+  backend: 2d
+  evaluation_episodes: 0
+  evaluation_backends:
+  - 2d
+  evaluation_seed: 100000
+  method: ppo
+timesteps: 20480
+episodes: 94
+ppo_hyperparameters:
+  policy: MlpPolicy
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  clip_range_vf: null
+  normalize_advantage: true
+  target_kl: null
+  device: cpu
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/training/cli.py
+  - curriculum
+  - --config
+  - configs/training/ppo_curved_curriculum_v1.yaml
+git:
+  commit: 209861e93257aeef916daba12ce9d2c338a93c58
+  dirty: true
+  diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+checkpoint_path: artifacts/20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup/checkpoints/policy_final.zip
+checkpoint_sha256: e7c88483a675711b2caaf84956b0fd3b3cf7357970804706de72a15f62da4daf
+checkpoint_dir: artifacts/20261125-2300_ppo_ppo-curved-docking-curriculum-v1-stage-1-straight-warmup/checkpoints
+initial_policy_path: null
+initial_policy_sha256: null
+warm_start_resets_optimizer_and_schedules: false
+metrics_path: metrics.csv
+note: Pipeline run on the Gymnasium docking task. The reward weights and start distribution
+  are untuned, config.max_episode_steps overrides the task step limit, and 3D episode
+  events are not validated against 2D. Do not interpret returns or success rates from
+  this run as research results unless it is registered as an experiment.

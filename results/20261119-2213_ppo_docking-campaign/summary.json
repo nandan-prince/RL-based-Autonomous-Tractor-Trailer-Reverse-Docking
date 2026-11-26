@@ -1,0 +1,33 @@
+{
+  "experiment_id": "20261119-2213_ppo_docking-campaign",
+  "status": "stopped",
+  "runs_requested": 1,
+  "runs_recorded": 1,
+  "runs_finished": 0,
+  "best_run": {
+    "run": 1,
+    "seed": 0,
+    "experiment_id": "20261119-2213_ppo_docking-run-1-of-1",
+    "status": "stopped",
+    "error": null,
+    "timesteps": 4434,
+    "episodes": 16,
+    "checkpoint_path": "artifacts/20261119-2213_ppo_docking-run-1-of-1/checkpoints/policy_final.zip",
+    "evaluation": [],
+    "evaluation_error": null
+  },
+  "runs": [
+    {
+      "run": 1,
+      "seed": 0,
+      "experiment_id": "20261119-2213_ppo_docking-run-1-of-1",
+      "status": "stopped",
+      "error": null,
+      "timesteps": 4434,
+      "episodes": 16,
+      "checkpoint_path": "artifacts/20261119-2213_ppo_docking-run-1-of-1/checkpoints/policy_final.zip",
+      "evaluation": [],
+      "evaluation_error": null
+    }
+  ]
+}

@@ -126,7 +126,7 @@ class MujocoSimulator:
         }
         geom = mujoco.mjtObj.mjOBJ_GEOM
         # Obstacles are reported by ``wall_contacts`` like dock walls.
-        fixed = [*(DOCK_WALL_GEOMS if dock is not None else ())]
+        fixed = list(DOCK_WALL_GEOMS) if dock and dock.geometry.walls_enabled else []
         fixed += [obstacle_geom_name(index) for index in range(len(self.obstacles))]
         self._wall_geoms = frozenset(self._id(geom, name) for name in fixed)
         self._steering_target = 0.0

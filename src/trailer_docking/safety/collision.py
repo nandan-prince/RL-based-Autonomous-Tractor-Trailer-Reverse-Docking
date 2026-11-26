@@ -38,6 +38,8 @@ def dock_wall_polygons(dock: DockGeometry) -> dict[str, Polygon2D]:
 
     if not isinstance(dock, DockGeometry):
         raise TypeError("dock must be DockGeometry")
+    if not dock.walls_enabled:
+        return {}
     half = dock.interior_width / 2.0
     thickness = dock.wall_thickness
     margin = dock.collision_margin

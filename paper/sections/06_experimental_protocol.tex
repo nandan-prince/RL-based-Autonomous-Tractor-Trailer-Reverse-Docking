@@ -55,3 +55,36 @@ Transfer evaluation will proceed only after 2D/MuJoCo parity checks establish
 matching frames, signs, dimensions, command timing, semantic sites, and event
 definitions. Zero-shot transfer, domain-randomized transfer, and MuJoCo
 fine-tuning will be reported as separate conditions if they are implemented.
+\paragraph{Quarter-arc observation ablation.}
+The configured pilot uses mirrored $90^\circ$ approaches with radii of
+$10$--$11\,\mathrm{m}$ and a tangent straight final leg into an open bay.
+Both PPO conditions see the same vehicle and goal features, use the same
+reference-based reward, and share the physical scenario distribution.
+The goal-only condition masks path-relative errors, remaining path
+distance, and preview points. Goal position is normalized by workspace
+bounds in both conditions. Evaluation will report arc coverage and
+lateral error along the curved segment alongside docking outcomes.
+Training results remain pending.
+
+A single-direction feasibility run disables reflection and retains the
+guided observation, full arc, and reward weights. Its 2,000-step episode
+limit allows the entire maneuver. The test isolates a simpler training
+distribution for diagnosis; a causal comparison of single-side and
+mirrored training requires budgets and episode limits matched across both.
+
+A follow-up single-side preset reduces the sweep to $30^\circ$ while
+retaining the $10$--$11\,\mathrm{m}$ radius, open bay, path observations,
+and reward. The start pose is moved to the new arc tangent with the same
+$\pm1^\circ$ heading variation. LQR completed all 20 feasibility replays
+in 775--818 steps. In the exploratory gated fine-tune, positive progress
+is scaled by $[1+(e_y/0.30\,\mathrm{m})^2]^{-1}$. Negative progress and the
+other terms retain their original form. The planned recovery-reward pair
+uses this gated reward in both conditions and adds a lateral error
+reduction term only in the intervention. With
+$d_t=|e_{y,t}|/w_{\mathrm{bay}}$, the added reward is
+$5q_t(d_{t-1}-d_t)$, where $q_t=1$ for an improvement and $q_t=2$ for a
+worsening. Both runs begin with identical weights and a fresh optimizer
+at $10^{-4}$ for 60,000 steps. Success, straight-approach tracking,
+maximum articulation, and steering-rate effort will be evaluated on
+the same validation starts. Both the intervention and matched
+gated-only control have been evaluated on the validation starts.

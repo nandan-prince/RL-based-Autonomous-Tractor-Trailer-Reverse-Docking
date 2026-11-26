@@ -1,0 +1,13 @@
+name: open-dock-gentle-curve-v1
+vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+dock_path: configs/environments/open_dock_training_v1.yaml
+task_path: configs/environments/gymnasium_docking_v1.yaml
+overrides: {}
+start:
+  standoff: [8.0, 8.0]
+  lateral: [0.5, 0.5]
+  trailer_yaw: [0.0, 0.0]
+  articulation: [0.0, 0.0]
+randomization: {}
+planner: curve_gentle
+obstacles: []

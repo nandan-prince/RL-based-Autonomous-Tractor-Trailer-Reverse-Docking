@@ -474,11 +474,22 @@ def _parse_value(spec: ParameterSpec, text: str) -> Any:
 
 
 def _default_session_factory(
-    scenario: Scenario, config: Any, *, output_root: Path, live_3d: bool = False
+    scenario: Scenario,
+    config: Any,
+    *,
+    output_root: Path,
+    live_3d: bool = False,
+    initial_policy: Path | None = None,
 ) -> Any:
     from trailer_docking.training.campaign import TrainingCampaign
 
-    return TrainingCampaign(scenario, config, output_root=output_root, live_3d=live_3d)
+    return TrainingCampaign(
+        scenario,
+        config,
+        output_root=output_root,
+        live_3d=live_3d,
+        initial_policy=initial_policy,
+    )
 
 
 def _default_test_runner(scenario: Scenario, policy: Any, **options: Any) -> Any:
@@ -522,6 +533,7 @@ class AppController:
         scenario: Scenario | None = None,
         *,
         output_root: str | Path = ".",
+        initial_policy: Path | None = None,
         session_factory: Callable[..., Any] | None = None,
         test_runner: Callable[..., Any] | None = None,
         policy_loader: Callable[[Path], Any] | None = None,
@@ -533,6 +545,9 @@ class AppController:
         # A scenario that cannot be built is a start-up error, not a UI state.
         self._built = self._scenario.build()
         self._output_root = Path(output_root)
+        if initial_policy is not None and not initial_policy.is_file():
+            raise ValueError(f"initial policy not found: {initial_policy}")
+        self.initial_policy = initial_policy
         self._session_factory = session_factory or _default_session_factory
         self._test_runner = test_runner or _default_test_runner
         self._policy_loader = policy_loader or _default_policy_loader
@@ -855,6 +870,8 @@ class AppController:
         with self._lock:
             self._require_idle("start training", BusyError)
             options: dict[str, Any] = {"output_root": self._output_root}
+            if self.initial_policy is not None:
+                options["initial_policy"] = self.initial_policy
             if show_3d:
                 options["live_3d"] = True
             try:

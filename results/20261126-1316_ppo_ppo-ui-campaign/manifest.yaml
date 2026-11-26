@@ -1,0 +1,146 @@
+experiment_id: 20261126-1316_ppo_ppo-ui-campaign
+kind: campaign
+purpose: ppo-ui
+method: ppo
+status: finished
+error: null
+started: '2026-11-26T13:16:51-08:00'
+finished: '2026-11-26T13:20:06-08:00'
+scenario:
+  name: open-dock-arc-30-one-direction-v1
+  vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+  dock_path: configs/environments/open_dock_training_v1.yaml
+  task_path: configs/environments/gymnasium_open_arc_v1.yaml
+  overrides:
+    trailer_variant: null
+    dock_interior_width: null
+    dock_interior_depth: null
+    tractor_wheelbase: null
+    tractor_body_width: null
+    trailer_hitch_to_axle: null
+    trailer_rear_overhang: null
+    trailer_body_width: null
+    steering_angle_max: null
+    steering_rate_max: null
+    reverse_speed: null
+    path_lateral_weight: 0.5
+    path_heading_weight: 0.2
+    reward_progress: 10.0
+    reward_time: 0.01
+    reward_lateral_improvement: 0.0
+    reward_lateral_deviation_multiplier: 2.0
+    reward_heading_improvement: 0.0
+    reward_articulation: 0.15
+    reward_steering_rate: 0.02
+    reward_success: 100.0
+    reward_collision: 100.0
+    reward_jackknife: 100.0
+    reward_out_of_bounds: 50.0
+    tractor_chassis_mass: null
+    trailer_body_mass: null
+    ground_friction: null
+  start:
+    standoff:
+    - 9.0
+    - 10.0
+    lateral:
+    - 1.339745962
+    - 1.473720558
+    trailer_yaw:
+    - 0.506145483
+    - 0.541052068
+    articulation:
+    - 0.0
+    - 0.0
+  randomization:
+    trailer_hitch_to_axle: null
+    observation_noise_std: 0.0
+    reference_planners: null
+  planner: arc_30
+  obstacles: []
+  observation_mode: path_guided
+scenario_fingerprint: 39a59d6c0efafb6c25a69001ad73cc5194479701f32e5151d60ef5565ad4e0e3
+config:
+  total_timesteps: 200000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 2000
+  checkpoint_interval: 20000
+  purpose: ppo-ui
+  runs: 1
+  backend: 2d
+  evaluation_episodes: 20
+  evaluation_backends:
+  - 2d
+  evaluation_seed: 100000
+  method: ppo
+controller_configurations:
+  specification_id: baseline-controllers-v1
+  schema_version: 1
+  lqr:
+    lateral_weight: 4.0
+    tractor_heading_weight: 0.8
+    trailer_heading_weight: 6.0
+    steering_angle_weight: 0.3
+    steering_rate_weight: 0.4
+    linearization_epsilon: 1.0e-05
+    riccati_tolerance: 1.0e-11
+    riccati_max_iterations: 10000
+  nmpc:
+    horizon_steps: 40
+    position_weight: 20.0
+    trailer_heading_weight: 15.0
+    tractor_heading_weight: 0.5
+    articulation_weight: 0.8
+    steering_angle_weight: 0.15
+    steering_rate_weight: 0.03
+    terminal_weight: 5.0
+    solver_tolerance: 1.0e-06
+    solver_max_iterations: 200
+controller_fingerprint: ec7b83b2964665aa43ecab50716879e771b9b1a503fad8b46eef41137bacd44b
+simulator_backend: 2d
+mujoco_tuning: null
+run_experiment_ids:
+- 20261126-1316_ppo_ppo-ui-run-1-of-1
+best_run_experiment_id: 20261126-1316_ppo_ppo-ui-run-1-of-1
+bundle_path: artifacts/20261126-1316_ppo_ppo-ui-campaign/policy_bundle.dockpolicy.zip
+bundle_sha256: ef267f781673bb808bbb4141e7f5e3c7c5eb6aead37de17b95541a0fd1ed0ec2
+initial_policy_path: null
+initial_policy_sha256: null
+evaluation_files:
+- evaluation_run1_2d.csv
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/ui/app.py
+  - --scenario
+  - configs/scenarios/open_dock_arc_30_one_direction_v1.yaml
+git:
+  commit: 209861e93257aeef916daba12ce9d2c338a93c58
+  dirty: true
+  diff_sha256: 807128ecaaacd1e1a7153956193bb4229df9eb2f2710240a7d6b75ce4d66b712
+note: Pipeline run on the Gymnasium docking task. The reward weights and start distribution
+  are untuned, config.max_episode_steps overrides the task step limit, and 3D episode
+  events are not validated against 2D. Do not interpret returns or success rates from
+  this run as research results unless it is registered as an experiment.

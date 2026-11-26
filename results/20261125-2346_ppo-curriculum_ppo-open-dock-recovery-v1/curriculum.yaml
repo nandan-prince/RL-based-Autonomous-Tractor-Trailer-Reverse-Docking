@@ -1,0 +1,98 @@
+specification_id: ppo-open-dock-recovery-v1
+schema_version: 1
+training:
+  total_timesteps: 100000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 900
+  checkpoint_interval: 20000
+  purpose: open-dock-recovery
+  runs: 1
+  backend: 2d
+  evaluation_episodes: 0
+  evaluation_backends:
+  - 2d
+  evaluation_seed: 100000
+  method: ppo
+suite:
+  specification_id: compact-docking-suite-v1
+  schema_version: 1
+  training_seeds:
+  - 0
+  - 1
+  - 2
+  validation:
+    seed: 100000
+    episodes: 20
+  test:
+    seed: 200000
+    episodes: 100
+stages:
+- name: centerline-recovery
+  timesteps: 100000
+  minimum_validation_success: 0.7
+  scenario:
+    name: open-dock-centerline-recovery-v1
+    vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+    dock_path: configs/environments/open_dock_training_v1.yaml
+    task_path: configs/environments/gymnasium_docking_v1.yaml
+    overrides:
+      trailer_variant: null
+      dock_interior_width: null
+      dock_interior_depth: null
+      tractor_wheelbase: null
+      tractor_body_width: null
+      trailer_hitch_to_axle: null
+      trailer_rear_overhang: null
+      trailer_body_width: null
+      steering_angle_max: null
+      steering_rate_max: null
+      reverse_speed: null
+      path_lateral_weight: null
+      path_heading_weight: null
+      reward_progress: null
+      reward_time: null
+      reward_lateral_improvement: null
+      reward_lateral_deviation_multiplier: null
+      reward_heading_improvement: null
+      reward_articulation: null
+      reward_steering_rate: null
+      reward_success: null
+      reward_collision: null
+      reward_jackknife: null
+      reward_out_of_bounds: null
+      tractor_chassis_mass: null
+      trailer_body_mass: null
+      ground_friction: null
+    start:
+      standoff:
+      - 4.0
+      - 4.0
+      lateral:
+      - -0.15
+      - 0.15
+      trailer_yaw:
+      - -0.034906585
+      - 0.034906585
+      articulation:
+      - 0.0
+      - 0.0
+    randomization:
+      trailer_hitch_to_axle: null
+      observation_noise_std: 0.0
+      reference_planners: null
+    planner: centerline
+    obstacles: []

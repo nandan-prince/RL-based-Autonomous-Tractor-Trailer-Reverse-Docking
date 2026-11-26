@@ -1,0 +1,144 @@
+experiment_id: 20261119-2213_ppo_docking-run-1-of-1
+campaign_id: 20261119-2213_ppo_docking-campaign
+purpose: docking run 1 of 1
+method: ppo
+status: stopped
+error: null
+started: '2026-11-19T22:13:21-08:00'
+finished: '2026-11-19T22:13:40-08:00'
+scenario:
+  name: nominal
+  vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+  dock_path: configs/environments/nominal_dock_v1.yaml
+  task_path: configs/environments/gymnasium_docking_v1.yaml
+  overrides:
+    trailer_variant: null
+    dock_interior_width: null
+    dock_interior_depth: null
+    tractor_wheelbase: null
+    tractor_body_width: null
+    trailer_hitch_to_axle: null
+    trailer_rear_overhang: null
+    trailer_body_width: null
+    steering_angle_max: null
+    steering_rate_max: null
+    reverse_speed: null
+    path_lateral_weight: null
+    path_heading_weight: null
+    reward_progress: null
+    reward_time: null
+    reward_articulation: null
+    reward_steering_rate: null
+    reward_success: null
+    reward_collision: null
+    reward_jackknife: null
+    reward_out_of_bounds: null
+    tractor_chassis_mass: null
+    trailer_body_mass: null
+    ground_friction: null
+  start:
+    standoff:
+    - 6.0
+    - 9.0
+    lateral:
+    - -0.4
+    - 0.4
+    trailer_yaw:
+    - -0.1
+    - 0.1
+    articulation:
+    - -0.05
+    - 0.05
+  randomization:
+    trailer_hitch_to_axle: null
+    observation_noise_std: 0.0
+  planner: entry
+  obstacles: []
+scenario_fingerprint: 05bb7691beaa827caab833935eede3fe83ec1fe32d79cd0afb8d8dd9fbb57917
+simulator_backend: 3d
+mujoco_tuning:
+  steer_link_mass: 2.0
+  steer_link_inertia: 0.05
+  steering_kp: 20000.0
+  steering_damping: 120.0
+  steering_armature: 1.0
+  steering_range_margin: 0.0
+  drive_kv: 1500.0
+  wheel_spin_damping: 0.05
+  wheel_armature: 0.05
+  wheel_contact_width: 0.02
+  hitch_damping: 5.0
+  friction_cone: elliptic
+  impedance_ratio: 10.0
+  integrator: implicitfast
+  rear_differential: true
+  scene_start_standoff: 4.0
+config:
+  total_timesteps: 200000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 900
+  checkpoint_interval: 20000
+  purpose: docking run 1 of 1
+  runs: 1
+  backend: 3d
+  evaluation_episodes: 20
+  evaluation_backends:
+  - 2d
+  evaluation_seed: 100000
+  method: ppo
+timesteps: 4434
+episodes: 16
+ppo_hyperparameters:
+  policy: MlpPolicy
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  clip_range_vf: null
+  normalize_advantage: true
+  target_kl: null
+  device: cpu
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/ui/app.py
+git:
+  commit: e54247a30fb0b000e1342466a3c07521c60752da
+  dirty: true
+  diff_sha256: 4f4561d5081a21addfaf749fd732c02ad0ba7055d6553c9b63313502222d9385
+checkpoint_path: artifacts/20261119-2213_ppo_docking-run-1-of-1/checkpoints/policy_final.zip
+checkpoint_sha256: 53a7cc31b07d27722da9027812a73d9ef3306a0275ab1612714cfd1a2360ab4e
+checkpoint_dir: artifacts/20261119-2213_ppo_docking-run-1-of-1/checkpoints
+metrics_path: metrics.csv
+note: Pipeline run on the Gymnasium docking task. The reward weights and start distribution
+  are untuned, config.max_episode_steps overrides the task step limit, and 3D episode
+  events are not validated against 2D. Do not interpret returns or success rates from
+  this run as research results unless it is registered as an experiment.

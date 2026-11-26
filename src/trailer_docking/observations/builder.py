@@ -29,6 +29,8 @@ class ObservationBuilder:
         dock: DockGeometry,
         path: ReferencePath,
         preview_distances: tuple[float, ...],
+        *,
+        goal_position_scale: tuple[float, float] | None = None,
     ) -> None:
         if not preview_distances:
             raise ValueError("at least one preview distance is required")
@@ -36,6 +38,7 @@ class ObservationBuilder:
         self.dock = dock
         self.path = path
         self.preview_distances = preview_distances
+        self.goal_position_scale = goal_position_scale
         preview_names = tuple(
             name
             for index in range(len(preview_distances))
@@ -59,6 +62,18 @@ class ObservationBuilder:
             "goal_heading_cos",
             *preview_names,
         )
+        path_features = {
+            "lateral_error",
+            "trailer_heading_sin",
+            "trailer_heading_cos",
+            "tractor_heading_sin",
+            "tractor_heading_cos",
+            "remaining_distance",
+            *preview_names,
+        }
+        self.path_feature_indices = [
+            index for index, name in enumerate(self.names) if name in path_features
+        ]
 
     @property
     def shape(self) -> tuple[int]:
@@ -77,6 +92,10 @@ class ObservationBuilder:
         limits = self.vehicle.limits
         lateral_scale = max(self.dock.interior_width, 1.0)
         path_scale = max(self.path.length, 1.0)
+        goal_x_scale, goal_y_scale = self.goal_position_scale or (
+            path_scale,
+            lateral_scale,
+        )
         speed_scale = max(limits.forward_speed_max, limits.reverse_speed_abs_max)
         values = [
             _clip(tracking.lateral_error / lateral_scale),
@@ -90,8 +109,8 @@ class ObservationBuilder:
             _clip(state.steering_rate / limits.steering_rate_abs_max),
             _clip(state.longitudinal_speed / speed_scale),
             _clip(tracking.distance_to_goal / path_scale),
-            _clip(goal_longitudinal_error / path_scale),
-            _clip(goal_lateral_error / lateral_scale),
+            _clip(goal_longitudinal_error / goal_x_scale),
+            _clip(goal_lateral_error / goal_y_scale),
             sin(goal_yaw_error),
             cos(goal_yaw_error),
         ]

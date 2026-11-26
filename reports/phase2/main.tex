@@ -1,0 +1,103 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{amsmath,booktabs,url}
+\title{Phase 2 Progress in Learned Reverse Tracking and Docking}
+\author{
+  \IEEEauthorblockN{Nandan Prince}
+  \IEEEauthorblockA{MSML 642}
+  \and
+  \IEEEauthorblockN{Chris Pedretti}
+  \IEEEauthorblockA{MSML 642}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We evaluate initial PPO training for articulated reverse docking in the 2D
+kinematic simulator. The open-bay policy learned to sustain reverse motion
+from an aligned start and occasionally docked during training. Its final
+deterministic rollout reached the target vicinity and missed the heading and
+trailer containment requirements.
+\end{abstract}
+
+\section{Setup}
+The compact tractor--semitrailer reverses at a target speed of
+$0.20\,\mathrm{m/s}$ with normalized steering rate as the PPO action. The
+open bay has no physical dock walls. The painted target, articulation and
+workspace limits, and nominal docking criteria still apply. Docking requires
+longitudinal and lateral errors of at most $0.10\,\mathrm{m}$, heading error
+of at most $3^\circ$, and full trailer containment. The aligned-start
+experiment used seed 0, reward version 1, and a budget of 200,000 steps.
+
+\section{Aligned-Start PPO}
+The run completed 200,704 environment steps and 416 training episodes.
+There were 10 successes, with the first at step 79,748.
+Table~\ref{tab:training} shows the evolution of episode outcomes.
+Training sampled steering actions; evaluation used deterministic actions.
+
+\begin{table}[ht]
+\caption{Selected Training Windows by Episode Completion Step}
+\label{tab:training}
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Window & Jackknife & Workspace exit & Success \\
+\midrule
+First 20,000 steps & 80 & 1 & 0 \\
+After step 150,000 & 0 & 77 & 8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The final policy exited the workspace in all 20 repetitions of the same
+aligned start. At the target crossing, its lateral error was
+$0.088\,\mathrm{m}$ and absolute heading error was $5.41^\circ$. The full
+trailer footprint was outside the containment region. Peak articulation
+was $8.38^\circ$ in the final replay, compared with $45.36^\circ$ at the
+20,000-step checkpoint. The 80,000-step checkpoint was fully contained at
+the target crossing, with $0.099\,\mathrm{m}$ lateral error and
+$3.29^\circ$ heading error. Zero steering docked in 486 steps.
+
+\section{Centerline Recovery}
+Recovery uses the same open bay and reward with initial lateral offsets
+sampled up to $0.15\,\mathrm{m}$ in either direction and aligned
+tractor--trailer headings up to $2^\circ$ from the dock axis. The reference
+stays on the dock centerline for every reset. Both recovery runs started from
+the final aligned policy weights with fresh PPO optimizers.
+
+After 100,352 additional steps, training recorded 126 workspace exits and
+48 jackknifes across 174 episodes. The final policy exited the workspace
+on all 20 perturbed validation starts, missing the 70\% advancement gate.
+On the same 20 starts, the initialization policy also docked zero times
+but finished with a mean absolute lateral error of $0.31\,\mathrm{m}$,
+compared with $4.56\,\mathrm{m}$ after further training. Zero steering
+docked in 7 of 20 cases. The lateral errors are measured at termination.
+These observations show worse terminal alignment for this warm start
+after training on the perturbed distribution.
+
+A second recovery run with the longer budget completed 200,704 steps and
+347 episodes: 2 docks, 68 jackknifes, and 277 workspace exits. The final
+deterministic policy jackknifed on all 20 validation starts. This run
+did not produce reliable recovery despite the longer budget.
+
+\section{Gentle-Curve Feasibility Check}
+The next PPO experiment uses a single smooth reference with the trailer tail
+starting $8.0\,\mathrm{m}$ beyond the bay opening and $0.50\,\mathrm{m}$
+off-center, with zero initial heading offset and articulation. The bay remains
+open. In one deterministic setup check, LQR docked in 687 steps within the
+900-step limit, and zero steering exited the workspace. PPO training on
+this specific curve is pending. A later paired comparison on identical starts
+and goals will test the effect of path-relative guidance.
+
+\section{Evidence and Limitations}
+The aligned-run logs are stored under campaign
+\path{20261125-2331_ppo_ppo-ui-campaign}. The single-seed evidence
+characterizes sustained reversing and the observed docking failures.
+Recovery provenance and the final per-episode metrics are saved under
+\path{20261125-2346_ppo-curriculum_ppo-open-dock-recovery-v1}.
+The longer recovery campaign is
+\path{20261125-2359_ppo_ppo-ui-campaign}.
+Causal effects of removing the dock walls and performance relative to NMPC
+remain open questions.
+
+\end{document}

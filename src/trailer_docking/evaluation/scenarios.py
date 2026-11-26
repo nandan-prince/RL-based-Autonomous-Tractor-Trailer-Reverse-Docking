@@ -22,6 +22,7 @@ import json
 import random
 from dataclasses import asdict, dataclass, field, fields, replace
 from hashlib import sha256
+from itertools import product
 from math import cos, isfinite, pi, sin
 from numbers import Real
 from pathlib import Path
@@ -145,8 +146,11 @@ class DomainRandomization:
     trailer_hitch_to_axle: tuple[float, float] | None = None
     observation_noise_std: float = 0.0
     reference_planners: tuple[str, ...] | None = None
+    mirror_starts: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.mirror_starts, bool):
+            raise ConfigurationError("mirror_starts must be boolean")
         bounds = self.trailer_hitch_to_axle
         if bounds is not None:
             try:
@@ -202,6 +206,7 @@ class DomainRandomization:
                 if self.reference_planners is None
                 else list(self.reference_planners)
             ),
+            **({"mirror_starts": True} if self.mirror_starts else {}),
         }
 
 
@@ -254,9 +259,7 @@ class ScenarioOverrides:
             invalid = number < 0.0 if nonnegative else number <= 0.0
             if not isfinite(number) or invalid:
                 condition = (
-                    "finite and not negative"
-                    if nonnegative
-                    else "finite and positive"
+                    "finite and not negative" if nonnegative else "finite and positive"
                 )
                 raise ConfigurationError(f"{item.name} must be {condition}")
             object.__setattr__(self, item.name, number)
@@ -285,8 +288,13 @@ class Scenario:
     randomization: DomainRandomization = field(default_factory=DomainRandomization)
     planner: str = DEFAULT_PLANNER
     obstacles: tuple[Obstacle, ...] = ()
+    observation_mode: str = "legacy"
 
     def __post_init__(self) -> None:
+        if self.observation_mode not in ("legacy", "path_guided", "goal_only"):
+            raise ConfigurationError(
+                "observation_mode must be legacy, path_guided, or goal_only"
+            )
         obstacles = tuple(self.obstacles)
         if not all(isinstance(item, Obstacle) for item in obstacles):
             raise ConfigurationError("obstacles must be Obstacle objects")
@@ -407,6 +415,11 @@ class Scenario:
             "randomization": self.randomization.to_dict(),
             "planner": self.planner,
             "obstacles": [item.to_dict() for item in self.obstacles],
+            **(
+                {"observation_mode": self.observation_mode}
+                if self.observation_mode != "legacy"
+                else {}
+            ),
         }
 
     @classmethod
@@ -423,6 +436,7 @@ class Scenario:
             "randomization",
             "planner",
             "obstacles",
+            "observation_mode",
         }
         unknown = sorted(set(data) - allowed)
         if unknown:
@@ -437,6 +451,7 @@ class Scenario:
                 start=StartDistribution(**(data.get("start") or {})),
                 randomization=DomainRandomization(**(data.get("randomization") or {})),
                 planner=data.get("planner", DEFAULT_PLANNER),
+                observation_mode=data.get("observation_mode", "legacy"),
                 obstacles=tuple(
                     Obstacle.from_dict(item) for item in data.get("obstacles") or ()
                 ),
@@ -675,29 +690,38 @@ def _check_starts(scenario: Scenario, built: BuiltScenario) -> None:
     bay = built.dock.geometry
     yaw = bay.target_trailer_yaw
     geometry = built.vehicle.geometry
-    for standoff in set(start.standoff):
-        for lateral in set(start.lateral):
-            for offset in set(start.trailer_yaw):
-                for articulation in set(start.articulation):
-                    along = bay.interior_depth + standoff
-                    point = Point2D(
-                        along * cos(yaw) - lateral * sin(yaw),
-                        along * sin(yaw) + lateral * cos(yaw),
-                    )
-                    state = _aligned_state(geometry, point, yaw + offset, articulation)
-                    x_bounds, y_bounds = workspace_bounds(
-                        state.tractor_pose, bay, built.task, built.vehicle
-                    )
-                    status = evaluate_task(
-                        state, built.vehicle, bay, x_bounds, y_bounds, built.obstacles
-                    )
-                    if status.terminated and not status.success:
-                        raise ConfigurationError(
-                            "an episode starting at standoff"
-                            f" {standoff:g} m, lateral {lateral:g} m, trailer yaw"
-                            f" {offset:g} rad, articulation {articulation:g} rad"
-                            f" would begin already failed ({status.reason})"
-                        )
+    signs = (1, -1) if scenario.randomization.mirror_starts else (1,)
+    for standoff, lateral, offset, articulation, sign in product(
+        set(start.standoff),
+        set(start.lateral),
+        set(start.trailer_yaw),
+        set(start.articulation),
+        signs,
+    ):
+        lateral, offset, articulation = (
+            sign * lateral,
+            sign * offset,
+            sign * articulation,
+        )
+        along = bay.interior_depth + standoff
+        point = Point2D(
+            along * cos(yaw) - lateral * sin(yaw),
+            along * sin(yaw) + lateral * cos(yaw),
+        )
+        state = _aligned_state(geometry, point, yaw + offset, articulation)
+        x_bounds, y_bounds = workspace_bounds(
+            state.tractor_pose, bay, built.task, built.vehicle
+        )
+        status = evaluate_task(
+            state, built.vehicle, bay, x_bounds, y_bounds, built.obstacles
+        )
+        if status.terminated and not status.success:
+            raise ConfigurationError(
+                "an episode starting at standoff"
+                f" {standoff:g} m, lateral {lateral:g} m, trailer yaw"
+                f" {offset:g} rad, articulation {articulation:g} rad"
+                f" would begin already failed ({status.reason})"
+            )
 
 
 def assembled_start(
@@ -738,6 +762,10 @@ def sample_start(
     target_yaw = bay.target_trailer_yaw
     standoff = rng.uniform(*start.standoff)
     lateral = rng.uniform(*start.lateral)
+    heading = rng.uniform(*start.trailer_yaw)
+    articulation = rng.uniform(*start.articulation)
+    if scenario.randomization.mirror_starts and rng.random() < 0.5:
+        lateral, heading, articulation = -lateral, -heading, -articulation
     # The opening lies one bay depth out from the rear wall along the target
     # heading; offsets are expressed in that same dock-aligned frame.
     along = bay.interior_depth + standoff
@@ -748,8 +776,8 @@ def sample_start(
     return assembled_start(
         built.vehicle.geometry,
         docking_point,
-        target_yaw + rng.uniform(*start.trailer_yaw),
-        rng.uniform(*start.articulation),
+        target_yaw + heading,
+        articulation,
     )
 
 

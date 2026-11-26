@@ -800,6 +800,10 @@ def test_cli_train_runs_a_campaign(tmp_path: Path, capsys: Any) -> None:
             "train",
             "--timesteps",
             "64",
+            "--max-episode-steps",
+            "2000",
+            "--purpose",
+            "cli-test",
             "--runs",
             "2",
             "--eval-episodes",
@@ -817,6 +821,10 @@ def test_cli_train_runs_a_campaign(tmp_path: Path, capsys: Any) -> None:
     assert "2d:" in output and "3d:" in output
     bundles = list(tmp_path.glob("artifacts/*/policy_bundle.dockpolicy.zip"))
     assert len(bundles) == 1
+    campaign_manifest = next(tmp_path.glob("results/*campaign/manifest.yaml"))
+    saved_config = yaml.safe_load(campaign_manifest.read_text("utf-8"))["config"]
+    assert saved_config["max_episode_steps"] == 2000
+    assert saved_config["purpose"] == "cli-test"
     assert "runs_finished" in next(
         tmp_path.glob("results/*campaign/summary.json")
     ).read_text("utf-8")

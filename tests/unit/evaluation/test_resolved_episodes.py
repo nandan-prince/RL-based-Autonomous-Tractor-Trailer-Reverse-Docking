@@ -73,6 +73,50 @@ def test_resolution_freezes_a_sampled_predefined_curve() -> None:
         env.close()
 
 
+def test_open_arc_ablation_changes_only_path_observation() -> None:
+    guided = Scenario.load("configs/scenarios/open_dock_arc_guided_v1.yaml")
+    goal = Scenario.load("configs/scenarios/open_dock_arc_goal_only_v1.yaml")
+    assert (
+        replace(goal, observation_mode=guided.observation_mode, name=guided.name)
+        == guided
+    )
+    guided_env = ScenarioDockingEnv(guided)
+    goal_env = ScenarioDockingEnv(goal)
+    seen_sides = set()
+    try:
+        for seed in range(6):
+            full, _ = guided_env.reset(seed=seed)
+            masked, _ = goal_env.reset(seed=seed)
+            assert guided_env.state == goal_env.state
+            assert guided_env.reference_path == goal_env.reference_path
+            tail = guided_env.reference_path.points[-1]
+            seen_sides.add(tail.y > 0)
+            assert (guided_env.state.trailer_pose.yaw > 0) == (tail.y > 0)
+            indices = guided_env.task_env.observation_builder.path_feature_indices
+            expected = full.copy()
+            expected[indices] = 0.0
+            assert np.any(full[indices] != 0.0)
+            np.testing.assert_array_equal(masked, expected)
+            action = np.array([0.1], dtype=np.float32)
+            full, reward, terminated, truncated, info = guided_env.step(action)
+            masked, other_reward, other_end, other_timeout, other_info = goal_env.step(
+                action
+            )
+            expected = full.copy()
+            expected[indices] = 0.0
+            np.testing.assert_array_equal(masked, expected)
+            assert (reward, terminated, truncated) == (
+                other_reward,
+                other_end,
+                other_timeout,
+            )
+            assert info["reward_terms"] == other_info["reward_terms"]
+        assert seen_sides == {False, True}
+    finally:
+        guided_env.close()
+        goal_env.close()
+
+
 def test_exact_episode_replays_without_resampling() -> None:
     scenario = Scenario(
         randomization=DomainRandomization(trailer_hitch_to_axle=(3.0, 4.0))

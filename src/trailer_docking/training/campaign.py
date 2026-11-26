@@ -79,6 +79,7 @@ def _default_session_factory(
     output_root: Path,
     live_3d: bool = False,
     campaign_id: str | None = None,
+    initial_policy: Path | None = None,
 ) -> Any:
     return TrainingSession(
         scenario,
@@ -86,6 +87,7 @@ def _default_session_factory(
         output_root=output_root,
         live_3d=live_3d,
         campaign_id=campaign_id,
+        initial_policy=initial_policy,
     )
 
 
@@ -142,9 +144,16 @@ class TrainingCampaign:
         controller_loader: Callable[[], Any] | None = None,
         controller_configurations: ControllerConfigurations | None = None,
         live_3d: bool = False,
+        initial_policy: str | Path | None = None,
     ) -> None:
         self.scenario = scenario
         self.config = config if config is not None else TrainingConfig()
+        self.initial_policy = None if initial_policy is None else Path(initial_policy)
+        if self.initial_policy is not None:
+            if self.config.method != "ppo":
+                raise ValueError("an initial policy requires PPO training")
+            if not self.initial_policy.is_file():
+                raise ValueError(f"initial policy not found: {self.initial_policy}")
         self.output_root = Path(output_root)
         self._session_factory = session_factory or _default_session_factory
         self._test_runner = test_runner or _default_test_runner
@@ -405,6 +414,8 @@ class TrainingCampaign:
             "best_run_experiment_id": None if best is None else best["experiment_id"],
             "bundle_path": self._relative(bundle),
             "bundle_sha256": file_sha256(bundle),
+            "initial_policy_path": self._relative(self.initial_policy),
+            "initial_policy_sha256": file_sha256(self.initial_policy),
             "evaluation_files": sorted(
                 path.name for path in self._results_dir.glob("evaluation_*.csv")
             ),
@@ -446,6 +457,8 @@ class TrainingCampaign:
             runs=1,
         )
         options: dict[str, Any] = {"output_root": self.output_root}
+        if self.initial_policy is not None:
+            options["initial_policy"] = self.initial_policy
         if self._live_3d:
             options["live_3d"] = True
         with self._lock:

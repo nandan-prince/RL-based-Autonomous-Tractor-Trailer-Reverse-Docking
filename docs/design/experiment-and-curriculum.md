@@ -103,6 +103,19 @@ The curriculum CLI prints training progress but is headless. The existing UI
 continues to support live single-condition 3D training; curriculum visualization
 and exact optimizer-state resume remain future interface work.
 
+## Open-dock training condition
+
+The `configs/scenarios/straight_open_dock_v1.yaml` scenario matches the
+aligned straight warm-up and selects a painted bay with no physical dock
+walls. Jackknife, workspace, timeout, and geometric docking criteria still
+apply. Select the nominal dock to restore the walls.
+
+The recovery preset in `configs/training/ppo_open_dock_recovery_v1.yaml`
+keeps the bay open and samples small lateral and heading offsets. Its
+`centerline` reference places all path points on the dock axis, so lateral
+offsets remain tracking errors at reset. The preset supports a weights-only
+warm start and validates on 20 fixed seeds after training.
+
 ## Predefined curved paths
 
 The registered `curve_gentle`, `curve_early`, and `curve_late` planners are
@@ -123,6 +136,63 @@ Run the curved curriculum with:
 .venv/bin/python -m trailer_docking.training.cli curriculum \
   --config configs/training/ppo_curved_curriculum_v1.yaml
 ```
+
+## Quarter-arc path-observation pilot
+
+The monitored pilot compares
+`configs/scenarios/open_dock_arc_guided_v1.yaml` and
+`configs/scenarios/open_dock_arc_goal_only_v1.yaml`. The open bay
+approach pairs a 90-degree arc of radius 10--11 m with a tangent straight
+leg into the dock. Starts are sampled on both mirror sides with up to one
+degree of heading perturbation about the arc tangent. Both scenarios use
+the same seed-driven physical starts, reference paths, and path-based reward.
+
+Launch each configuration through `trailer_docking.ui.app --scenario` and
+train from scratch with seed 0, 400,000 requested steps, the default PPO
+settings, 2,000 steps per episode, 20,000 steps per checkpoint, and 20
+deterministic 2D validation episodes. Keep both scenario configurations
+fixed while collecting the pilot. Use validation to select checkpoints
+before evaluating a final test split. The final policy and its automatic
+evaluation are saved by the UI.
+
+Both observation conditions retain the same vector size and normalize the
+goal position by workspace bounds. Goal-only masks the path-relative
+errors, remaining reference distance, and preview coordinates. The path
+still supplies reward feedback during training. For each checkpoint record
+docking success, terminal failures, arc coverage, and mean and peak lateral
+tracking error on the arc. Arc coverage is needed when a policy terminates
+before reaching the straight final leg.
+
+### Single-direction feasibility run
+
+The single-direction preset retains the guided observation, full quarter arc,
+reward, and positive-side start ranges. It disables the start reflection.
+Train from scratch with the task's 2,000-step limit:
+
+~~~bash
+.venv/bin/python -m trailer_docking.training.cli train \
+  --scenario configs/scenarios/open_dock_arc_one_direction_v1.yaml \
+  --backend 2d --timesteps 400000 --max-episode-steps 2000 \
+  --runs 1 --seed 0 --purpose arc-one-direction \
+  --eval-episodes 20 --eval-backends 2d
+~~~
+
+Use `reports/phase1/check_arc_checkpoints.py` with the training run ID to
+replay the same validation starts across checkpoints. It reports projected
+arc progress, progress before the first $0.5$ m lateral deviation, lateral
+error, and outcome. Compare against a mirrored run with the same budget and
+episode limit before attributing differences to the choice of turn sides.
+
+### Short one-sided arc
+
+`configs/scenarios/open_dock_arc_30_one_direction_v1.yaml` uses a
+30-degree sweep at the same 10--11 m radius, with a tangent straight leg.
+LQR docked in 775--818 steps on all 20 validation starts. For live PPO
+training, open the preset in `trailer_docking.ui.app --scenario` and use
+2D, seed 0, 400,000 requested training steps, a 2,000-step episode limit,
+20,000-step checkpoints, and 20 evaluation episodes. Start from scratch
+and keep the reward and PPO settings at their defaults. The arc checkpoint
+diagnostic accepts both the short arc and the quarter arc.
 
 ## Controlled reward studies
 

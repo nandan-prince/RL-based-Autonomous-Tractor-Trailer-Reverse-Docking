@@ -109,6 +109,8 @@ def _parser() -> argparse.ArgumentParser:
     train = commands.add_parser("train", help="run a training campaign")
     train.add_argument("--scenario", type=Path, help="scenario YAML file")
     train.add_argument("--timesteps", type=int, help="training budget per run")
+    train.add_argument("--max-episode-steps", type=int, help="step limit per episode")
+    train.add_argument("--purpose", help="experiment name for saved outputs")
     train.add_argument("--runs", type=int, help="number of training runs")
     train.add_argument("--seed", type=int, default=0, help="seed of the first run")
     train.add_argument("--backend", choices=BACKENDS, help="training simulator")
@@ -257,6 +259,8 @@ def _training_config(arguments: argparse.Namespace) -> TrainingConfig:
     chosen: dict[str, Any] = {"seed": arguments.seed}
     for option, field in (
         ("timesteps", "total_timesteps"),
+        ("max_episode_steps", "max_episode_steps"),
+        ("purpose", "purpose"),
         ("runs", "runs"),
         ("backend", "backend"),
         ("method", "method"),

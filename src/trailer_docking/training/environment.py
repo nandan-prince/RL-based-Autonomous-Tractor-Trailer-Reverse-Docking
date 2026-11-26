@@ -121,6 +121,7 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
             backend=self.backend,
             planner=self.scenario.planner,
             obstacles=built.obstacles,
+            scale_goal_by_workspace=self.scenario.observation_mode != "legacy",
         )
 
     @property
@@ -189,12 +190,15 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
             info["episode_seed"] = episode.seed
             info["episode_fingerprint"] = episode.episode_fingerprint
 
-    def _noisy(self, observation: Observation) -> Observation:
+    def _policy_observation(self, observation: Observation) -> Observation:
         deviation = self.scenario.randomization.observation_noise_std
-        if deviation == 0.0:
-            return observation
-        noise = self._noise_rng.normal(0.0, deviation, size=observation.shape)
-        return np.clip(observation + noise, -1.0, 1.0).astype(np.float32)
+        if deviation != 0.0:
+            noise = self._noise_rng.normal(0.0, deviation, size=observation.shape)
+            observation = np.clip(observation + noise, -1.0, 1.0).astype(np.float32)
+        if self.scenario.observation_mode == "goal_only":
+            observation = observation.copy()
+            observation[self.task_env.observation_builder.path_feature_indices] = 0.0
+        return observation
 
     def _publish(self, *, force_frame: bool = False) -> None:
         """Send the new state, and a 3D frame when one is due, to the watchers."""
@@ -265,9 +269,7 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
                 self.scenario, self._start_rng
             )
             steering = float(chosen.get("steering_angle", 0.0))
-            trailer_yaw = float(
-                chosen.get("trailer_yaw", chosen["tractor_pose"].yaw)
-            )
+            trailer_yaw = float(chosen.get("trailer_yaw", chosen["tractor_pose"].yaw))
             state = KinematicSimulator(self.built.vehicle).reset(
                 chosen["tractor_pose"],
                 trailer_yaw,
@@ -288,7 +290,7 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
         if self.on_route is not None:
             self.on_route(self.task_env.path)
         self._publish(force_frame=True)
-        return self._noisy(observation), info
+        return self._policy_observation(observation), info
 
     def step(
         self, action: Observation
@@ -297,7 +299,13 @@ class ScenarioDockingEnv(gym.Env[Observation, Observation]):
         self._annotate(info, self._resolved_episode)
         self._steps += 1
         self._publish(force_frame=terminated or truncated)
-        return self._noisy(observation), float(reward), terminated, truncated, info
+        return (
+            self._policy_observation(observation),
+            float(reward),
+            terminated,
+            truncated,
+            info,
+        )
 
     def close(self) -> None:
         self._close_renderer()

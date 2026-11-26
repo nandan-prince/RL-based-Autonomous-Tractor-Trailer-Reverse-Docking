@@ -1,0 +1,163 @@
+experiment_id: 20261126-1304_ppo_arc-one-direction-campaign
+kind: campaign
+purpose: arc-one-direction
+method: ppo
+status: finished
+error: null
+started: '2026-11-26T13:04:59-08:00'
+finished: '2026-11-26T13:11:08-08:00'
+scenario:
+  name: open-dock-arc-one-direction-v1
+  vehicle_path: configs/vehicles/compact_semitrailer_v1.yaml
+  dock_path: configs/environments/open_dock_training_v1.yaml
+  task_path: configs/environments/gymnasium_open_arc_v1.yaml
+  overrides:
+    trailer_variant: null
+    dock_interior_width: null
+    dock_interior_depth: null
+    tractor_wheelbase: null
+    tractor_body_width: null
+    trailer_hitch_to_axle: null
+    trailer_rear_overhang: null
+    trailer_body_width: null
+    steering_angle_max: null
+    steering_rate_max: null
+    reverse_speed: null
+    path_lateral_weight: null
+    path_heading_weight: null
+    reward_progress: null
+    reward_time: null
+    reward_lateral_improvement: null
+    reward_lateral_deviation_multiplier: null
+    reward_heading_improvement: null
+    reward_articulation: null
+    reward_steering_rate: null
+    reward_success: null
+    reward_collision: null
+    reward_jackknife: null
+    reward_out_of_bounds: null
+    tractor_chassis_mass: null
+    trailer_body_mass: null
+    ground_friction: null
+  start:
+    standoff:
+    - 14.0
+    - 15.0
+    lateral:
+    - 10.0
+    - 11.0
+    trailer_yaw:
+    - 1.553343034
+    - 1.588249619
+    articulation:
+    - 0.0
+    - 0.0
+  randomization:
+    trailer_hitch_to_axle: null
+    observation_noise_std: 0.0
+    reference_planners: null
+  planner: quarter_arc
+  obstacles: []
+  observation_mode: path_guided
+scenario_fingerprint: 9e0f9e2f420c00e7026f7bd1baf82b25d935886f79f0bc29f5440e1104da733b
+config:
+  total_timesteps: 400000
+  seed: 0
+  learning_rate: 0.0003
+  n_steps: 1024
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  entropy_coefficient: 0.0
+  value_coefficient: 0.5
+  max_grad_norm: 0.5
+  target_kl: null
+  device: cpu
+  max_episode_steps: 2000
+  checkpoint_interval: 20000
+  purpose: arc-one-direction
+  runs: 1
+  backend: 2d
+  evaluation_episodes: 20
+  evaluation_backends:
+  - 2d
+  evaluation_seed: 100000
+  method: ppo
+controller_configurations:
+  specification_id: baseline-controllers-v1
+  schema_version: 1
+  lqr:
+    lateral_weight: 4.0
+    tractor_heading_weight: 0.8
+    trailer_heading_weight: 6.0
+    steering_angle_weight: 0.3
+    steering_rate_weight: 0.4
+    linearization_epsilon: 1.0e-05
+    riccati_tolerance: 1.0e-11
+    riccati_max_iterations: 10000
+  nmpc:
+    horizon_steps: 40
+    position_weight: 20.0
+    trailer_heading_weight: 15.0
+    tractor_heading_weight: 0.5
+    articulation_weight: 0.8
+    steering_angle_weight: 0.15
+    steering_rate_weight: 0.03
+    terminal_weight: 5.0
+    solver_tolerance: 1.0e-06
+    solver_max_iterations: 200
+controller_fingerprint: ec7b83b2964665aa43ecab50716879e771b9b1a503fad8b46eef41137bacd44b
+simulator_backend: 2d
+mujoco_tuning: null
+run_experiment_ids:
+- 20261126-1304_ppo_arc-one-direction-run-1-of-1
+best_run_experiment_id: 20261126-1304_ppo_arc-one-direction-run-1-of-1
+bundle_path: artifacts/20261126-1304_ppo_arc-one-direction-campaign/policy_bundle.dockpolicy.zip
+bundle_sha256: 4305adb3a9390f6c3330a673980009918d127c3655b61274972e9ba212793d7c
+initial_policy_path: null
+initial_policy_sha256: null
+evaluation_files:
+- evaluation_run1_2d.csv
+versions:
+  stable_baselines3: 2.9.2
+  gymnasium: 1.4.0
+  torch: 2.15.0
+  numpy: 2.4.6
+  mujoco: 3.17.0
+runtime:
+  python: 3.11.0
+  platform: macOS-15.2-arm64-arm-64bit
+  machine: arm64
+  command:
+  - /Users/nandanprince/Desktop/Autonomous Trailer reverse docking/src/trailer_docking/training/cli.py
+  - train
+  - --scenario
+  - configs/scenarios/open_dock_arc_one_direction_v1.yaml
+  - --backend
+  - 2d
+  - --timesteps
+  - '400000'
+  - --max-episode-steps
+  - '2000'
+  - --runs
+  - '1'
+  - --seed
+  - '0'
+  - --purpose
+  - arc-one-direction
+  - --eval-episodes
+  - '20'
+  - --eval-backends
+  - 2d
+git:
+  commit: 209861e93257aeef916daba12ce9d2c338a93c58
+  dirty: true
+  diff_sha256: 64b25c0efea493b8e14006116ff5f07da0345feaad1d98f183c25e9bdacef621
+note: Pipeline run on the Gymnasium docking task. The reward weights and start distribution
+  are untuned, config.max_episode_steps overrides the task step limit, and 3D episode
+  events are not validated against 2D. Do not interpret returns or success rates from
+  this run as research results unless it is registered as an experiment.

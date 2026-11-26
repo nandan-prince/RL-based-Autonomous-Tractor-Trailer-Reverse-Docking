@@ -428,7 +428,7 @@ def _dock_geometry(vehicle: VehicleConfiguration, dock: DockConfiguration) -> li
     collision_half = dock_collision_height(vehicle, dock) / 2.0
     visual_half = bay.wall_height / 2.0
     lines = []
-    for name, (x, y), (half_x, half_y) in boxes:
+    for name, (x, y), (half_x, half_y) in boxes if bay.walls_enabled else ():
         # Invisible planar collision volume (group 3 is hidden by default).
         lines.append(
             f'    <geom name="{name}" type="box" contype="0" conaffinity="2"'

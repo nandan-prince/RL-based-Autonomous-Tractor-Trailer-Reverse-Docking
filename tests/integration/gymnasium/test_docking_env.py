@@ -74,9 +74,7 @@ def test_explicit_reference_path_is_independent_of_initial_state() -> None:
     goal = env.dock.geometry.target_position
     start_x = env.dock.geometry.interior_depth + env.settings.start_standoff
     fixed = straight_reference(goal, Point2D(start_x, 0.0))
-    pose = aligned_pose_for_docking_point(
-        env.vehicle, Point2D(start_x, 0.4), 0.0
-    )
+    pose = aligned_pose_for_docking_point(env.vehicle, Point2D(start_x, 0.4), 0.0)
     _, info = env.reset(
         options={
             "tractor_pose": pose,
@@ -100,9 +98,7 @@ def test_tail_improvement_reward_and_double_deviation_penalty() -> None:
         goal = env.dock.geometry.target_position
         start = Point2D(10.0, 0.0)
         path = straight_reference(goal, start)
-        pose = aligned_pose_for_docking_point(
-            env.vehicle, Point2D(start.x, 0.4), 0.0
-        )
+        pose = aligned_pose_for_docking_point(env.vehicle, Point2D(start.x, 0.4), 0.0)
         env.reset(
             options={
                 "tractor_pose": pose,
@@ -126,6 +122,49 @@ def test_tail_improvement_reward_and_double_deviation_penalty() -> None:
     assert toward > 0.0
     assert away < 0.0
     assert away == pytest.approx(-2.0 * toward)
+
+
+@pytest.mark.parametrize(
+    ("lateral", "speed", "multiplier"),
+    [(0.0, -1.0, 1.0), (0.3, -1.0, 0.5), (0.3, 1.0, 1.0)],
+)
+def test_arc_progress_gate_only_discounts_positive_off_path_progress(
+    lateral: float, speed: float, multiplier: float
+) -> None:
+    configs = (
+        "configs/environments/gymnasium_open_arc_v1.yaml",
+        "configs/environments/gymnasium_open_arc_gated_progress_v1.yaml",
+    )
+    baseline, gated = (
+        TrailerDockingEnv(task_path=config, action_mode="teleop") for config in configs
+    )
+    try:
+        path = straight_reference(
+            baseline.dock.geometry.target_position, Point2D(12, 0)
+        )
+        pose = aligned_pose_for_docking_point(
+            baseline.vehicle, Point2D(10, lateral), 0.0
+        )
+        options = {"tractor_pose": pose, "trailer_yaw": 0.0, "reference_path": path}
+        for env in (baseline, gated):
+            env.reset(options=options)
+        action = np.array([0.0, speed], dtype=np.float32)
+        expected_obs, _, expected_end, expected_timeout, expected = baseline.step(
+            action
+        )
+        obs, _, end, timeout, actual = gated.step(action)
+        np.testing.assert_array_equal(obs, expected_obs)
+        assert (end, timeout) == (expected_end, expected_timeout)
+        assert gated.state == baseline.state
+        expected_terms = dict(expected["reward_terms"])
+        actual_terms = dict(actual["reward_terms"])
+        progress = expected_terms.pop("progress")
+        assert progress * speed < 0
+        assert actual_terms.pop("progress") == pytest.approx(progress * multiplier)
+        assert actual_terms == expected_terms
+    finally:
+        baseline.close()
+        gated.close()
 
 
 def test_success_collision_jackknife_and_timeout_events(

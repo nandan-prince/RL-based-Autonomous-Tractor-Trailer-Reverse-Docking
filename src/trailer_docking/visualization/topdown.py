@@ -192,7 +192,9 @@ class TopDownView:
                     (0.0, half_width, bay.interior_depth, thickness),
                     (0.0, -half_width - thickness, bay.interior_depth, thickness),
                 )
-            for index, (x, y, width, height) in enumerate(walls):
+            for index, (x, y, width, height) in enumerate(
+                walls if bay.walls_enabled else ()
+            ):
                 self.axes.add_patch(
                     Rectangle(
                         (x, y),

@@ -21,6 +21,12 @@ offscreen 3D panel.
 
 ## Workflows
 
+Pass `--initial-policy PATH/policy_final.zip` when opening the app to
+warm-start training from a saved PPO policy. The run starts a new optimizer
+and records the starting checkpoint path and checksum.
+Use `--timesteps`, `--learning-rate`, and `--purpose` to prefill the live
+training form for a controlled run. Review the settings before pressing Start.
+
 ### Train PPO
 
 - **Run** selects the 2D or 3D plant, budget, seed, repetitions, episode limit,
